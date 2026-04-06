@@ -1,6 +1,6 @@
-export type AppointmentStatus = 'Confirmed' | 'Cancelled' | 'Rescheduled' | 'Pending' | 'No-Show' | 'Completed';
+export type AppointmentStatus = 'Confirmed' | 'Cancelled' | 'Rescheduled';
 export type AttendanceStatus  = 'Not Set' | 'Checked-In' | 'In Clinic' | 'Absent' | 'No-Show';
-export type VisitType         = 'New' | 'New Visit' | 'Follow-up' | 'Emergency' | 'Telehealth';
+export type VisitType         = 'New Visit' | 'Follow-up';
 
 export interface Appointment {
   id: string;
@@ -40,13 +40,6 @@ export interface MonthlyStats {
   confirmed: number;
   cancelled: number;
   rescheduled: number;
-  pending: number;
-}
-
-export interface StatusBreakdown {
-  status: AppointmentStatus | string;
-  count: number;
-  pct: number;
 }
 
 export interface ReasonStat  { reason: string; count: number; }
@@ -57,7 +50,6 @@ export interface DashboardStats {
   confirmed: number;
   cancelled: number;
   rescheduled: number;
-  pending: number;
   todayCount: number;
   upcomingCount: number;
   confirmationRate: number;

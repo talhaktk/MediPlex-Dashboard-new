@@ -42,7 +42,6 @@ const PRESETS = [
 ];
 
 const MONTH_MAP: Record<string,string> = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-
 function monthKey(label: string) {
   const [mon, yr] = label.split(' ');
   return `${yr}-${MONTH_MAP[mon] || '01'}`;
@@ -81,16 +80,22 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
     });
   }, [drillMonth, rangeFiltered]);
 
-  const rs = useMemo(() => ({
-    total:       rangeFiltered.length,
-    confirmed:   rangeFiltered.filter(a => a.status === 'Confirmed').length,
-    cancelled:   rangeFiltered.filter(a => a.status === 'Cancelled').length,
-    rescheduled: rangeFiltered.filter(a => a.status === 'Rescheduled').length,
-    pending:     rangeFiltered.filter(a => a.status === 'Pending').length,
-    newVisit:    rangeFiltered.filter(a => normVT(a.visitType) === 'New Visit').length,
-    followUp:    rangeFiltered.filter(a => normVT(a.visitType) === 'Follow-up').length,
-    uniquePts:   new Set(rangeFiltered.map(a => a.childName.toLowerCase().trim())).size,
-  }), [rangeFiltered]);
+  // ── Core stats ──────────────────────────────────────────────────────────────
+  const rs = useMemo(() => {
+    const confirmed   = rangeFiltered.filter(a => a.status === 'Confirmed').length;
+    const cancelled   = rangeFiltered.filter(a => a.status === 'Cancelled').length;
+    const rescheduled = rangeFiltered.filter(a => a.status === 'Rescheduled').length;
+    const newVisit    = rangeFiltered.filter(a => normVT(a.visitType) === 'New Visit').length;
+    const followUp    = rangeFiltered.filter(a => normVT(a.visitType) === 'Follow-up').length;
+    const inClinic    = rangeFiltered.filter(a => a.attendanceStatus === 'In Clinic').length;
+    const absent      = rangeFiltered.filter(a => a.attendanceStatus === 'Absent' || a.attendanceStatus === 'No-Show').length;
+    return {
+      total: rangeFiltered.length,
+      confirmed, cancelled, rescheduled,
+      newVisit, followUp,
+      inClinic, absent,
+    };
+  }, [rangeFiltered]);
 
   const dowData = useMemo(() => {
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -108,80 +113,125 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
     rate:  m.total ? Math.round(m.confirmed / m.total * 100) : 0,
   }));
 
+  // ── Exports ─────────────────────────────────────────────────────────────────
   const handleExportCSV = () => {
-    exportToCSV(rangeFiltered, `mediplex_analytics_${new Date().toISOString().split('T')[0]}.csv`);
-    toast.success(`CSV exported — ${rs.total} records`);
+    exportToCSV(rangeFiltered, `mediplex_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success(`Exported ${rs.total} records`);
   };
 
-  const handleDrillExportCSV = () => {
+  const handleDrillCSV = () => {
     exportToCSV(drillData, 'month_detail.csv');
     toast.success('CSV exported');
   };
 
   const exportPDF = () => {
-    const period = rangeFrom && rangeTo ? `${rangeFrom} to ${rangeTo}` : rangeFrom || rangeTo || 'All Time';
-    const rows = displayMonthly.map(m => {
+    const period = rangeFrom && rangeTo
+      ? `${rangeFrom} to ${rangeTo}`
+      : rangeFrom || rangeTo || 'All Time';
+
+    const monthRows = displayMonthly.map(m => {
       const cr = m.total ? Math.round(m.confirmed/m.total*100) : 0;
       return `<tr>
-        <td>${m.month}</td><td>${m.total}</td><td>${m.confirmed}</td>
-        <td>${m.cancelled}</td><td>${m.rescheduled}</td><td>${m.pending}</td><td>${cr}%</td>
+        <td>${m.month}</td>
+        <td>${m.total}</td>
+        <td style="color:#1a7f5e;font-weight:600">${m.confirmed}</td>
+        <td style="color:#c53030;font-weight:600">${m.cancelled}</td>
+        <td style="color:#b47a00;font-weight:600">${m.rescheduled}</td>
+        <td>${cr}%</td>
       </tr>`;
     }).join('');
+
+    const pct = (n: number) => rs.total ? Math.round(n/rs.total*100) : 0;
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
     <title>MediPlex Analytics Report</title>
     <style>
-      body{font-family:Arial,sans-serif;color:#0a1628;margin:32px;font-size:13px}
-      h1{font-size:22px;margin:0 0 4px}
-      .sub{color:#666;font-size:12px;margin-bottom:24px}
-      .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
-      .kpi{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px}
-      .kpi-val{font-size:28px;font-weight:700;color:#0a1628}
-      .kpi-label{font-size:11px;color:#6b7280;margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
-      .visit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
-      .visit-box{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px;text-align:center}
-      table{width:100%;border-collapse:collapse;margin-top:8px}
-      th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px;font-weight:600}
-      td{padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;color:#0a1628;padding:32px;font-size:13px;line-height:1.5}
+      h1{font-size:20px;font-weight:700;margin-bottom:2px}
+      .meta{color:#6b7280;font-size:11px;margin-bottom:28px}
+      h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:24px 0 10px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+      .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
+      .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px}
+      .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:8px}
+      .card{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px}
+      .val{font-size:26px;font-weight:700;line-height:1}
+      .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-top:4px}
+      .sub{font-size:11px;color:#9ca3af;margin-top:2px}
+      table{width:100%;border-collapse:collapse;margin-top:4px}
+      th{background:#0a1628;color:#fff;padding:7px 12px;text-align:left;font-size:11px;font-weight:600}
+      td{padding:6px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}
       tr:nth-child(even) td{background:#f9fafb}
-      .footer{margin-top:32px;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:12px}
+      .bar{height:6px;border-radius:3px;margin-top:4px}
+      .footer{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:10px;text-align:center}
+      @media print{body{padding:16px}}
     </style></head><body>
+
     <h1>MediPlex Pediatric Clinic — Analytics Report</h1>
-    <div class="sub">Period: ${period} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
-    <div class="kpi-grid">
-      <div class="kpi"><div class="kpi-val">${rs.total}</div><div class="kpi-label">Total Appointments</div></div>
-      <div class="kpi"><div class="kpi-val" style="color:#1a7f5e">${rs.confirmed}</div><div class="kpi-label">Confirmed</div></div>
-      <div class="kpi"><div class="kpi-val" style="color:#c53030">${rs.cancelled}</div><div class="kpi-label">Cancelled</div></div>
-      <div class="kpi"><div class="kpi-val" style="color:#b47a00">${rs.rescheduled}</div><div class="kpi-label">Rescheduled</div></div>
-      <div class="kpi"><div class="kpi-val" style="color:#2b6cb0">${rs.pending}</div><div class="kpi-label">Pending</div></div>
-      <div class="kpi"><div class="kpi-val">${rs.uniquePts}</div><div class="kpi-label">Unique Patients</div></div>
-      <div class="kpi"><div class="kpi-val">${rs.total ? Math.round(rs.confirmed/rs.total*100) : 0}%</div><div class="kpi-label">Confirmation Rate</div></div>
-      <div class="kpi"><div class="kpi-val">${rs.total ? Math.round(rs.cancelled/rs.total*100) : 0}%</div><div class="kpi-label">Cancellation Rate</div></div>
+    <div class="meta">Period: <strong>${period}</strong> &nbsp;·&nbsp; Generated: ${new Date().toLocaleString()} &nbsp;·&nbsp; Confidential</div>
+
+    <!-- Section A: Appointment Status -->
+    <h2>A — Appointment Status</h2>
+    <div class="grid4">
+      <div class="card"><div class="val">${rs.total}</div><div class="lbl">Total Appointments</div><div class="sub">All records</div></div>
+      <div class="card"><div class="val" style="color:#1a7f5e">${rs.confirmed}</div><div class="lbl">Confirmed</div><div class="sub">${pct(rs.confirmed)}% of total</div></div>
+      <div class="card"><div class="val" style="color:#c53030">${rs.cancelled}</div><div class="lbl">Cancelled</div><div class="sub">${pct(rs.cancelled)}% of total</div></div>
+      <div class="card"><div class="val" style="color:#b47a00">${rs.rescheduled}</div><div class="lbl">Rescheduled</div><div class="sub">${pct(rs.rescheduled)}% of total</div></div>
     </div>
-    <div class="visit-grid">
-      <div class="visit-box" style="border-color:#1a7f5e44">
-        <div class="kpi-val" style="color:#1a7f5e">${rs.newVisit}</div>
-        <div class="kpi-label">New Visits (${rs.total ? Math.round(rs.newVisit/rs.total*100) : 0}%)</div>
+
+    <!-- Section B: Visit Type -->
+    <h2>B — Visit Type Breakdown</h2>
+    <div class="grid2">
+      <div class="card" style="border-color:#1a7f5e44">
+        <div class="val" style="color:#1a7f5e">${rs.newVisit}</div>
+        <div class="lbl">New Visits</div>
+        <div class="sub">${pct(rs.newVisit)}% of total appointments</div>
+        <div class="bar" style="background:#1a7f5e;width:${pct(rs.newVisit)}%"></div>
       </div>
-      <div class="visit-box" style="border-color:#2b6cb044">
-        <div class="kpi-val" style="color:#2b6cb0">${rs.followUp}</div>
-        <div class="kpi-label">Follow-ups (${rs.total ? Math.round(rs.followUp/rs.total*100) : 0}%)</div>
+      <div class="card" style="border-color:#2b6cb044">
+        <div class="val" style="color:#2b6cb0">${rs.followUp}</div>
+        <div class="lbl">Follow-up Visits</div>
+        <div class="sub">${pct(rs.followUp)}% of total appointments</div>
+        <div class="bar" style="background:#2b6cb0;width:${pct(rs.followUp)}%"></div>
       </div>
     </div>
-    <h3 style="margin:0 0 8px;font-size:14px">Monthly Breakdown</h3>
+
+    <!-- Section C: Attendance -->
+    <h2>C — Clinic Attendance</h2>
+    <div class="grid3">
+      <div class="card" style="border-color:#16653344">
+        <div class="val" style="color:#166534">${rs.inClinic}</div>
+        <div class="lbl">In Clinic</div>
+        <div class="sub">Seen by doctor</div>
+      </div>
+      <div class="card" style="border-color:#c2410c44">
+        <div class="val" style="color:#c2410c">${rs.absent}</div>
+        <div class="lbl">Absent / No-Show</div>
+        <div class="sub">Did not arrive</div>
+      </div>
+      <div class="card">
+        <div class="val" style="color:#0369a1">${rs.total - rs.inClinic - rs.absent}</div>
+        <div class="lbl">Awaiting / Not Set</div>
+        <div class="sub">No attendance recorded</div>
+      </div>
+    </div>
+
+    <!-- Section D: Monthly Breakdown -->
+    <h2>D — Monthly Breakdown</h2>
     <table>
-      <thead><tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Pending</th><th>Confirm %</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <thead><tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Confirm %</th></tr></thead>
+      <tbody>${monthRows}</tbody>
     </table>
-    <div class="footer">MediPlex Pediatric Clinic &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
+
+    <div class="footer">MediPlex Pediatric Clinic &nbsp;·&nbsp; This report is confidential &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
     </body></html>`;
 
     const w = window.open('', '_blank');
     if (!w) { toast.error('Allow popups to export PDF'); return; }
     w.document.write(html);
     w.document.close();
-    setTimeout(() => w.print(), 500);
-    toast.success('PDF ready — use Print dialog to save as PDF');
+    setTimeout(() => w.print(), 600);
+    toast.success('PDF ready — Print → Save as PDF');
   };
 
   const tabs = ['overview','monthly','patients','trends'] as const;
@@ -204,7 +254,6 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
             </button>
           ))}
         </div>
-
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">From</label>
@@ -227,23 +276,50 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
           </button>
         </div>
 
-        {/* KPI summary bar */}
-        <div className="mt-5 pt-5 border-t border-black/5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {[
-            { label:'Total',       val:rs.total,       color:'#0a1628' },
-            { label:'Confirmed',   val:rs.confirmed,   color:GREEN },
-            { label:'Cancelled',   val:rs.cancelled,   color:RED },
-            { label:'Rescheduled', val:rs.rescheduled, color:AMBER },
-            { label:'Pending',     val:rs.pending,     color:BLUE },
-            { label:'Patients',    val:rs.uniquePts,   color:'#7c3aed' },
-            { label:'New Visits',  val:rs.newVisit,    color:GREEN },
-            { label:'Follow-ups',  val:rs.followUp,    color:BLUE },
-          ].map(s => (
-            <div key={s.label} className="text-center">
-              <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
-              <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider">{s.label}</div>
-            </div>
-          ))}
+        {/* ── KPI Summary Bar ── */}
+        <div className="mt-5 pt-5 border-t border-black/5">
+          {/* Row 1: Appointment Status */}
+          <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Appointment Status</div>
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-4">
+            {[
+              { label:'Total',       val:rs.total,       color:'#0a1628' },
+              { label:'Confirmed',   val:rs.confirmed,   color:GREEN },
+              { label:'Cancelled',   val:rs.cancelled,   color:RED },
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {/* Row 2: Visit Type */}
+          <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Visit Type</div>
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-4">
+            {[
+              { label:'Rescheduled', val:rs.rescheduled, color:AMBER },
+              { label:'New Visits',  val:rs.newVisit,    color:GREEN },
+              { label:'Follow-ups',  val:rs.followUp,    color:BLUE },
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {/* Row 3: Attendance */}
+          <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Clinic Attendance</div>
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
+            {[
+              { label:'In Clinic',        val:rs.inClinic,                          color:'#166534' },
+              { label:'Absent / No-Show', val:rs.absent,                            color:RED },
+              { label:'Awaiting',         val:rs.total - rs.inClinic - rs.absent,   color:'#6b7280' },
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -272,13 +348,11 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                     <Legend wrapperStyle={{ fontSize:11 }} />
                     <Bar dataKey="confirmed"   name="Confirmed"   stackId="a" fill={GREEN} />
                     <Bar dataKey="cancelled"   name="Cancelled"   stackId="a" fill={RED} />
-                    <Bar dataKey="rescheduled" name="Rescheduled" stackId="a" fill={AMBER} />
-                    <Bar dataKey="pending"     name="Pending"     stackId="a" fill={BLUE} radius={[3,3,0,0]} />
+                    <Bar dataKey="rescheduled" name="Rescheduled" stackId="a" fill={AMBER} radius={[3,3,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </div>
-
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Confirmation Rate Trend</div>
               <div className="p-5" style={{ height:260 }}>
@@ -296,6 +370,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Visit type split */}
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">New Visit vs Follow-up</div>
               <div className="p-5">
@@ -308,7 +383,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                       <div className="text-[32px] font-semibold leading-none" style={{ color:v.color }}>{v.val}</div>
                       <div className="text-[11px] text-gray-500 mt-1">{v.label}</div>
                       <div className="text-[10px] mt-0.5" style={{ color:v.color }}>
-                        {rs.total ? Math.round(v.val/rs.total*100) : 0}% of total
+                        {rs.total ? Math.round(v.val/rs.total*100) : 0}%
                       </div>
                     </div>
                   ))}
@@ -323,22 +398,51 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
               </div>
             </div>
 
+            {/* Attendance split */}
             <div className="card animate-in">
-              <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Busiest Days of Week</div>
-              <div className="p-5" style={{ height:210 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dowData} barSize={36}>
-                    <XAxis dataKey="day" tick={{ fontSize:12, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={20} />
-                    <Tooltip {...TT} />
-                    <Bar dataKey="count" name="Appointments" radius={[4,4,0,0]}>
-                      {dowData.map((e, i) => (
-                        <Cell key={i} fill={e.count === Math.max(...dowData.map(d => d.count)) ? GOLD : '#e8e4da'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Clinic Attendance</div>
+              <div className="p-5">
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  {[
+                    { label:'In Clinic',  val:rs.inClinic, color:'#166534', bg:'#dcfce7' },
+                    { label:'Absent',     val:rs.absent,   color:RED,       bg:'#fee2e2' },
+                    { label:'Awaiting',   val:rs.total - rs.inClinic - rs.absent, color:'#6b7280', bg:'#f3f4f6' },
+                  ].map(v => (
+                    <div key={v.label} className="rounded-xl p-3 text-center" style={{ background:v.bg }}>
+                      <div className="text-[28px] font-semibold leading-none" style={{ color:v.color }}>{v.val}</div>
+                      <div className="text-[10px] mt-1" style={{ color:v.color }}>{v.label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex rounded-full overflow-hidden h-3">
+                  <div style={{ width:`${rs.total ? Math.round(rs.inClinic/rs.total*100) : 0}%`, background:'#166534' }} />
+                  <div style={{ width:`${rs.total ? Math.round(rs.absent/rs.total*100) : 0}%`, background:RED }} />
+                  <div style={{ flex:1, background:'#e5e7eb' }} />
+                </div>
+                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                  <span style={{ color:'#166534' }}>● In Clinic</span>
+                  <span style={{ color:RED }}>● Absent</span>
+                  <span>● Awaiting</span>
+                </div>
               </div>
+            </div>
+          </div>
+
+          <div className="card animate-in">
+            <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Busiest Days of Week</div>
+            <div className="p-5" style={{ height:200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dowData} barSize={40}>
+                  <XAxis dataKey="day" tick={{ fontSize:12, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={20} />
+                  <Tooltip {...TT} />
+                  <Bar dataKey="count" name="Appointments" radius={[4,4,0,0]}>
+                    {dowData.map((e, i) => (
+                      <Cell key={i} fill={e.count === Math.max(...dowData.map(d => d.count)) ? GOLD : '#e8e4da'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
@@ -355,18 +459,15 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
               </button>
               <div className="card overflow-hidden">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
-                  <div className="font-medium text-navy text-[14px]">
-                    Detail — {drillData.length} appointments
-                  </div>
-                  <button onClick={handleDrillExportCSV}
-                    className="btn-outline text-[11px] py-1.5 px-3 gap-1">
+                  <div className="font-medium text-navy text-[14px]">Detail — {drillData.length} appointments</div>
+                  <button onClick={handleDrillCSV} className="btn-outline text-[11px] py-1.5 px-3 gap-1">
                     <Download size={11} /> CSV
                   </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="data-table">
                     <thead>
-                      <tr><th>Patient</th><th>Parent</th><th>Age</th><th>Date</th><th>Time</th><th>Reason</th><th>Visit</th><th>Status</th></tr>
+                      <tr><th>Patient</th><th>Parent</th><th>Age</th><th>Date</th><th>Time</th><th>Reason</th><th>Visit</th><th>Status</th><th>Attendance</th></tr>
                     </thead>
                     <tbody>
                       {drillData.map(a => (
@@ -379,16 +480,12 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                           <td className="text-[12px] text-gray-600 max-w-[140px] truncate">{a.reason || '—'}</td>
                           <td>
                             <span className="text-[11px] px-2 py-0.5 rounded font-medium"
-                              style={{
-                                background: normVT(a.visitType)==='Follow-up' ? '#ebf4ff':'#e8f7f2',
-                                color:      normVT(a.visitType)==='Follow-up' ? BLUE : GREEN,
-                              }}>
+                              style={{ background:normVT(a.visitType)==='Follow-up'?'#ebf4ff':'#e8f7f2', color:normVT(a.visitType)==='Follow-up'?BLUE:GREEN }}>
                               {normVT(a.visitType)}
                             </span>
                           </td>
-                          <td>
-                            <span className={`pill pill-${a.status?.toLowerCase().replace(/[\s-]/g,'')}`}>{a.status}</span>
-                          </td>
+                          <td><span className={`pill pill-${a.status?.toLowerCase().replace(/[\s-]/g,'')}`}>{a.status}</span></td>
+                          <td className="text-[11px] text-gray-500">{a.attendanceStatus || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -406,10 +503,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                 <div className="overflow-x-auto">
                   <table className="data-table">
                     <thead>
-                      <tr>
-                        <th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th>
-                        <th>Rescheduled</th><th>Pending</th><th>Confirm %</th><th>Cancel %</th><th>Volume</th>
-                      </tr>
+                      <tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Confirm %</th><th>Cancel %</th><th>Volume</th></tr>
                     </thead>
                     <tbody>
                       {displayMonthly.map(m => {
@@ -424,7 +518,6 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                             <td><span className="text-emerald-700 font-medium">{m.confirmed}</span></td>
                             <td><span className="text-red-600 font-medium">{m.cancelled}</span></td>
                             <td><span className="text-amber-600 font-medium">{m.rescheduled}</span></td>
-                            <td><span className="text-blue-600 font-medium">{m.pending}</span></td>
                             <td>
                               <div className="flex items-center gap-2">
                                 <div className="w-14 h-1.5 rounded-full bg-gray-100 overflow-hidden">
@@ -443,7 +536,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                             </td>
                             <td>
                               <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width:`${mx ? Math.round(m.total/mx*100) : 0}%`, background:'linear-gradient(90deg,#c9a84c,#e8c87a)' }} />
+                                <div className="h-full rounded-full" style={{ width:`${mx?Math.round(m.total/mx*100):0}%`, background:'linear-gradient(90deg,#c9a84c,#e8c87a)' }} />
                               </div>
                             </td>
                           </tr>
@@ -453,7 +546,6 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                   </table>
                 </div>
               </div>
-
               <div className="card animate-in">
                 <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Status Trend</div>
                 <div className="p-5" style={{ height:280 }}>
@@ -495,7 +587,6 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                 </ResponsiveContainer>
               </div>
             </div>
-
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Top Reasons for Visit</div>
               <div className="p-5" style={{ height:260 }}>
@@ -530,11 +621,11 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                 ))}
               </div>
               <div className="mt-5 flex rounded-full overflow-hidden h-4 max-w-md mx-auto">
-                <div style={{ width:`${rs.total ? Math.round(rs.newVisit/rs.total*100) : 50}%`, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <span className="text-white text-[10px] font-semibold">{rs.total ? Math.round(rs.newVisit/rs.total*100) : 0}%</span>
+                <div style={{ width:`${rs.total?Math.round(rs.newVisit/rs.total*100):50}%`, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <span className="text-white text-[10px] font-semibold">{rs.total?Math.round(rs.newVisit/rs.total*100):0}%</span>
                 </div>
                 <div style={{ flex:1, background:BLUE, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <span className="text-white text-[10px] font-semibold">{rs.total ? Math.round(rs.followUp/rs.total*100) : 0}%</span>
+                  <span className="text-white text-[10px] font-semibold">{rs.total?Math.round(rs.followUp/rs.total*100):0}%</span>
                 </div>
               </div>
               <div className="flex justify-between text-[11px] mt-1.5 max-w-md mx-auto px-1">
@@ -569,16 +660,16 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
       {/* ── TRENDS ───────────────────────────────────────────────────────────── */}
       {activeTab === 'trends' && (
         <div className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {[
-              { label:'Avg / Month',       val: monthly.length ? Math.round(data.length/monthly.length) : 0,                                                   color:GOLD },
-              { label:'Peak Month',        val: [...monthly].sort((a,b)=>b.total-a.total)[0]?.month || '—',                                                    color:GREEN },
-              { label:'Best Confirm Rate', val: monthly.length ? `${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%` : '—',       color:BLUE },
-              { label:'Unique Patients',   val: new Set(data.map(a=>a.childName.toLowerCase())).size,                                                          color:'#7c3aed' },
+              { label:'Avg / Month',       val: monthly.length ? Math.round(data.length/monthly.length) : 0,   color:GOLD },
+              { label:'Peak Month',        val: [...monthly].sort((a,b)=>b.total-a.total)[0]?.month || '—',    color:GREEN },
+              { label:'Best Confirm Rate', val: monthly.length ? `${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%` : '—', color:BLUE },
+              { label:'Total Patients',    val: new Set(data.map(a=>a.childName.toLowerCase())).size,          color:'#7c3aed' },
             ].map(s => (
               <div key={s.label} className="kpi-card animate-in">
                 <div className="text-[10px] tracking-widest uppercase text-gray-400 font-medium mb-2">{s.label}</div>
-                <div className="font-display text-[30px] font-semibold leading-none" style={{ color:s.color }}>{s.val}</div>
+                <div className="font-display text-[28px] font-semibold leading-none" style={{ color:s.color }}>{s.val}</div>
               </div>
             ))}
           </div>
@@ -611,7 +702,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk;
                   });
                   return {
-                    month:      m.month,
+                    month:       m.month,
                     'New Visit': md.filter(a => normVT(a.visitType)==='New Visit').length,
                     'Follow-up': md.filter(a => normVT(a.visitType)==='Follow-up').length,
                   };

@@ -109,14 +109,12 @@ function normalizeDate(raw: string): string {
 }
 
 export function normalizeStatus(raw: string): AppointmentStatus {
-  if (!raw) return 'Pending';
+  if (!raw) return 'Confirmed';
   const s = raw.toLowerCase().trim();
   if (s.includes('confirm')) return 'Confirmed';
   if (s.includes('cancel')) return 'Cancelled';
   if (s.includes('reschedul') || s === 'reschedule') return 'Rescheduled';
-  if (s.includes('no-show') || s.includes('no show')) return 'No-Show';
-  if (s.includes('complet')) return 'Completed';
-  return 'Pending';
+  return 'Confirmed'; // default — no Pending
 }
 
 // ─── Analytics helpers ────────────────────────────────────────────────────────
@@ -127,11 +125,10 @@ export function computeStats(data: Appointment[]): DashboardStats {
 
   const todayStr = format(today, 'yyyy-MM-dd');
   
-  const confirmed = data.filter(a => a.status === 'Confirmed').length;
-  const cancelled = data.filter(a => a.status === 'Cancelled').length;
+  const confirmed   = data.filter(a => a.status === 'Confirmed').length;
+  const cancelled   = data.filter(a => a.status === 'Cancelled').length;
   const rescheduled = data.filter(a => a.status === 'Rescheduled').length;
-  const pending = data.filter(a => a.status === 'Pending').length;
-  const todayCount = data.filter(a => a.appointmentDate === todayStr).length;
+  const todayCount  = data.filter(a => a.appointmentDate === todayStr).length;
   const upcomingCount = data.filter(a => {
     const d = parseISO(a.appointmentDate);
     return isValid(d) && d >= today && a.status !== 'Cancelled';
@@ -142,7 +139,6 @@ export function computeStats(data: Appointment[]): DashboardStats {
     confirmed,
     cancelled,
     rescheduled,
-    pending,
     todayCount,
     upcomingCount,
     confirmationRate: data.length ? Math.round(confirmed / data.length * 100) : 0,
@@ -160,14 +156,13 @@ export function computeMonthlyStats(data: Appointment[]): MonthlyStats[] {
     const label = format(d, 'MMM yyyy');
     
     if (!map.has(key)) {
-      map.set(key, { month: label, total: 0, confirmed: 0, cancelled: 0, rescheduled: 0, pending: 0 });
+      map.set(key, { month: label, total: 0, confirmed: 0, cancelled: 0, rescheduled: 0 });
     }
     const s = map.get(key)!;
     s.total++;
     if (a.status === 'Confirmed') s.confirmed++;
     else if (a.status === 'Cancelled') s.cancelled++;
     else if (a.status === 'Rescheduled') s.rescheduled++;
-    else s.pending++;
   });
 
   return Array.from(map.entries())
@@ -242,26 +237,39 @@ export function filterAppointments(
 
 export function exportToCSV(data: Appointment[], filename = 'appointments.csv'): void {
   const headers = [
-    'Child Name','Parent Name','Age','WhatsApp','Email',
-    'Appointment Date','Time','Reason','Visit Type','Status',
-    'Rescheduling Reason','Original Date'
+    'Child Name', 'Parent Name', 'Age', 'WhatsApp', 'Email',
+    'Appointment Date', 'Time', 'Reason', 'Visit Type', 'Status',
+    'Attendance Status', 'Check-In Time', 'In Clinic Time',
+    'Rescheduling Reason', 'Original Date',
   ];
   const rows = data.map(a => [
-    a.childName, a.parentName, a.childAge, a.whatsapp, a.email,
-    a.appointmentDate, a.appointmentTime, a.reason, a.visitType, a.status,
-    a.reschedulingReason || '', a.originalDate || ''
+    a.childName        || '',
+    a.parentName       || '',
+    a.childAge         || '',
+    a.whatsapp         || '',
+    a.email            || '',
+    a.appointmentDate  || '',
+    a.appointmentTime  || '',
+    a.reason           || '',
+    a.visitType        || '',
+    a.status           || '',
+    a.attendanceStatus || '',
+    a.checkInTime      || '',
+    a.inClinicTime     || '',
+    a.reschedulingReason || '',
+    a.originalDate     || '',
   ]);
   const csv = [headers, ...rows]
-    .map(row => row.map(c => `"${(c||'').toString().replace(/"/g, '""')}"`).join(','))
+    .map(row => row.map(c => `"${c.toString().replace(/"/g, '""')}"`).join(','))
     .join('\n');
-  
+
   if (typeof window !== 'undefined') {
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+    const url  = URL.createObjectURL(blob);
+    const el   = document.createElement('a');
+    el.href    = url;
+    el.download = filename;
+    el.click();
     URL.revokeObjectURL(url);
   }
 }
