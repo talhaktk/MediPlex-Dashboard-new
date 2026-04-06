@@ -5,42 +5,56 @@ import { Appointment } from '@/types';
 import { filterAppointments, exportToCSV, formatUSDate } from '@/lib/sheets';
 import StatusPill from '@/components/ui/StatusPill';
 import AttendanceDropdown from '@/components/ui/AttendanceDropdown';
-import { Search, Download, Filter, ChevronLeft, ChevronRight, X, UserCheck } from 'lucide-react';
+import { Search, Download, Filter, ChevronLeft, ChevronRight, X, CalendarCheck, UserCheck, Stethoscope, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const STATUSES = ['all','Confirmed','Cancelled','Rescheduled','Pending','No-Show','Completed'];
+const STATUSES    = ['all','Confirmed','Cancelled','Rescheduled','Pending','No-Show','Completed'];
 const VISIT_TYPES = ['all','New','New Visit','Follow-up','Emergency','Telehealth'];
-const ATTENDANCE = ['all','Not Set','In Clinic','Checked-In','Absent','No-Show'];
+const ATTENDANCE  = ['all','Not Set','Checked-In','In Clinic','Absent','No-Show'];
 const PER_PAGE = 12;
 
 export default function AppointmentsClient({ data }: { data: Appointment[] }) {
-  const [status, setStatus] = useState('all');
-  const [visitType, setVisitType] = useState('all');
+  const [status,     setStatus]     = useState('all');
+  const [visitType,  setVisitType]  = useState('all');
   const [attendance, setAttendance] = useState('all');
-  const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [page, setPage] = useState(1);
+  const [search,     setSearch]     = useState('');
+  const [dateFrom,   setDateFrom]   = useState('');
+  const [dateTo,     setDateTo]     = useState('');
+  const [page,       setPage]       = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected,   setSelected]   = useState<string[]>([]);
+
+  // optimistic local attendance state: { [id]: { attendanceStatus, checkInTime, inClinicTime } }
+  const [localAttendance, setLocalAttendance] = useState<Record<string, { attendanceStatus: string; checkInTime: string; inClinicTime: string }>>({});
+
+  const getAttendance = (a: Appointment) => localAttendance[a.id] ?? {
+    attendanceStatus: a.attendanceStatus || 'Not Set',
+    checkInTime:  a.checkInTime  || '',
+    inClinicTime: a.inClinicTime || '',
+  };
 
   const filtered = useMemo(() => {
     let result = filterAppointments(data, { status, visitType, search, dateFrom, dateTo });
     if (attendance !== 'all') {
-      result = result.filter(a => (a.attendanceStatus || 'Not Set') === attendance);
+      result = result.filter(a => getAttendance(a).attendanceStatus === attendance);
     }
     return result;
-  }, [data, status, visitType, search, dateFrom, dateTo, attendance]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, status, visitType, search, dateFrom, dateTo, attendance, localAttendance]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  // Today's stats
+  // ── Today's summary stats ──────────────────────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
-  const todayData = data.filter(a => a.appointmentDate === today);
-  const checkedIn = todayData.filter(a => a.attendanceStatus === 'Checked-In' || a.attendanceStatus === 'In Clinic').length;
-  const absent    = todayData.filter(a => a.attendanceStatus === 'Absent' || a.attendanceStatus === 'No-Show').length;
-  const pending   = todayData.filter(a => !a.attendanceStatus || a.attendanceStatus === 'Not Set').length;
+  const todayData = data.filter(a =>
+    a.appointmentDate === today &&
+    (a.status === 'Confirmed' || a.status === 'Rescheduled' || a.status === 'Pending')
+  );
+  const totalToday  = todayData.length;
+  const checkedIn   = todayData.filter(a => getAttendance(a).attendanceStatus === 'Checked-In').length;
+  const inClinic    = todayData.filter(a => getAttendance(a).attendanceStatus === 'In Clinic').length;
+  const absentToday = todayData.filter(a => ['Absent','No-Show'].includes(getAttendance(a).attendanceStatus)).length;
 
   const handleExport = () => {
     const toExport = selected.length > 0 ? filtered.filter(a => selected.includes(a.id)) : filtered;
@@ -58,38 +72,56 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
   return (
     <div className="space-y-5">
 
-      {/* Today's attendance summary bar */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* ── Today's summary cards ──────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
         <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#dcfce7' }}>
-            <UserCheck size={16} style={{ color: '#166534' }} />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#f0fdf4' }}>
+            <CalendarCheck size={16} style={{ color: '#16a34a' }} />
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Checked In Today</div>
-            <div className="text-[24px] font-semibold text-navy leading-none">{checkedIn}</div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Total Today</div>
+            <div className="text-[26px] font-semibold text-navy leading-none">{totalToday}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">Confirmed + Rescheduled</div>
           </div>
         </div>
+
         <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#ffedd5' }}>
-            <span style={{ fontSize: 16, color: '#c2410c' }}>✕</span>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dbeafe' }}>
+            <UserCheck size={16} style={{ color: '#1d4ed8' }} />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Checked-In</div>
+            <div className="text-[26px] font-semibold text-navy leading-none">{checkedIn}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">Waiting room</div>
+          </div>
+        </div>
+
+        <div className="card p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dcfce7' }}>
+            <Stethoscope size={16} style={{ color: '#166534' }} />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">In Clinic</div>
+            <div className="text-[26px] font-semibold text-navy leading-none">{inClinic}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">With doctor now</div>
+          </div>
+        </div>
+
+        <div className="card p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fee2e2' }}>
+            <XCircle size={16} style={{ color: '#dc2626' }} />
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Absent / No-Show</div>
-            <div className="text-[24px] font-semibold text-navy leading-none">{absent}</div>
+            <div className="text-[26px] font-semibold text-navy leading-none">{absentToday}</div>
+            <div className="text-[10px] text-gray-400 mt-0.5">Did not arrive</div>
           </div>
         </div>
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#f3f4f6' }}>
-            <span style={{ fontSize: 16, color: '#6b7280' }}>◷</span>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Awaiting Today</div>
-            <div className="text-[24px] font-semibold text-navy leading-none">{pending}</div>
-          </div>
-        </div>
+
       </div>
 
-      {/* Toolbar */}
+      {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="text-[13px] text-gray-500">
           Showing <span className="font-medium text-navy">{filtered.length}</span> of{' '}
@@ -110,31 +142,23 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
         </div>
       </div>
 
-      {/* Filters panel */}
+      {/* ── Filters ──────────────────────────────────────────────────────────── */}
       {showFilters && (
         <div className="card p-5 animate-in">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Status</label>
-              <select value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
-                {STATUSES.map(s => <option key={s} value={s}>{s === 'all' ? 'All Statuses' : s}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Visit Type</label>
-              <select value={visitType} onChange={e => { setVisitType(e.target.value); setPage(1); }}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
-                {VISIT_TYPES.map(v => <option key={v} value={v}>{v === 'all' ? 'All Types' : v}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Attendance</label>
-              <select value={attendance} onChange={e => { setAttendance(e.target.value); setPage(1); }}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
-                {ATTENDANCE.map(a => <option key={a} value={a}>{a === 'all' ? 'All Attendance' : a}</option>)}
-              </select>
-            </div>
+            {[
+              { label:'Status',     value:status,     set:setStatus,     opts:STATUSES,    allLabel:'All Statuses' },
+              { label:'Visit Type', value:visitType,  set:setVisitType,  opts:VISIT_TYPES, allLabel:'All Types' },
+              { label:'Attendance', value:attendance, set:setAttendance, opts:ATTENDANCE,  allLabel:'All Attendance' },
+            ].map(({ label, value: val, set, opts, allLabel }) => (
+              <div key={label}>
+                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{label}</label>
+                <select value={val} onChange={e => { set(e.target.value); setPage(1); }}
+                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+                  {opts.map(o => <option key={o} value={o}>{o === 'all' ? allLabel : o}</option>)}
+                </select>
+              </div>
+            ))}
             <div>
               <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Date From</label>
               <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }}
@@ -149,14 +173,14 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
         </div>
       )}
 
-      {/* Search */}
+      {/* ── Search ───────────────────────────────────────────────────────────── */}
       <div className="relative">
         <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input type="text" placeholder="Search by patient name, parent, or reason for visit..."
           value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="search-input" />
       </div>
 
-      {/* Table */}
+      {/* ── Table ────────────────────────────────────────────────────────────── */}
       <div className="card overflow-hidden animate-in">
         <div className="overflow-x-auto">
           <table className="data-table">
@@ -174,25 +198,29 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                 <th>Appointment</th>
                 <th>Time</th>
                 <th>Reason</th>
-                <th>Visit Type</th>
+                <th>Visit</th>
                 <th>Status</th>
-                <th style={{ minWidth: 120 }}>Attendance</th>
-                <th>Check-in</th>
+                <th style={{ minWidth: 130 }}>Attendance</th>
               </tr>
             </thead>
             <tbody>
               {slice.length === 0 && (
-                <tr><td colSpan={12} className="text-center py-12 text-gray-400 text-[13px]">No appointments match your filters</td></tr>
+                <tr><td colSpan={11} className="text-center py-12 text-gray-400 text-[13px]">No appointments match your filters</td></tr>
               )}
               {slice.map((a, i) => {
-                const dataRowIndex = data.findIndex(d => d.id === a.id) + 1; // 1-based
+                const dataRowIndex = data.findIndex(d => d.id === a.id) + 1;
+                const att = getAttendance(a);
                 return (
                   <tr key={a.id} className={selected.includes(a.id) ? 'bg-amber-50/40' : ''}>
                     <td>
                       <input type="checkbox" checked={selected.includes(a.id)}
-                        onChange={e => setSelected(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id))} />
+                        onChange={e => setSelected(prev =>
+                          e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id)
+                        )} />
                     </td>
                     <td className="text-gray-400 text-[11px]">{(page - 1) * PER_PAGE + i + 1}</td>
+
+                    {/* Patient */}
                     <td>
                       <div className="flex items-center gap-2.5">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-semibold flex-shrink-0"
@@ -205,29 +233,56 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                         </div>
                       </div>
                     </td>
+
                     <td className="text-[12px] text-gray-600">{a.childAge ? `${a.childAge} yr` : '—'}</td>
+
+                    {/* Contact */}
                     <td>
                       <div className="text-[11px] text-gray-500">{a.whatsapp || '—'}</div>
                       <div className="text-[10px] text-gray-400 truncate max-w-[120px]">{a.email || '—'}</div>
                     </td>
+
                     <td className="text-[12px] font-medium text-navy whitespace-nowrap">{formatUSDate(a.appointmentDate)}</td>
                     <td className="text-[12px] text-gray-500 whitespace-nowrap">{a.appointmentTime || '—'}</td>
-                    <td className="max-w-[160px]">
+
+                    {/* Reason */}
+                    <td className="max-w-[150px]">
                       <div className="text-[12px] text-gray-700 truncate" title={a.reason}>{a.reason || '—'}</div>
                     </td>
+
                     <td>
                       <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">{a.visitType || '—'}</span>
                     </td>
-                    <td><StatusPill status={a.status} /></td>
+
+                    {/* Status — shows rescheduled info inline */}
+                    <td>
+                      <StatusPill status={a.status} />
+                      {a.status === 'Rescheduled' && (
+                        <div className="mt-1 space-y-0.5">
+                          {a.originalDate && (
+                            <div className="text-[10px] text-gray-400">
+                              Was: {formatUSDate(a.originalDate)}
+                              {a.appointmentTime ? ` · ${a.appointmentTime}` : ''}
+                            </div>
+                          )}
+                          {a.reschedulingReason && (
+                            <div className="text-[10px] text-amber-600 truncate max-w-[130px]" title={a.reschedulingReason}>
+                              ↻ {a.reschedulingReason}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Attendance dropdown with times */}
                     <td>
                       <AttendanceDropdown
                         appointmentId={a.id}
                         rowIndex={dataRowIndex}
-                        initial={(a.attendanceStatus as string) || 'Not Set'}
+                        initial={att.attendanceStatus}
+                        initialCheckInTime={att.checkInTime}
+                        initialInClinicTime={att.inClinicTime}
                       />
-                    </td>
-                    <td className="text-[11px] text-gray-400 whitespace-nowrap">
-                      {a.checkInTime || '—'}
                     </td>
                   </tr>
                 );
@@ -235,6 +290,8 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-3.5 border-t border-black/5">
           <div className="text-[12px] text-gray-400">
             {Math.min((page - 1) * PER_PAGE + 1, filtered.length)}–{Math.min(page * PER_PAGE, filtered.length)} of {filtered.length} records

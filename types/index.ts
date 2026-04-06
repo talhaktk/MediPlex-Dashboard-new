@@ -1,21 +1,6 @@
-// ─── Appointment / Patient ────────────────────────────────────────────────────
-
-export type AppointmentStatus =
-  | 'Confirmed'
-  | 'Cancelled'
-  | 'Rescheduled'
-  | 'Pending'
-  | 'No-Show'
-  | 'Completed';
-
-export type AttendanceStatus =
-  | 'Not Set'
-  | 'In Clinic'
-  | 'Checked-In'
-  | 'Absent'
-  | 'No-Show';
-
-export type VisitType = 'New' | 'New Visit' | 'Follow-up' | 'Emergency' | 'Telehealth';
+export type AppointmentStatus = 'Confirmed' | 'Cancelled' | 'Rescheduled' | 'Pending' | 'No-Show' | 'Completed';
+export type AttendanceStatus  = 'Not Set' | 'Checked-In' | 'In Clinic' | 'Absent' | 'No-Show';
+export type VisitType         = 'New' | 'New Visit' | 'Follow-up' | 'Emergency' | 'Telehealth';
 
 export interface Appointment {
   id: string;
@@ -36,19 +21,18 @@ export interface Appointment {
   followUpVisit?: string;
   reschedulingReason?: string;
   originalDate?: string;
-  // Phase 1 — attendance
+  // Phase 1
   attendanceStatus?: AttendanceStatus | string;
   checkInTime?: string;
-  // Phase 2 — clinical
+  inClinicTime?: string;
+  // Phase 2
   notes?: string;
   diagnosis?: string;
-  // Phase 3 — billing
+  // Phase 3
   feePaid?: string;
   feeAmount?: string;
   paymentMethod?: string;
 }
-
-// ─── Analytics ────────────────────────────────────────────────────────────────
 
 export interface MonthlyStats {
   month: string;
@@ -65,15 +49,8 @@ export interface StatusBreakdown {
   pct: number;
 }
 
-export interface ReasonStat {
-  reason: string;
-  count: number;
-}
-
-export interface AgeStat {
-  bucket: string;
-  count: number;
-}
+export interface ReasonStat  { reason: string; count: number; }
+export interface AgeStat      { bucket: string; count: number; }
 
 export interface DashboardStats {
   total: number;
@@ -87,8 +64,6 @@ export interface DashboardStats {
   cancellationRate: number;
 }
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-
 export type UserRole = 'admin' | 'doctor' | 'receptionist' | 'viewer';
 
 export interface AppUser {
@@ -97,15 +72,6 @@ export interface AppUser {
   email: string;
   role: UserRole;
   avatar?: string;
-}
-
-// ─── UI ───────────────────────────────────────────────────────────────────────
-
-export interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-  badge?: number;
 }
 
 export interface FilterState {
