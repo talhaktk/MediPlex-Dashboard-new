@@ -7,39 +7,29 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, PieChart, Pie, Cell, AreaChart, Area, Legend,
 } from 'recharts';
-import { Download, FileText, Calendar, TrendingUp, Users, Activity, ChevronLeft } from 'lucide-react';
+import { Download, FileText, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const GOLD   = '#c9a84c';
-const GREEN  = '#1a7f5e';
-const RED    = '#c53030';
-const AMBER  = '#b47a00';
-const BLUE   = '#2b6cb0';
+const GOLD  = '#c9a84c';
+const GREEN = '#1a7f5e';
+const RED   = '#c53030';
+const AMBER = '#b47a00';
+const BLUE  = '#2b6cb0';
 const COLORS = [GREEN, RED, AMBER, BLUE, '#7c3aed', '#0369a1'];
-const TT     = { contentStyle: { background:'#0a1628', border:'1px solid rgba(201,168,76,0.3)', borderRadius:8, color:'#faf8f4', fontSize:12 } };
+const TT = { contentStyle: { background:'#0a1628', border:'1px solid rgba(201,168,76,0.3)', borderRadius:8, color:'#faf8f4', fontSize:12 } };
 
-// Normalize visit type to exactly 2 categories
 function normVT(vt: string): 'Follow-up' | 'New Visit' {
   return vt?.toLowerCase().includes('follow') ? 'Follow-up' : 'New Visit';
 }
 
-interface Props {
-  data: Appointment[];
-  stats: DashboardStats;
-  monthly: MonthlyStats[];
-  reasons: ReasonStat[];
-  ages: AgeStat[];
-}
-
-// ── Preset ranges ─────────────────────────────────────────────────────────────
 function getPreset(key: string): { from: string; to: string } {
   const today = new Date();
-  const fmt   = (d: Date) => d.toISOString().split('T')[0];
-  const add   = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
-  if (key === 'today')  return { from: fmt(today), to: fmt(today) };
-  if (key === 'week')   return { from: fmt(add(today, -6)), to: fmt(today) };
-  if (key === 'month')  return { from: fmt(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmt(today) };
-  if (key === 'last')   return { from: fmt(new Date(today.getFullYear(), today.getMonth()-1, 1)), to: fmt(new Date(today.getFullYear(), today.getMonth(), 0)) };
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  const add = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+  if (key === 'today') return { from: fmt(today), to: fmt(today) };
+  if (key === 'week')  return { from: fmt(add(today, -6)), to: fmt(today) };
+  if (key === 'month') return { from: fmt(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmt(today) };
+  if (key === 'last')  return { from: fmt(new Date(today.getFullYear(), today.getMonth()-1, 1)), to: fmt(new Date(today.getFullYear(), today.getMonth(), 0)) };
   return { from: '', to: '' };
 }
 
@@ -51,12 +41,27 @@ const PRESETS = [
   { key:'all',   label:'All Time' },
 ];
 
+const MONTH_MAP: Record<string,string> = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+
+function monthKey(label: string) {
+  const [mon, yr] = label.split(' ');
+  return `${yr}-${MONTH_MAP[mon] || '01'}`;
+}
+
+interface Props {
+  data: Appointment[];
+  stats: DashboardStats;
+  monthly: MonthlyStats[];
+  reasons: ReasonStat[];
+  ages: AgeStat[];
+}
+
 export default function AnalyticsClient({ data, stats, monthly, reasons, ages }: Props) {
-  const [rangeFrom,   setRangeFrom]   = useState('');
-  const [rangeTo,     setRangeTo]     = useState('');
+  const [rangeFrom,    setRangeFrom]    = useState('');
+  const [rangeTo,      setRangeTo]      = useState('');
   const [activePreset, setActivePreset] = useState('all');
-  const [activeTab,   setActiveTab]   = useState<'overview'|'monthly'|'patients'|'trends'>('overview');
-  const [drillMonth,  setDrillMonth]  = useState<string|null>(null);  // monthly drill-down
+  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'>('overview');
+  const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
 
   const applyPreset = (key: string) => {
     const { from, to } = getPreset(key);
@@ -67,7 +72,6 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
   const rangeMonthly   = useMemo(() => computeMonthlyStats(rangeFiltered), [rangeFiltered]);
   const displayMonthly = rangeMonthly.length ? rangeMonthly : monthly;
 
-  // Drill-down: appointments for selected month
   const drillData = useMemo(() => {
     if (!drillMonth) return [];
     return rangeFiltered.filter(a => {
@@ -77,33 +81,43 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
     });
   }, [drillMonth, rangeFiltered]);
 
-  // Stats for filtered range
   const rs = useMemo(() => ({
-    total:      rangeFiltered.length,
-    confirmed:  rangeFiltered.filter(a => a.status === 'Confirmed').length,
-    cancelled:  rangeFiltered.filter(a => a.status === 'Cancelled').length,
-    rescheduled:rangeFiltered.filter(a => a.status === 'Rescheduled').length,
-    pending:    rangeFiltered.filter(a => a.status === 'Pending').length,
-    newVisit:   rangeFiltered.filter(a => normVT(a.visitType) === 'New Visit').length,
-    followUp:   rangeFiltered.filter(a => normVT(a.visitType) === 'Follow-up').length,
-    uniquePts:  new Set(rangeFiltered.map(a => a.childName.toLowerCase().trim())).size,
+    total:       rangeFiltered.length,
+    confirmed:   rangeFiltered.filter(a => a.status === 'Confirmed').length,
+    cancelled:   rangeFiltered.filter(a => a.status === 'Cancelled').length,
+    rescheduled: rangeFiltered.filter(a => a.status === 'Rescheduled').length,
+    pending:     rangeFiltered.filter(a => a.status === 'Pending').length,
+    newVisit:    rangeFiltered.filter(a => normVT(a.visitType) === 'New Visit').length,
+    followUp:    rangeFiltered.filter(a => normVT(a.visitType) === 'Follow-up').length,
+    uniquePts:   new Set(rangeFiltered.map(a => a.childName.toLowerCase().trim())).size,
   }), [rangeFiltered]);
 
-  // Day-of-week chart
   const dowData = useMemo(() => {
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const counts = new Array(7).fill(0);
-    rangeFiltered.forEach(a => { if (!a.appointmentDate) return; const d = new Date(a.appointmentDate); if (!isNaN(d.getTime())) counts[d.getDay()]++; });
+    rangeFiltered.forEach(a => {
+      if (!a.appointmentDate) return;
+      const d = new Date(a.appointmentDate);
+      if (!isNaN(d.getTime())) counts[d.getDay()]++;
+    });
     return days.map((d, i) => ({ day: d, count: counts[i] }));
   }, [rangeFiltered]);
 
   const rateData = displayMonthly.map(m => ({
     month: m.month,
     rate:  m.total ? Math.round(m.confirmed / m.total * 100) : 0,
-    total: m.total,
   }));
 
-  // ── PDF export ──────────────────────────────────────────────────────────────
+  const handleExportCSV = () => {
+    exportToCSV(rangeFiltered, `mediplex_analytics_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success(`CSV exported — ${rs.total} records`);
+  };
+
+  const handleDrillExportCSV = () => {
+    exportToCSV(drillData, 'month_detail.csv');
+    toast.success('CSV exported');
+  };
+
   const exportPDF = () => {
     const period = rangeFrom && rangeTo ? `${rangeFrom} to ${rangeTo}` : rangeFrom || rangeTo || 'All Time';
     const rows = displayMonthly.map(m => {
@@ -131,11 +145,9 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
       td{padding:7px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}
       tr:nth-child(even) td{background:#f9fafb}
       .footer{margin-top:32px;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:12px}
-      @media print{body{margin:16px}}
     </style></head><body>
     <h1>MediPlex Pediatric Clinic — Analytics Report</h1>
     <div class="sub">Period: ${period} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString()}</div>
-
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-val">${rs.total}</div><div class="kpi-label">Total Appointments</div></div>
       <div class="kpi"><div class="kpi-val" style="color:#1a7f5e">${rs.confirmed}</div><div class="kpi-label">Confirmed</div></div>
@@ -146,24 +158,21 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
       <div class="kpi"><div class="kpi-val">${rs.total ? Math.round(rs.confirmed/rs.total*100) : 0}%</div><div class="kpi-label">Confirmation Rate</div></div>
       <div class="kpi"><div class="kpi-val">${rs.total ? Math.round(rs.cancelled/rs.total*100) : 0}%</div><div class="kpi-label">Cancellation Rate</div></div>
     </div>
-
     <div class="visit-grid">
-      <div class="visit-box" style="border-color:#1a7f5e22">
+      <div class="visit-box" style="border-color:#1a7f5e44">
         <div class="kpi-val" style="color:#1a7f5e">${rs.newVisit}</div>
-        <div class="kpi-label">New Visits &nbsp;(${rs.total ? Math.round(rs.newVisit/rs.total*100) : 0}%)</div>
+        <div class="kpi-label">New Visits (${rs.total ? Math.round(rs.newVisit/rs.total*100) : 0}%)</div>
       </div>
-      <div class="visit-box" style="border-color:#2b6cb022">
+      <div class="visit-box" style="border-color:#2b6cb044">
         <div class="kpi-val" style="color:#2b6cb0">${rs.followUp}</div>
-        <div class="kpi-label">Follow-ups &nbsp;(${rs.total ? Math.round(rs.followUp/rs.total*100) : 0}%)</div>
+        <div class="kpi-label">Follow-ups (${rs.total ? Math.round(rs.followUp/rs.total*100) : 0}%)</div>
       </div>
     </div>
-
     <h3 style="margin:0 0 8px;font-size:14px">Monthly Breakdown</h3>
     <table>
       <thead><tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Pending</th><th>Confirm %</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
-
     <div class="footer">MediPlex Pediatric Clinic &nbsp;·&nbsp; Confidential &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
     </body></html>`;
 
@@ -172,7 +181,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
     w.document.write(html);
     w.document.close();
     setTimeout(() => w.print(), 500);
-    toast.success('PDF ready — use browser Print dialog to save');
+    toast.success('PDF ready — use Print dialog to save as PDF');
   };
 
   const tabs = ['overview','monthly','patients','trends'] as const;
@@ -181,7 +190,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
   return (
     <div className="space-y-5">
 
-      {/* ── Period selector ───────────────────────────────────────────────── */}
+      {/* ── Period Selector ─────────────────────────────────────────────────── */}
       <div className="card p-5">
         <div className="flex flex-wrap gap-2 mb-4">
           {PRESETS.map(p => (
@@ -195,20 +204,22 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
             </button>
           ))}
         </div>
+
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">From</label>
-            <input type="date" value={rangeFrom} onChange={e => { setRangeFrom(e.target.value); setActivePreset(''); }}
+            <input type="date" value={rangeFrom}
+              onChange={e => { setRangeFrom(e.target.value); setActivePreset(''); }}
               className="border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
           </div>
           <div>
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">To</label>
-            <input type="date" value={rangeTo} onChange={e => { setRangeTo(e.target.value); setActivePreset(''); }}
+            <input type="date" value={rangeTo}
+              onChange={e => { setRangeTo(e.target.value); setActivePreset(''); }}
               className="border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
           </div>
           <div className="flex-1" />
-          <button onClick={() => exportToCSV(rangeFiltered, `mediplex_analytics_${new Date().toISOString().split('T')[0]}.csv`) || toast.success(`CSV exported — ${rs.total} records`)}
-            className="btn-outline gap-1.5 text-[12px] py-2 px-4">
+          <button onClick={handleExportCSV} className="btn-outline gap-1.5 text-[12px] py-2 px-4">
             <Download size={13} /> Export CSV
           </button>
           <button onClick={exportPDF} className="btn-gold gap-1.5 text-[12px] py-2 px-4">
@@ -216,17 +227,17 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
           </button>
         </div>
 
-        {/* Summary KPIs */}
+        {/* KPI summary bar */}
         <div className="mt-5 pt-5 border-t border-black/5 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
           {[
-            { label:'Total',       val:rs.total,      color:'#0a1628' },
-            { label:'Confirmed',   val:rs.confirmed,  color:GREEN },
-            { label:'Cancelled',   val:rs.cancelled,  color:RED },
-            { label:'Rescheduled', val:rs.rescheduled,color:AMBER },
-            { label:'Pending',     val:rs.pending,    color:BLUE },
-            { label:'Patients',    val:rs.uniquePts,  color:'#7c3aed' },
-            { label:'New Visits',  val:rs.newVisit,   color:GREEN },
-            { label:'Follow-ups',  val:rs.followUp,   color:BLUE },
+            { label:'Total',       val:rs.total,       color:'#0a1628' },
+            { label:'Confirmed',   val:rs.confirmed,   color:GREEN },
+            { label:'Cancelled',   val:rs.cancelled,   color:RED },
+            { label:'Rescheduled', val:rs.rescheduled, color:AMBER },
+            { label:'Pending',     val:rs.pending,     color:BLUE },
+            { label:'Patients',    val:rs.uniquePts,   color:'#7c3aed' },
+            { label:'New Visits',  val:rs.newVisit,    color:GREEN },
+            { label:'Follow-ups',  val:rs.followUp,    color:BLUE },
           ].map(s => (
             <div key={s.label} className="text-center">
               <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
@@ -240,13 +251,13 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
       <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
         {tabs.map(t => (
           <button key={t} onClick={() => { setActiveTab(t); setDrillMonth(null); }}
-            className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${activeTab===t ? 'bg-navy text-white' : 'text-gray-500 hover:text-navy'}`}>
+            className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${activeTab===t ? 'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
             {tabLabels[t]}
           </button>
         ))}
       </div>
 
-      {/* ── OVERVIEW ──────────────────────────────────────────────────────────── */}
+      {/* ── OVERVIEW ─────────────────────────────────────────────────────────── */}
       {activeTab === 'overview' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -267,6 +278,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                 </ResponsiveContainer>
               </div>
             </div>
+
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Confirmation Rate Trend</div>
               <div className="p-5" style={{ height:260 }}>
@@ -283,12 +295,11 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
             </div>
           </div>
 
-          {/* New Visit vs Follow-up */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">New Visit vs Follow-up</div>
               <div className="p-5">
-                <div className="grid grid-cols-2 gap-4 mb-5">
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   {[
                     { label:'New Visit', val:rs.newVisit, color:GREEN, bg:'#e8f7f2' },
                     { label:'Follow-up', val:rs.followUp, color:BLUE,  bg:'#ebf4ff' },
@@ -311,6 +322,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                 </div>
               </div>
             </div>
+
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Busiest Days of Week</div>
               <div className="p-5" style={{ height:210 }}>
@@ -320,7 +332,9 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                     <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={20} />
                     <Tooltip {...TT} />
                     <Bar dataKey="count" name="Appointments" radius={[4,4,0,0]}>
-                      {dowData.map((e, i) => <Cell key={i} fill={e.count === Math.max(...dowData.map(d => d.count)) ? GOLD : '#e8e4da'} />)}
+                      {dowData.map((e, i) => (
+                        <Cell key={i} fill={e.count === Math.max(...dowData.map(d => d.count)) ? GOLD : '#e8e4da'} />
+                      ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -334,18 +348,20 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
       {activeTab === 'monthly' && (
         <div className="space-y-5">
           {drillMonth ? (
-            // Drill-down view
             <div className="space-y-4 animate-in">
-              <button onClick={() => setDrillMonth(null)} className="flex items-center gap-2 text-[13px] text-gray-500 hover:text-navy transition-colors">
+              <button onClick={() => setDrillMonth(null)}
+                className="flex items-center gap-2 text-[13px] text-gray-500 hover:text-navy transition-colors">
                 <ChevronLeft size={15} /> Back to all months
               </button>
               <div className="card overflow-hidden">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
                   <div className="font-medium text-navy text-[14px]">
-                    {drillData[0] ? new Date(drillData[0].appointmentDate).toLocaleString('en-US',{month:'long',year:'numeric'}) : 'Month'} — {drillData.length} appointments
+                    Detail — {drillData.length} appointments
                   </div>
-                  <button onClick={() => exportToCSV(drillData, `month_detail.csv`) || toast.success('CSV exported')}
-                    className="btn-outline text-[11px] py-1.5 px-3 gap-1"><Download size={11} /> CSV</button>
+                  <button onClick={handleDrillExportCSV}
+                    className="btn-outline text-[11px] py-1.5 px-3 gap-1">
+                    <Download size={11} /> CSV
+                  </button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="data-table">
@@ -363,12 +379,15 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                           <td className="text-[12px] text-gray-600 max-w-[140px] truncate">{a.reason || '—'}</td>
                           <td>
                             <span className="text-[11px] px-2 py-0.5 rounded font-medium"
-                              style={{ background: normVT(a.visitType)==='Follow-up' ? '#ebf4ff':'#e8f7f2', color: normVT(a.visitType)==='Follow-up'?BLUE:GREEN }}>
+                              style={{
+                                background: normVT(a.visitType)==='Follow-up' ? '#ebf4ff':'#e8f7f2',
+                                color:      normVT(a.visitType)==='Follow-up' ? BLUE : GREEN,
+                              }}>
                               {normVT(a.visitType)}
                             </span>
                           </td>
                           <td>
-                            <span className={`pill pill-${a.status?.toLowerCase().replace('-','').replace(' ','-')}`}>{a.status}</span>
+                            <span className={`pill pill-${a.status?.toLowerCase().replace(/[\s-]/g,'')}`}>{a.status}</span>
                           </td>
                         </tr>
                       ))}
@@ -378,7 +397,6 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
               </div>
             </div>
           ) : (
-            // Monthly summary table
             <>
               <div className="card overflow-hidden animate-in">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
@@ -398,14 +416,10 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                         const cr = m.total ? Math.round(m.confirmed/m.total*100) : 0;
                         const xr = m.total ? Math.round(m.cancelled/m.total*100) : 0;
                         const mx = Math.max(...displayMonthly.map(x => x.total));
-                        const key = m.month; // e.g. "Apr 2026"
-                        const [mon, yr] = key.split(' ');
-                        const months: Record<string,string> = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
-                        const drillKey = `${yr}-${months[mon] || '01'}`;
                         return (
-                          <tr key={key} onClick={() => setDrillMonth(drillKey)}
+                          <tr key={m.month} onClick={() => setDrillMonth(monthKey(m.month))}
                             className="cursor-pointer hover:bg-amber-50/30 transition-colors">
-                            <td className="font-medium text-navy">{key}</td>
+                            <td className="font-medium text-navy">{m.month}</td>
                             <td><span className="font-semibold text-navy">{m.total}</span></td>
                             <td><span className="text-emerald-700 font-medium">{m.confirmed}</span></td>
                             <td><span className="text-red-600 font-medium">{m.cancelled}</span></td>
@@ -441,7 +455,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
               </div>
 
               <div className="card animate-in">
-                <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Status Trend Over Time</div>
+                <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Status Trend</div>
                 <div className="p-5" style={{ height:280 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={displayMonthly.map(m => ({ month:m.month, Confirmed:m.confirmed, Cancelled:m.cancelled, Rescheduled:m.rescheduled }))}>
@@ -497,14 +511,13 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
             </div>
           </div>
 
-          {/* Visit type — only 2 categories */}
           <div className="card animate-in">
             <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Visit Type Breakdown</div>
             <div className="p-6">
               <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
                 {[
-                  { label:'New Visit', val:rs.newVisit, color:GREEN, bg:'#e8f7f2', desc:'First-time or new concern visits' },
-                  { label:'Follow-up', val:rs.followUp, color:BLUE,  bg:'#ebf4ff', desc:'Return visits for existing cases' },
+                  { label:'New Visit', val:rs.newVisit, color:GREEN, bg:'#e8f7f2', desc:'First-time or new concern' },
+                  { label:'Follow-up', val:rs.followUp, color:BLUE,  bg:'#ebf4ff', desc:'Return visits' },
                 ].map(v => (
                   <div key={v.label} className="rounded-xl p-6 text-center" style={{ background:v.bg }}>
                     <div className="text-[42px] font-bold leading-none mb-2" style={{ color:v.color }}>{v.val}</div>
@@ -513,11 +526,10 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                     <div className="text-[18px] font-semibold" style={{ color:v.color }}>
                       {rs.total ? Math.round(v.val/rs.total*100) : 0}%
                     </div>
-                    <div className="text-[10px] text-gray-400">of all appointments</div>
                   </div>
                 ))}
               </div>
-              <div className="mt-6 flex rounded-full overflow-hidden h-4 max-w-md mx-auto">
+              <div className="mt-5 flex rounded-full overflow-hidden h-4 max-w-md mx-auto">
                 <div style={{ width:`${rs.total ? Math.round(rs.newVisit/rs.total*100) : 50}%`, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <span className="text-white text-[10px] font-semibold">{rs.total ? Math.round(rs.newVisit/rs.total*100) : 0}%</span>
                 </div>
@@ -525,14 +537,13 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                   <span className="text-white text-[10px] font-semibold">{rs.total ? Math.round(rs.followUp/rs.total*100) : 0}%</span>
                 </div>
               </div>
-              <div className="flex justify-between text-[11px] text-gray-400 mt-1.5 max-w-md mx-auto px-1">
+              <div className="flex justify-between text-[11px] mt-1.5 max-w-md mx-auto px-1">
                 <span style={{ color:GREEN }}>● New Visit</span>
                 <span style={{ color:BLUE }}>● Follow-up</span>
               </div>
             </div>
           </div>
 
-          {/* Top reasons list */}
           <div className="card animate-in">
             <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Visit Reasons Ranked</div>
             <div className="p-5 space-y-3">
@@ -560,10 +571,10 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
         <div className="space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
             {[
-              { label:'Avg / Month',       val: monthly.length ? Math.round(data.length/monthly.length) : 0,   color:GOLD },
-              { label:'Peak Month',        val: [...monthly].sort((a,b)=>b.total-a.total)[0]?.month || '—',    color:GREEN },
-              { label:'Best Confirm Rate', val: monthly.length ? `${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%` : '—', color:BLUE },
-              { label:'Total Patients',    val: new Set(data.map(a=>a.childName.toLowerCase())).size,          color:'#7c3aed' },
+              { label:'Avg / Month',       val: monthly.length ? Math.round(data.length/monthly.length) : 0,                                                   color:GOLD },
+              { label:'Peak Month',        val: [...monthly].sort((a,b)=>b.total-a.total)[0]?.month || '—',                                                    color:GREEN },
+              { label:'Best Confirm Rate', val: monthly.length ? `${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%` : '—',       color:BLUE },
+              { label:'Unique Patients',   val: new Set(data.map(a=>a.childName.toLowerCase())).size,                                                          color:'#7c3aed' },
             ].map(s => (
               <div key={s.label} className="kpi-card animate-in">
                 <div className="text-[10px] tracking-widest uppercase text-gray-400 font-medium mb-2">{s.label}</div>
@@ -582,8 +593,8 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                   <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={30} />
                   <Tooltip {...TT} />
                   <Legend wrapperStyle={{ fontSize:11 }} />
-                  <Area type="monotone" dataKey="cumulative" name="Cumulative Total" stroke={GOLD}  fill="rgba(201,168,76,0.1)"  strokeWidth={2} />
-                  <Area type="monotone" dataKey="total"      name="Monthly New"      stroke={BLUE}  fill="rgba(43,108,176,0.08)" strokeWidth={1.5} />
+                  <Area type="monotone" dataKey="cumulative" name="Cumulative Total" stroke={GOLD} fill="rgba(201,168,76,0.1)"  strokeWidth={2} />
+                  <Area type="monotone" dataKey="total"      name="Monthly New"      stroke={BLUE} fill="rgba(43,108,176,0.08)" strokeWidth={1.5} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -594,15 +605,15 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
             <div className="p-5" style={{ height:260 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={displayMonthly.map(m => {
-                  const monthData = rangeFiltered.filter(a => {
+                  const mk = monthKey(m.month);
+                  const md = rangeFiltered.filter(a => {
                     const d = new Date(a.appointmentDate);
-                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` ===
-                      (() => { const [mon,yr] = m.month.split(' '); const months: Record<string,string>={Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'}; return `${yr}-${months[mon]||'01'}`; })();
+                    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk;
                   });
                   return {
-                    month: m.month,
-                    'New Visit': monthData.filter(a => normVT(a.visitType)==='New Visit').length,
-                    'Follow-up': monthData.filter(a => normVT(a.visitType)==='Follow-up').length,
+                    month:      m.month,
+                    'New Visit': md.filter(a => normVT(a.visitType)==='New Visit').length,
+                    'Follow-up': md.filter(a => normVT(a.visitType)==='Follow-up').length,
                   };
                 })}>
                   <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
