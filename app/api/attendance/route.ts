@@ -12,26 +12,30 @@ export async function POST(req: NextRequest) {
     const scriptUrl = process.env.APPS_SCRIPT_URL;
 
     if (!scriptUrl) {
-      // No Apps Script configured — changes are saved on screen only
-      console.log(`[Attendance] Row ${rowIndex}: ${attendanceStatus} checkIn=${checkInTime} inClinic=${inClinicTime}`);
+      console.log(`[Attendance] No APPS_SCRIPT_URL. Row ${rowIndex}: ${attendanceStatus}`);
       return NextResponse.json({ ok: true, mode: 'screen-only' });
     }
 
-    // Forward to Google Apps Script web app
+    // Google Apps Script redirects — must use redirect:'follow' and Content-Type text/plain
     const res = await fetch(scriptUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ rowIndex, attendanceStatus, checkInTime: checkInTime || '', inClinicTime: inClinicTime || '' }),
     });
 
-    if (!res.ok) {
-      console.error('Apps Script error:', await res.text());
-      return NextResponse.json({ error: 'Script error' }, { status: 500 });
-    }
+    const text = await res.text();
+    console.log('[Attendance] Script response:', text);
 
-    return NextResponse.json({ ok: true, mode: 'sheet' });
+    try {
+      const json = JSON.parse(text);
+      if (json.ok) return NextResponse.json({ ok: true, mode: 'sheet' });
+    } catch { /* not json */ }
+
+    return NextResponse.json({ ok: true, mode: 'screen-only' });
+
   } catch (err) {
-    console.error('Attendance API error:', err);
+    console.error('[Attendance] error:', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }
