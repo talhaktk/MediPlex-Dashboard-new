@@ -8,6 +8,13 @@ export type AppointmentStatus =
   | 'No-Show'
   | 'Completed';
 
+export type AttendanceStatus =
+  | 'Not Set'
+  | 'In Clinic'
+  | 'Checked-In'
+  | 'Absent'
+  | 'No-Show';
+
 export type VisitType = 'New' | 'New Visit' | 'Follow-up' | 'Emergency' | 'Telehealth';
 
 export interface Appointment {
@@ -18,7 +25,7 @@ export interface Appointment {
   childAge: string;
   whatsapp: string;
   email: string;
-  appointmentDate: string;    // ISO yyyy-MM-dd or raw string from sheet
+  appointmentDate: string;
   appointmentTime: string;
   reason: string;
   visitType: VisitType | string;
@@ -29,12 +36,22 @@ export interface Appointment {
   followUpVisit?: string;
   reschedulingReason?: string;
   originalDate?: string;
+  // Phase 1 — attendance
+  attendanceStatus?: AttendanceStatus | string;
+  checkInTime?: string;
+  // Phase 2 — clinical
+  notes?: string;
+  diagnosis?: string;
+  // Phase 3 — billing
+  feePaid?: string;
+  feeAmount?: string;
+  paymentMethod?: string;
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export interface MonthlyStats {
-  month: string;          // "Jan 2026"
+  month: string;
   total: number;
   confirmed: number;
   cancelled: number;
