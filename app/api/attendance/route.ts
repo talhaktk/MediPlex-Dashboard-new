@@ -106,7 +106,8 @@ async function getServiceAccountToken(credentials: Record<string, string>, scope
     new TextEncoder().encode(signingInput)
   );
 
-  const jwt = `${signingInput}.${btoa(String.fromCharCode(...new Uint8Array(signature)))}`;
+  const signatureBytes = new Uint8Array(signature);
+const jwt = `${signingInput}.${btoa(Array.from(signatureBytes, b => String.fromCharCode(b)).join(''))}`;
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
