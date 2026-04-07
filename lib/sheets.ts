@@ -50,6 +50,9 @@ function parseCSV(csv: string): Appointment[] {
       followUpVisit: clean(cols[14]),
       reschedulingReason: clean(cols[15]),
       originalDate: normalizeDate(clean(cols[16])),
+      attendanceStatus: clean(cols[17]) || '',
+      checkInTime:      clean(cols[18]) || '',
+      inClinicTime:     clean(cols[19]) || '',
     };
     appointments.push(raw);
   });

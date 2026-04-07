@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -19,13 +19,47 @@ const OPTIONS = [
   { value: 'No-Show',    color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 ];
 
+const LS_KEY = 'mediplex_attendance';
+
+function readLS(): Record<string, { attendanceStatus: string; checkInTime: string; inClinicTime: string }> {
+  if (typeof window === 'undefined') return {};
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+}
+
+function writeLS(id: string, data: { attendanceStatus: string; checkInTime: string; inClinicTime: string }) {
+  if (typeof window === 'undefined') return;
+  const all = readLS();
+  all[id] = data;
+  localStorage.setItem(LS_KEY, JSON.stringify(all));
+}
+
 export default function AttendanceDropdown({
   appointmentId, rowIndex, initial, initialCheckInTime, initialInClinicTime
 }: Props) {
-  const [value, setValue]           = useState(initial || 'Not Set');
-  const [checkInTime, setCheckInTime]   = useState(initialCheckInTime || '');
-  const [inClinicTime, setInClinicTime] = useState(initialInClinicTime || '');
-  const [loading, setLoading]       = useState(false);
+  // Resolve initial value: prefer localStorage > sheet value > 'Not Set'
+  const [value, setValue]             = useState(() => {
+    const ls = readLS()[appointmentId];
+    return ls?.attendanceStatus || initial || 'Not Set';
+  });
+  const [checkInTime, setCheckInTime] = useState(() => {
+    const ls = readLS()[appointmentId];
+    return ls?.checkInTime || initialCheckInTime || '';
+  });
+  const [inClinicTime, setInClinicTime] = useState(() => {
+    const ls = readLS()[appointmentId];
+    return ls?.inClinicTime || initialInClinicTime || '';
+  });
+  const [loading, setLoading] = useState(false);
+
+  // Sync from sheet data if sheet has newer value (sheet has data but LS doesn't)
+  useEffect(() => {
+    const ls = readLS()[appointmentId];
+    if (!ls && initial && initial !== 'Not Set') {
+      setValue(initial);
+      if (initialCheckInTime)  setCheckInTime(initialCheckInTime);
+      if (initialInClinicTime) setInClinicTime(initialInClinicTime);
+    }
+  }, [appointmentId, initial, initialCheckInTime, initialInClinicTime]);
 
   const current = OPTIONS.find(o => o.value === value) ?? OPTIONS[0];
   const now = () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -50,6 +84,9 @@ export default function AttendanceDropdown({
 
     setValue(newVal);
 
+    // Save to localStorage immediately so it persists across page reloads
+    writeLS(appointmentId, { attendanceStatus: newVal, checkInTime: newCheckIn, inClinicTime: newInClinic });
+
     try {
       const res = await fetch('/api/attendance', {
         method: 'POST',
@@ -60,7 +97,8 @@ export default function AttendanceDropdown({
       toast.success(`Marked as ${newVal}`);
     } catch {
       setValue(prev);
-      toast.error('Saved on screen — set up Apps Script to sync to sheet');
+      writeLS(appointmentId, { attendanceStatus: prev, checkInTime, inClinicTime });
+      toast.error('Could not sync to sheet — check Apps Script setup');
     } finally {
       setLoading(false);
     }
@@ -87,7 +125,7 @@ export default function AttendanceDropdown({
         <span style={{ position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', pointerEvents:'none', color:current.color, fontSize:8 }}>▼</span>
       </div>
       {checkInTime  && <div style={{ fontSize:10, color:'#0369a1', paddingLeft:2 }}>✓ In {checkInTime}</div>}
-      {inClinicTime && <div style={{ fontSize:10, color:'#166534', paddingLeft:2 }}>🩺 Clinic {inClinicTime}</div>}
+      {inClinicTime && <div style={{ fontSize:10, color:'#166534', paddingLeft:2 }}>🩺 {inClinicTime}</div>}
     </div>
   );
 }

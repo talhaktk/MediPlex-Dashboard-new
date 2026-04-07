@@ -280,11 +280,12 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
         <div className="mt-5 pt-5 border-t border-black/5">
           {/* Row 1: Appointment Status */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Appointment Status</div>
-          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-4 gap-3 mb-4">
             {[
               { label:'Total',       val:rs.total,       color:'#0a1628' },
               { label:'Confirmed',   val:rs.confirmed,   color:GREEN },
               { label:'Cancelled',   val:rs.cancelled,   color:RED },
+              { label:'Rescheduled', val:rs.rescheduled, color:AMBER },
             ].map(s => (
               <div key={s.label} className="text-center">
                 <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
@@ -294,11 +295,10 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
           </div>
           {/* Row 2: Visit Type */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Visit Type</div>
-          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             {[
-              { label:'Rescheduled', val:rs.rescheduled, color:AMBER },
-              { label:'New Visits',  val:rs.newVisit,    color:GREEN },
-              { label:'Follow-ups',  val:rs.followUp,    color:BLUE },
+              { label:'New Visits',  val:rs.newVisit, color:GREEN },
+              { label:'Follow-ups',  val:rs.followUp, color:BLUE },
             ].map(s => (
               <div key={s.label} className="text-center">
                 <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>

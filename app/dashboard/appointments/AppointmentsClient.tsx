@@ -24,8 +24,13 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
   const [showFilters, setShowFilters] = useState(false);
   const [selected,   setSelected]   = useState<string[]>([]);
 
-  // optimistic local attendance state: { [id]: { attendanceStatus, checkInTime, inClinicTime } }
-  const [localAttendance, setLocalAttendance] = useState<Record<string, { attendanceStatus: string; checkInTime: string; inClinicTime: string }>>({});
+  const [sortAtt, setSortAtt] = useState<'asc'|'desc'|null>(null);
+
+  // Load persisted attendance from localStorage on mount
+  const [localAttendance, setLocalAttendance] = useState<Record<string, { attendanceStatus: string; checkInTime: string; inClinicTime: string }>>(() => {
+    if (typeof window === 'undefined') return {};
+    try { return JSON.parse(localStorage.getItem('mediplex_attendance') || '{}'); } catch { return {}; }
+  });
 
   const getAttendance = (a: Appointment) => localAttendance[a.id] ?? {
     attendanceStatus: a.attendanceStatus || 'Not Set',
@@ -37,6 +42,14 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     let result = filterAppointments(data, { status, visitType, search, dateFrom, dateTo });
     if (attendance !== 'all') {
       result = result.filter(a => getAttendance(a).attendanceStatus === attendance);
+    }
+    if (sortAtt) {
+      const order = ['Not Set','Checked-In','In Clinic','Absent','No-Show'];
+      result = [...result].sort((a, b) => {
+        const ai = order.indexOf(getAttendance(a).attendanceStatus || 'Not Set');
+        const bi = order.indexOf(getAttendance(b).attendanceStatus || 'Not Set');
+        return sortAtt === 'asc' ? ai - bi : bi - ai;
+      });
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,7 +213,10 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                 <th>Reason</th>
                 <th>Visit</th>
                 <th>Status</th>
-                <th style={{ minWidth: 130 }}>Attendance</th>
+                <th style={{ minWidth: 130, cursor:'pointer', userSelect:'none' }}
+                  onClick={() => setSortAtt(s => s === 'asc' ? 'desc' : s === 'desc' ? null : 'asc')}>
+                  Attendance {sortAtt === 'asc' ? '↑' : sortAtt === 'desc' ? '↓' : '↕'}
+                </th>
               </tr>
             </thead>
             <tbody>
