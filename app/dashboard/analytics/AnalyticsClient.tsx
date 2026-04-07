@@ -503,13 +503,25 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                 <div className="overflow-x-auto">
                   <table className="data-table">
                     <thead>
-                      <tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Confirm %</th><th>Cancel %</th><th>Volume</th></tr>
+                      <tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>In Clinic</th><th>Absent / No-Show</th></tr>
                     </thead>
                     <tbody>
                       {displayMonthly.map(m => {
-                        const cr = m.total ? Math.round(m.confirmed/m.total*100) : 0;
-                        const xr = m.total ? Math.round(m.cancelled/m.total*100) : 0;
-                        const mx = Math.max(...displayMonthly.map(x => x.total));
+                        const mk = monthKey(m.month);
+                        const monthData = rangeFiltered.filter(a => {
+                          const d = new Date(a.appointmentDate);
+                          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk;
+                        });
+                        const mInClinic = monthData.filter(a => (a.attendanceStatus || '') === 'In Clinic').length;
+                        const mAbsent   = monthData.filter(a => ['Absent','No-Show'].includes(a.attendanceStatus || '')).length;
+                        const mxInClinic = Math.max(1, ...displayMonthly.map(x => {
+                          const xmk = monthKey(x.month);
+                          return rangeFiltered.filter(a => {
+                            const d = new Date(a.appointmentDate);
+                            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === xmk
+                              && (a.attendanceStatus || '') === 'In Clinic';
+                          }).length;
+                        }));
                         return (
                           <tr key={m.month} onClick={() => setDrillMonth(monthKey(m.month))}
                             className="cursor-pointer hover:bg-amber-50/30 transition-colors">
@@ -521,22 +533,17 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                             <td>
                               <div className="flex items-center gap-2">
                                 <div className="w-14 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                  <div className="h-full rounded-full bg-emerald-500" style={{ width:`${cr}%` }} />
+                                  <div className="h-full rounded-full bg-emerald-500" style={{ width:`${Math.round(mInClinic/mxInClinic*100)}%` }} />
                                 </div>
-                                <span className="text-[11px] text-gray-600">{cr}%</span>
+                                <span className="text-[11px] text-emerald-700 font-medium">{mInClinic}</span>
                               </div>
                             </td>
                             <td>
                               <div className="flex items-center gap-2">
                                 <div className="w-14 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                  <div className="h-full rounded-full bg-red-400" style={{ width:`${xr}%` }} />
+                                  <div className="h-full rounded-full bg-red-400" style={{ width:`${m.total ? Math.round(mAbsent/m.total*100) : 0}%` }} />
                                 </div>
-                                <span className="text-[11px] text-gray-600">{xr}%</span>
-                              </div>
-                            </td>
-                            <td>
-                              <div className="w-20 h-2 rounded-full bg-gray-100 overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width:`${mx?Math.round(m.total/mx*100):0}%`, background:'linear-gradient(90deg,#c9a84c,#e8c87a)' }} />
+                                <span className="text-[11px] text-red-600 font-medium">{mAbsent}</span>
                               </div>
                             </td>
                           </tr>

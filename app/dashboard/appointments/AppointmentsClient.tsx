@@ -25,6 +25,17 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
   const [selected,   setSelected]   = useState<string[]>([]);
 
   const [sortAtt, setSortAtt] = useState<'asc'|'desc'|null>(null);
+  const [sortBy,  setSortBy]  = useState<'date'|'name'|null>(null);
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
+
+  const toggleSort = (col: 'date'|'name') => {
+    if (sortBy === col) {
+      if (sortDir === 'asc') setSortDir('desc');
+      else { setSortBy(null); }
+    } else {
+      setSortBy(col); setSortDir('asc'); setSortAtt(null);
+    }
+  };
 
   // Load persisted attendance from localStorage on mount
   const [localAttendance, setLocalAttendance] = useState<Record<string, { attendanceStatus: string; checkInTime: string; inClinicTime: string }>>(() => {
@@ -43,7 +54,19 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     if (attendance !== 'all') {
       result = result.filter(a => getAttendance(a).attendanceStatus === attendance);
     }
-    if (sortAtt) {
+    if (sortBy === 'date') {
+      result = [...result].sort((a, b) => {
+        const da = `${a.appointmentDate} ${a.appointmentTime || ''}`.trim();
+        const db = `${b.appointmentDate} ${b.appointmentTime || ''}`.trim();
+        return sortDir === 'asc' ? da.localeCompare(db) : db.localeCompare(da);
+      });
+    } else if (sortBy === 'name') {
+      result = [...result].sort((a, b) =>
+        sortDir === 'asc'
+          ? a.childName.localeCompare(b.childName)
+          : b.childName.localeCompare(a.childName)
+      );
+    }
       const order = ['Not Set','Checked-In','In Clinic','Absent','No-Show'];
       result = [...result].sort((a, b) => {
         const ai = order.indexOf(getAttendance(a).attendanceStatus || 'Not Set');
@@ -53,7 +76,7 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, status, visitType, search, dateFrom, dateTo, attendance, localAttendance]);
+  }, [data, status, visitType, search, dateFrom, dateTo, attendance, localAttendance, sortAtt, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -205,10 +228,14 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                     checked={selected.length === filtered.length && filtered.length > 0} />
                 </th>
                 <th>#</th>
-                <th>Patient</th>
+                <th style={{ cursor:'pointer', userSelect:'none' }} onClick={() => toggleSort('name')}>
+                  Patient {sortBy==='name' ? (sortDir==='asc'?'↑':'↓') : '↕'}
+                </th>
                 <th>Age</th>
                 <th>Contact</th>
-                <th>Appointment</th>
+                <th style={{ cursor:'pointer', userSelect:'none' }} onClick={() => toggleSort('date')}>
+                  Appointment {sortBy==='date' ? (sortDir==='asc'?'↑':'↓') : '↕'}
+                </th>
                 <th>Time</th>
                 <th>Reason</th>
                 <th>Visit</th>
