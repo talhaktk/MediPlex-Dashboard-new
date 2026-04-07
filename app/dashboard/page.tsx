@@ -5,7 +5,7 @@ import StatusPill from '@/components/ui/StatusPill';
 import OverviewCharts from './OverviewCharts';
 import {
   CalendarDays, CheckCircle, XCircle, RefreshCw,
-  Clock, TrendingUp, Users, Activity
+  TrendingUp, Users, Activity
 } from 'lucide-react';
 
 export const revalidate = 60; // refresh every 60 seconds
@@ -59,9 +59,7 @@ export default async function DashboardPage() {
             sub={`${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})}`}
             icon={Activity} iconColor="#7c3aed" delay={0} />
           <StatCard label="Upcoming (7d)" value={stats.upcomingCount}
-            sub="Confirmed + Pending" icon={TrendingUp} iconColor="#0369a1" delay={50} />
-          <StatCard label="Pending Review" value={stats.pending}
-            sub="Awaiting confirmation" icon={Clock} iconColor="#b45309" delay={100} />
+            sub="Confirmed + Rescheduled" icon={TrendingUp} iconColor="#0369a1" delay={50} />
           <StatCard label="Total Patients" value={new Set(data.map(a=>a.childName.toLowerCase())).size}
             sub="Unique child records" icon={Users} iconColor="#c9a84c" delay={150} />
         </div>
