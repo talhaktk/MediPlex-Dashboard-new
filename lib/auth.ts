@@ -33,14 +33,17 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: Record<string, unknown>; user?: Record<string, unknown> }) {
-      if (user) { token.role = user.role; token.initials = user.initials; }
+    async jwt({ token, user }) {
+      if (user) {
+        token.role     = (user as { role?: string }).role;
+        token.initials = (user as { initials?: string }).initials;
+      }
       return token;
     },
-    async session({ session, token }: { session: Record<string, unknown>; token: Record<string, unknown> }) {
+    async session({ session, token }) {
       if (session.user) {
-        (session.user as Record<string, unknown>).role     = token.role;
-        (session.user as Record<string, unknown>).initials = token.initials;
+        (session.user as { role?: unknown; initials?: unknown }).role     = token.role;
+        (session.user as { role?: unknown; initials?: unknown }).initials = token.initials;
       }
       return session;
     },
