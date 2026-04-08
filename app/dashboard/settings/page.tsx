@@ -195,8 +195,8 @@ export default function SettingsPage() {
                       <div key={f.key}>
                         <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.label}</label>
                         <input type={f.type} placeholder={f.placeholder}
-                          value={(form as Record<string, string>)[f.key]}
-                          onChange={e => {
+value={String((form as Record<string, unknown>)[f.key] ?? '')}
+onChange={e => {
                             const val = e.target.value;
                             setForm(prev => ({
                               ...prev,
