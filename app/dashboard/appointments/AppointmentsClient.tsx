@@ -56,9 +56,28 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     }
     if (sortBy === 'date') {
       result = [...result].sort((a, b) => {
-        const da = `${a.appointmentDate} ${a.appointmentTime || ''}`.trim();
-        const db = `${b.appointmentDate} ${b.appointmentTime || ''}`.trim();
-        return sortDir === 'asc' ? da.localeCompare(db) : db.localeCompare(da);
+        // Convert "9:15 AM" → minutes since midnight for proper numeric sort
+        const toMins = (t: string) => {
+          if (!t) return 0;
+          const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
+          if (!m) return 0;
+          let h = parseInt(m[1]);
+          const min = parseInt(m[2]);
+          const pm = m[3].toUpperCase() === 'PM';
+          if (pm && h !== 12) h += 12;
+          if (!pm && h === 12) h = 0;
+          return h * 60 + min;
+        };
+        const dateA = a.appointmentDate || '';
+        const dateB = b.appointmentDate || '';
+        if (dateA !== dateB) {
+          return sortDir === 'asc'
+            ? dateA.localeCompare(dateB)
+            : dateB.localeCompare(dateA);
+        }
+        // Same date — sort by time numerically
+        const diff = toMins(a.appointmentTime) - toMins(b.appointmentTime);
+        return sortDir === 'asc' ? diff : -diff;
       });
     } else if (sortBy === 'name') {
       result = [...result].sort((a, b) =>
