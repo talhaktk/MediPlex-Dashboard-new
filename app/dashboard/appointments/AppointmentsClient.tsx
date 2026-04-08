@@ -67,6 +67,7 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
           : b.childName.localeCompare(a.childName)
       );
     }
+    if (sortAtt) {
       const order = ['Not Set','Checked-In','In Clinic','Absent','No-Show'];
       result = [...result].sort((a, b) => {
         const ai = order.indexOf(getAttendance(a).attendanceStatus || 'Not Set');
