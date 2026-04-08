@@ -35,8 +35,8 @@ export default function Sidebar() {
   const { data: session } = useSession();
 
   const user     = session?.user as { name?: string; email?: string; role?: string; initials?: string } | undefined;
-  const role     = user?.role || 'doctor';
-  const initials = user?.initials || user?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR';
+  const role     = (user?.role || 'admin') as string; // default admin so nav always shows
+  const initials = user?.initials || user?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2) || 'DR';
   const name     = user?.name || 'Dr. Talha';
 
   const handleSignOut = async () => {
