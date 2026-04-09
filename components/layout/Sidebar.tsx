@@ -1,16 +1,20 @@
 'use client';
+
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt } from 'lucide-react';
+
 const NAV = [
   { label:'Overview',     href:'/dashboard',              icon:LayoutDashboard },
   { label:'Appointments', href:'/dashboard/appointments', icon:CalendarDays    },
   { label:'Patients',     href:'/dashboard/patients',     icon:Users           },
+  { label:'Billing',      href:'/dashboard/billing',      icon:Receipt         },
   { label:'Analytics',    href:'/dashboard/analytics',    icon:BarChart3       },
   { label:'Calendar',     href:'/dashboard/calendar',     icon:Calendar        },
   { label:'Settings',     href:'/dashboard/settings',     icon:Settings        },
 ];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -18,7 +22,7 @@ export default function Sidebar() {
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
   const name = user?.name ?? 'Dr. Talha';
   const role = user?.role ?? 'admin';
-  const initials = user?.initials ?? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0,2);
+  const initials = user?.initials ?? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const roleLabel = role === 'admin' ? 'Admin' : role === 'doctor' ? 'Doctor' : role === 'receptionist' ? 'Receptionist' : 'Staff';
   const roleColor = role === 'admin' ? '#c9a84c' : role === 'doctor' ? '#1a7f5e' : '#2b6cb0';
   const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/login'); };
@@ -38,7 +42,7 @@ export default function Sidebar() {
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-navy font-semibold text-sm flex-shrink-0" style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)' }}>{initials}</div>
           <div className="min-w-0">
             <div className="text-white text-[13px] font-medium truncate">{name}</div>
-            <div className="text-[10px] truncate" style={{ color: roleColor }}>{roleLabel}</div>
+            <div className="text-[10px] truncate" style={{ color:roleColor }}>{roleLabel}</div>
           </div>
         </div>
       </div>
