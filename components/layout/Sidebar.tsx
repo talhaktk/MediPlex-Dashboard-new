@@ -3,17 +3,18 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText } from 'lucide-react';
 
 const NAV = [
-  { label:'Overview',     href:'/dashboard',              icon:LayoutDashboard },
-  { label:'Appointments', href:'/dashboard/appointments', icon:CalendarDays    },
-  { label:'Patients',     href:'/dashboard/patients',     icon:Users           },
-  { label:'Billing',      href:'/dashboard/billing',      icon:Receipt         },
-  { label:'Reminders',    href:'/dashboard/reminders',    icon:MessageCircle   },
-  { label:'Analytics',    href:'/dashboard/analytics',    icon:BarChart3       },
-  { label:'Calendar',     href:'/dashboard/calendar',     icon:Calendar        },
-  { label:'Settings',     href:'/dashboard/settings',     icon:Settings        },
+  { label:'Overview',      href:'/dashboard',               icon:LayoutDashboard },
+  { label:'Appointments',  href:'/dashboard/appointments',  icon:CalendarDays    },
+  { label:'Patients',      href:'/dashboard/patients',      icon:Users           },
+  { label:'Prescription',  href:'/dashboard/prescription',  icon:FileText        },
+  { label:'Billing',       href:'/dashboard/billing',       icon:Receipt         },
+  { label:'Reminders',     href:'/dashboard/reminders',     icon:MessageCircle   },
+  { label:'Analytics',     href:'/dashboard/analytics',     icon:BarChart3       },
+  { label:'Calendar',      href:'/dashboard/calendar',      icon:Calendar        },
+  { label:'Settings',      href:'/dashboard/settings',      icon:Settings        },
 ];
 
 export default function Sidebar() {
