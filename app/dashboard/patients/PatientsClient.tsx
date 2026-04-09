@@ -351,8 +351,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                         <div key={f.key}>
                           <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.label}</label>
                           <textarea rows={f.key==='notes'?4:2} placeholder={f.placeholder}
-                            value={(draftHealth as Record<string,string>)[f.key]}
-                            onChange={e => setDraftHealth(prev => ({...prev, [f.key]: e.target.value}))}
+value={String((draftHealth as Record<string,unknown>)[f.key] ?? '')}
+onChange={e => setDraftHealth(prev => ({...prev, [f.key]: e.target.value}))}
                             className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none" />
                         </div>
                       ))}
