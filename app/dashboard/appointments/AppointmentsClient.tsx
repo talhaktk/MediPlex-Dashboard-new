@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { filterAppointments, exportToCSV, formatUSDate } from '@/lib/sheets';
 import StatusPill from '@/components/ui/StatusPill';
 import AttendanceDropdown from '@/components/ui/AttendanceDropdown';
-import { Search, Download, Filter, ChevronLeft, ChevronRight, X, CalendarCheck, UserCheck, Stethoscope, XCircle } from 'lucide-react';
+import CheckInFlow from '@/components/ui/CheckInFlow';
+import { Search, Download, Filter, ChevronLeft, ChevronRight, X, CalendarCheck, UserCheck, Stethoscope, XCircle, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { getAttendanceAll, AttendanceRecord } from '@/lib/store';
 
 const STATUSES    = ['all','Confirmed','Cancelled','Rescheduled','Pending','No-Show','Completed'];
 const VISIT_TYPES = ['all','New','New Visit','Follow-up','Emergency','Telehealth'];
@@ -28,6 +30,15 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
   const [sortBy,  setSortBy]  = useState<'date'|'name'|null>(null);
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
 
+  // Use central store for attendance
+  const [storeAtt, setStoreAtt] = useState<Record<string, AttendanceRecord>>({});
+  const [patientRecordApt, setPatientRecordApt] = useState<Appointment | null>(null);
+
+  useEffect(() => { setStoreAtt(getAttendanceAll()); }, []);
+
+  // Refresh store attendance after check-in flow completes
+  const refreshAttendance = () => setStoreAtt(getAttendanceAll());
+
   const toggleSort = (col: 'date'|'name') => {
     if (sortBy === col) {
       if (sortDir === 'asc') setSortDir('desc');
@@ -37,13 +48,8 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     }
   };
 
-  // Load persisted attendance from localStorage on mount
-  const [localAttendance, setLocalAttendance] = useState<Record<string, { attendanceStatus: string; checkInTime: string; inClinicTime: string }>>(() => {
-    if (typeof window === 'undefined') return {};
-    try { return JSON.parse(localStorage.getItem('mediplex_attendance') || '{}'); } catch { return {}; }
-  });
 
-  const getAttendance = (a: Appointment) => localAttendance[a.id] ?? {
+  const getAttendance = (a: Appointment) => storeAtt[a.id] ?? {
     attendanceStatus: a.attendanceStatus || 'Not Set',
     checkInTime:  a.checkInTime  || '',
     inClinicTime: a.inClinicTime || '',
@@ -96,7 +102,7 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     }
     return result;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, status, visitType, search, dateFrom, dateTo, attendance, localAttendance, sortAtt, sortBy, sortDir]);
+  }, [data, status, visitType, search, dateFrom, dateTo, attendance, sortAtt, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -337,15 +343,20 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                       )}
                     </td>
 
-                    {/* Attendance dropdown with times */}
+                    {/* Attendance dropdown — triggers invoice+vitals flow on check-in */}
                     <td>
-                      <AttendanceDropdown
-                        appointmentId={a.id}
-                        rowIndex={dataRowIndex}
-                        initial={att.attendanceStatus}
-                        initialCheckInTime={att.checkInTime}
-                        initialInClinicTime={att.inClinicTime}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <AttendanceDropdown
+                          appointment={a}
+                          rowIndex={dataRowIndex}
+                        />
+                        <button
+                          onClick={() => setPatientRecordApt(a)}
+                          title="Open patient record"
+                          className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-amber-50 transition-colors flex-shrink-0">
+                          <FileText size={12} className="text-gray-500"/>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -378,6 +389,14 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
           </div>
         </div>
       </div>
+      {/* Patient Record Quick Modal */}
+      {patientRecordApt && (
+        <CheckInFlow
+          appointment={patientRecordApt}
+          onComplete={() => { setPatientRecordApt(null); refreshAttendance(); }}
+          onCancel={() => setPatientRecordApt(null)}
+        />
+      )}
     </div>
   );
 }
