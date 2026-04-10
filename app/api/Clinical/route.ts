@@ -1,183 +1,125 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// ── NLM RxNorm Base URLs (completely free, no API key needed) ─────────────────
-const RXNAV  = 'https://rxnav.nlm.nih.gov/REST';
+const RXNAV   = 'https://rxnav.nlm.nih.gov/REST';
 const OPENFDA = 'https://api.fda.gov/drug';
 
-// ── Helper: fetch with timeout ────────────────────────────────────────────────
-async function fetchWithTimeout(url: string, ms = 8000): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
+async function fetchSafe(url: string) {
   try {
-    const res = await fetch(url, { signal: controller.signal, next: { revalidate: 3600 } });
-    return res;
-  } finally {
-    clearTimeout(timer);
-  }
+    const res = await fetch(url, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
 }
-
-// ── GET /api/clinical?action=lookup&name=ibuprofen ───────────────────────────
-// GET /api/clinical?action=interact&rxcuis=5640,1049562
-// GET /api/clinical?action=openfda&name=ibuprofen
-// GET /api/clinical?action=dosing&name=amoxicillin
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get('action');
 
-  try {
-    // ── 1. Drug name → RxCUI lookup ──────────────────────────────────────────
-    if (action === 'lookup') {
-      const name = searchParams.get('name') || '';
-      if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
+  // 1. Drug name search - NLM RxNorm
+  if (action === 'lookup') {
+    const name = searchParams.get('name') || '';
+    const data = await fetchSafe(`${RXNAV}/approximateTerm.json?term=${encodeURIComponent(name)}&maxEntries=8`);
+    const candidates = data?.approximateGroup?.candidate || [];
+    const results = candidates
+      .filter((c: { score: string }) => parseInt(c.score) > 40)
+      .map((c: { rxcui: string; name: string }) => ({ rxcui: c.rxcui, name: c.name }))
+      .slice(0, 8);
+    return NextResponse.json({ results });
+  }
 
-      // Approximate match first
-      const url = `${RXNAV}/approximateTerm.json?term=${encodeURIComponent(name)}&maxEntries=6`;
-      const res = await fetchWithTimeout(url);
-      if (!res.ok) throw new Error('RxNav lookup failed');
-      const data = await res.json();
+  // 2. Drug interactions - NLM RxNav
+  if (action === 'interact') {
+    const rxcuis = searchParams.get('rxcuis') || '';
+    const cuiList = rxcuis.split(',').filter(Boolean);
+    if (cuiList.length < 2) return NextResponse.json({ interactions: [] });
 
-      const candidates = data?.approximateGroup?.candidate || [];
-      const results = candidates
-        .filter((c: { rxcui: string; score: string; rank: string }) => parseInt(c.score) > 50)
-        .map((c: { rxcui: string; name?: string }) => ({ rxcui: c.rxcui, name: c.name || name }))
-        .slice(0, 6);
+    const data = await fetchSafe(`${RXNAV}/interaction/list.json?rxcuis=${cuiList.join('+')}`);
+    const groups = data?.fullInteractionTypeGroup || [];
+    const interactions: object[] = [];
 
-      // If approximate doesn't work, try exact
-      if (results.length === 0) {
-        const exactUrl = `${RXNAV}/rxcui.json?name=${encodeURIComponent(name)}&allSourcesFlag=0`;
-        const exactRes = await fetchWithTimeout(exactUrl);
-        const exactData = await exactRes.json();
-        const rxcui = exactData?.idGroup?.rxnormId?.[0];
-        if (rxcui) results.push({ rxcui, name });
-      }
-
-      return NextResponse.json({ results });
-    }
-
-    // ── 2. Drug interaction check using RxCUIs ────────────────────────────────
-    if (action === 'interact') {
-      const rxcuis = searchParams.get('rxcuis') || '';
-      if (!rxcuis) return NextResponse.json({ interactions: [] });
-
-      const cuiList = rxcuis.split(',').map(c => c.trim()).filter(Boolean);
-      if (cuiList.length < 2) return NextResponse.json({ interactions: [] });
-
-      const url = `${RXNAV}/interaction/list.json?rxcuis=${cuiList.join('+')}`;
-      const res = await fetchWithTimeout(url);
-      if (!res.ok) throw new Error('Interaction API failed');
-      const data = await res.json();
-
-      const groups = data?.fullInteractionTypeGroup || [];
-      const interactions: {
-        drug1: string;
-        drug2: string;
-        severity: string;
-        description: string;
-        comment: string;
-        source: string;
-      }[] = [];
-
-      groups.forEach((group: {
-        sourceName: string;
-        fullInteractionType?: {
-          minConcept?: { name: string }[];
-          interactionPair?: {
-            severity?: string;
-            description?: string;
-            interactionConcept?: {
-              minConceptItem?: { name: string };
-              sourceConceptItem?: { comment?: string };
-            }[];
-          }[];
+    groups.forEach((group: { sourceName: string; fullInteractionType?: object[] }) => {
+      (group.fullInteractionType || []).forEach((type: {
+        minConcept?: { name: string }[];
+        interactionPair?: {
+          severity?: string;
+          description?: string;
+          interactionConcept?: { sourceConceptItem?: { comment?: string } }[];
         }[];
       }) => {
-        const source = group.sourceName;
-        (group.fullInteractionType || []).forEach((type: {
-          minConcept?: { name: string }[];
-          interactionPair?: {
-            severity?: string;
-            description?: string;
-            interactionConcept?: {
-              minConceptItem?: { name: string };
-              sourceConceptItem?: { comment?: string };
-            }[];
-          }[];
-        }) => {
-          const drugs = (type.minConcept || []).map((c: { name: string }) => c.name);
-          (type.interactionPair || []).forEach((pair: {
-            severity?: string;
-            description?: string;
-            interactionConcept?: {
-              minConceptItem?: { name: string };
-              sourceConceptItem?: { comment?: string };
-            }[];
-          }) => {
-            interactions.push({
-              drug1:       drugs[0] || '',
-              drug2:       drugs[1] || '',
-              severity:    pair.severity || 'unknown',
-              description: pair.description || '',
-              comment:     pair.interactionConcept?.[0]?.sourceConceptItem?.comment || '',
-              source,
-            });
+        const drugs = (type.minConcept || []).map(c => c.name);
+        (type.interactionPair || []).forEach(pair => {
+          interactions.push({
+            drug1: drugs[0] || '', drug2: drugs[1] || '',
+            severity: pair.severity || 'unknown',
+            description: pair.description || '',
+            comment: pair.interactionConcept?.[0]?.sourceConceptItem?.comment || '',
+            source: group.sourceName,
           });
         });
       });
+    });
 
-      return NextResponse.json({ interactions, total: interactions.length });
-    }
-
-    // ── 3. OpenFDA drug label (warnings, interactions, dosing) ────────────────
-    if (action === 'openfda') {
-      const name = searchParams.get('name') || '';
-      if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 });
-
-      const url = `${OPENFDA}/label.json?search=openfda.generic_name:"${encodeURIComponent(name)}"&limit=1`;
-      const res = await fetchWithTimeout(url);
-
-      if (!res.ok) {
-        // Try brand name search
-        const url2 = `${OPENFDA}/label.json?search=openfda.brand_name:"${encodeURIComponent(name)}"&limit=1`;
-        const res2 = await fetchWithTimeout(url2);
-        if (!res2.ok) return NextResponse.json({ found: false });
-        const data2 = await res2.json();
-        return NextResponse.json({ found: true, result: extractFDALabel(data2.results?.[0]) });
-      }
-
-      const data = await res.json();
-      return NextResponse.json({ found: true, result: extractFDALabel(data.results?.[0]) });
-    }
-
-    // ── 4. OpenFDA adverse events summary ─────────────────────────────────────
-    if (action === 'adverse') {
-      const name = searchParams.get('name') || '';
-      const url  = `${OPENFDA}/event.json?search=patient.drug.medicinalproduct:"${encodeURIComponent(name)}"&count=patient.reaction.reactionmeddrapt.exact&limit=10`;
-      const res  = await fetchWithTimeout(url);
-      if (!res.ok) return NextResponse.json({ events: [] });
-      const data = await res.json();
-      return NextResponse.json({ events: data.results || [] });
-    }
-
-    return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
-
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'API error';
-    return NextResponse.json({ error: msg, fallback: true }, { status: 503 });
+    return NextResponse.json({ interactions, total: interactions.length });
   }
-}
 
-function extractFDALabel(result: Record<string, unknown> | undefined) {
-  if (!result) return null;
-  return {
-    brandName:         (result.openfda as Record<string, string[]>)?.brand_name?.[0]           || '',
-    genericName:       (result.openfda as Record<string, string[]>)?.generic_name?.[0]          || '',
-    manufacturer:      (result.openfda as Record<string, string[]>)?.manufacturer_name?.[0]     || '',
-    dosageAdmin:       (result.dosage_and_administration as string[])?.[0]?.slice(0, 800)       || '',
-    warnings:          (result.warnings as string[])?.[0]?.slice(0, 600)                        || '',
-    contraindications: (result.contraindications as string[])?.[0]?.slice(0, 400)               || '',
-    interactions:      (result.drug_interactions as string[])?.[0]?.slice(0, 600)               || '',
-    pediatricUse:      (result.pediatric_use as string[])?.[0]?.slice(0, 500)                   || '',
-    pregnancyCategory: (result.pregnancy as string[])?.[0]?.slice(0, 300)                       || '',
-  };
+  // 3. OpenFDA full drug label
+  if (action === 'openfda') {
+    const name = searchParams.get('name') || '';
+    let data = await fetchSafe(`${OPENFDA}/label.json?search=openfda.generic_name:"${encodeURIComponent(name)}"&limit=1`);
+    if (!data?.results?.[0]) {
+      data = await fetchSafe(`${OPENFDA}/label.json?search=openfda.brand_name:"${encodeURIComponent(name)}"&limit=1`);
+    }
+    if (!data?.results?.[0]) {
+      data = await fetchSafe(`${OPENFDA}/label.json?search=${encodeURIComponent(name)}&limit=1`);
+    }
+    const r = data?.results?.[0];
+    if (!r) return NextResponse.json({ found: false });
+
+    return NextResponse.json({
+      found: true,
+      result: {
+        brandName:         r.openfda?.brand_name?.[0]        || '',
+        genericName:       r.openfda?.generic_name?.[0]       || '',
+        manufacturer:      r.openfda?.manufacturer_name?.[0]  || '',
+        dosageAdmin:       r.dosage_and_administration?.[0]?.slice(0, 1200) || '',
+        warnings:          r.warnings?.[0]?.slice(0, 800)                   || '',
+        contraindications: r.contraindications?.[0]?.slice(0, 600)          || '',
+        interactions:      r.drug_interactions?.[0]?.slice(0, 800)          || '',
+        pediatricUse:      r.pediatric_use?.[0]?.slice(0, 800)              || '',
+        geriatricUse:      r.geriatric_use?.[0]?.slice(0, 400)              || '',
+        pregnancy:         r.pregnancy?.[0]?.slice(0, 400)                  || '',
+        howSupplied:       r.how_supplied?.[0]?.slice(0, 400)               || '',
+      }
+    });
+  }
+
+  // 4. Get drug details by RxCUI - dosing info
+  if (action === 'rxdetail') {
+    const rxcui = searchParams.get('rxcui') || '';
+    const [props, related] = await Promise.all([
+      fetchSafe(`${RXNAV}/rxcui/${rxcui}/properties.json`),
+      fetchSafe(`${RXNAV}/rxcui/${rxcui}/related.json?tty=SCD+SBD+GPCK+BPCK`),
+    ]);
+    return NextResponse.json({
+      name:     props?.properties?.name || '',
+      synonym:  props?.properties?.synonym || '',
+      related:  related?.relatedGroup?.conceptGroup || [],
+    });
+  }
+
+  // 5. Search drug by name - get all forms
+  if (action === 'rxsearch') {
+    const name = searchParams.get('name') || '';
+    const data = await fetchSafe(`${RXNAV}/drugs.json?name=${encodeURIComponent(name)}`);
+    const groups = data?.drugGroup?.conceptGroup || [];
+    const drugs: object[] = [];
+    groups.forEach((g: { tty?: string; conceptProperties?: { rxcui: string; name: string; synonym?: string }[] }) => {
+      (g.conceptProperties || []).forEach(d => {
+        drugs.push({ rxcui: d.rxcui, name: d.name, tty: g.tty, synonym: d.synonym });
+      });
+    });
+    return NextResponse.json({ drugs: drugs.slice(0, 20) });
+  }
+
+  return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
