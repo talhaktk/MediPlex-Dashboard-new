@@ -3,8 +3,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
-import { Plus, Trash2, Printer, Save, Search, X, FileText, Clock } from 'lucide-react';
+import { Plus, Trash2, Printer, Save, Search, X, FileText, Activity, AlertTriangle, Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  getHealth, getLatestVitals, getPrescriptionsByPatient,
+  savePrescription as storeSavePrescription,
+  patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
+} from '@/lib/store';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Medicine {
@@ -46,6 +51,27 @@ function emptyMed(): Medicine { return { id:medId(), name:'', dose:'', frequency
 
 // ── Print Prescription ────────────────────────────────────────────────────────
 function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string) {
+  const key        = patientKey(rx.childName);
+  const health     = getHealth(key);
+  const vitals     = getLatestVitals(key);
+
+  const vitalsHTML = vitals ? `
+    <div class="section">
+      <div class="section-title">Vital Signs (recorded ${new Date(vitals.recordedAt).toLocaleDateString()})</div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        ${vitals.weight      ? `<div><div class="field-label">Weight</div><div class="field-val">${vitals.weight} kg</div></div>` : ''}
+        ${vitals.height      ? `<div><div class="field-label">Height</div><div class="field-val">${vitals.height} cm</div></div>` : ''}
+        ${vitals.bp          ? `<div><div class="field-label">BP</div><div class="field-val">${vitals.bp}</div></div>` : ''}
+        ${vitals.pulse       ? `<div><div class="field-label">Pulse</div><div class="field-val">${vitals.pulse} bpm</div></div>` : ''}
+        ${vitals.temperature ? `<div><div class="field-label">Temp</div><div class="field-val">${vitals.temperature}°C</div></div>` : ''}
+      </div>
+    </div>` : '';
+
+  const alertHTML = (health.bloodGroup || health.allergies) ? `
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:10px 14px;margin-bottom:16px;display:flex;gap:20px">
+      ${health.bloodGroup ? `<div><span style="font-size:11px;color:#9ca3af;text-transform:uppercase">Blood Group</span><br><span style="font-size:20px;font-weight:700;color:#dc2626">${health.bloodGroup}</span></div>` : ''}
+      ${health.allergies  ? `<div><span style="font-size:11px;color:#9ca3af;text-transform:uppercase">⚠ Allergies</span><br><span style="font-size:13px;font-weight:600;color:#ea580c">${health.allergies}</span></div>` : ''}
+    </div>` : '';
   const medRows = rx.medicines.map((m, i) => `
     <tr>
       <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;vertical-align:top">
@@ -104,6 +130,9 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
         <div><div class="field-label">Parent</div><div class="field-val">${rx.parentName}</div></div>
         <div><div class="field-label">Date</div><div class="field-val">${formatUSDate(rx.date)}</div></div>
       </div>
+
+      ${alertHTML}
+      ${vitalsHTML}
 
       ${rx.diagnosis ? `
       <div class="section-title">🔍 Diagnosis</div>
@@ -217,6 +246,20 @@ export default function PrescriptionClient({
     const updated = [rx, ...prescriptions.filter(r => r.id !== rx.id)];
     setPrescriptions(updated);
     saveRx(updated);
+    // Also save to central store so Patients tab can read it
+    storeSavePrescription({
+      id:            rx.id,
+      appointmentId: rx.appointmentId,
+      childName:     rx.childName,
+      parentName:    rx.parentName,
+      childAge:      rx.childAge,
+      date:          rx.date,
+      diagnosis:     rx.diagnosis,
+      medicines:     rx.medicines,
+      advice:        rx.advice,
+      followUp:      rx.followUp,
+      createdAt:     rx.createdAt,
+    });
     setShowForm(false);
     toast.success(`Prescription ${rx.id} saved`);
   };
@@ -334,7 +377,45 @@ export default function PrescriptionClient({
             </div>
           )}
 
-          {/* Diagnosis */}
+          {/* Patient health panel — shows when patient selected */}
+          {form.childName && (() => {
+            const key      = patientKey(form.childName);
+            const h        = getHealth(key);
+            const vitals   = getLatestVitals(key);
+            const hasData  = h.bloodGroup || h.allergies || h.conditions || vitals;
+            if (!hasData) return null;
+            return (
+              <div className="rounded-xl p-4 space-y-3" style={{ background:'#f0fdf4', border:'1px solid #bbf7d0' }}>
+                <div className="text-[11px] uppercase tracking-widest text-emerald-700 font-medium">Patient Health Summary</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {h.bloodGroup && (
+                    <div className="flex items-center gap-2">
+                      <Heart size={13} style={{ color:'#dc2626' }}/>
+                      <span className="text-[12px] text-navy">Blood Group: <strong>{h.bloodGroup}</strong></span>
+                    </div>
+                  )}
+                  {h.allergies && (
+                    <div className="flex items-center gap-2">
+                      <AlertTriangle size={13} style={{ color:'#ea580c' }}/>
+                      <span className="text-[12px] text-navy truncate">Allergies: <strong>{h.allergies}</strong></span>
+                    </div>
+                  )}
+                  {vitals && (
+                    <>
+                      {vitals.weight && <div className="text-[12px] text-gray-600">⚖ Weight: <strong>{vitals.weight} kg</strong></div>}
+                      {vitals.height && <div className="text-[12px] text-gray-600">📏 Height: <strong>{vitals.height} cm</strong></div>}
+                      {vitals.bp     && <div className="text-[12px] text-gray-600">❤ BP: <strong>{vitals.bp}</strong></div>}
+                      {vitals.pulse  && <div className="text-[12px] text-gray-600">💓 Pulse: <strong>{vitals.pulse} bpm</strong></div>}
+                      {vitals.temperature && <div className="text-[12px] text-gray-600">🌡 Temp: <strong>{vitals.temperature}°C</strong></div>}
+                    </>
+                  )}
+                </div>
+                {h.conditions && (
+                  <div className="text-[12px] text-gray-600">Conditions: <strong>{h.conditions}</strong></div>
+                )}
+              </div>
+            );
+          })()}
           <div className="mb-4">
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Diagnosis</label>
             <input type="text" placeholder="e.g. Acute upper respiratory tract infection"
