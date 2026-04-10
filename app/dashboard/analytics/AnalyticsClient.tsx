@@ -63,7 +63,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
   const [rangeFrom,    setRangeFrom]    = useState('');
   const [rangeTo,      setRangeTo]      = useState('');
   const [activePreset, setActivePreset] = useState('all');
-  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'>('overview');
+const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'trends'|'billing'>('overview');
   const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
 
   const applyPreset = (key: string) => {
