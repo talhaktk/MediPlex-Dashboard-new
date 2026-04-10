@@ -4,11 +4,9 @@ import ClinicalClient from './ClinicalClient';
 export default function ClinicalPage() {
   return (
     <>
-      <Topbar title="Clinical Support" subtitle="Drug interactions, dose calculator, and clinical tools" />
+      <Topbar title="Clinical Support" subtitle="Drug interactions, dose calculator" />
       <main className="flex-1 p-8">
-        <ClinicalClient
-          bnfApiKey={process.env.BNF_API_KEY || ''}
-        />
+        <ClinicalClient bnfApiKey={process.env.BNF_API_KEY || ''} />
       </main>
     </>
   );
