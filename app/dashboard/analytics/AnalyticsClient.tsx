@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Appointment, MonthlyStats, ReasonStat, AgeStat, DashboardStats } from '@/types';
 import { filterAppointments, computeMonthlyStats, exportToCSV, formatUSDate } from '@/lib/sheets';
 import {
@@ -9,6 +9,10 @@ import {
 } from 'recharts';
 import { Download, FileText, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  getInvoices, getMonthlyBilling, getTotalRevenue, getTotalPending,
+  InvoiceRecord, MonthlyBilling
+} from '@/lib/store';
 
 const GOLD  = '#c9a84c';
 const GREEN = '#1a7f5e';
@@ -66,6 +70,32 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
     const { from, to } = getPreset(key);
     setRangeFrom(from); setRangeTo(to); setActivePreset(key);
   };
+
+  // ── Billing data from central store ───────────────────────────────────────
+  const [invoices,       setInvoices]       = useState<InvoiceRecord[]>([]);
+  const [monthlyBilling, setMonthlyBilling] = useState<MonthlyBilling[]>([]);
+
+  useEffect(() => {
+    setInvoices(getInvoices());
+    setMonthlyBilling(getMonthlyBilling());
+  }, []);
+
+  const totalRevenue  = getTotalRevenue();
+  const totalPending  = getTotalPending();
+  const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
+  const unpaidCount   = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
+
+  // Filter billing by date range
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      if (rangeFrom && inv.date < rangeFrom) return false;
+      if (rangeTo   && inv.date > rangeTo)   return false;
+      return true;
+    });
+  }, [invoices, rangeFrom, rangeTo]);
+
+  const filteredRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
+  const filteredPending = filteredInvoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
 
   const rangeFiltered  = useMemo(() => filterAppointments(data, { dateFrom: rangeFrom, dateTo: rangeTo }), [data, rangeFrom, rangeTo]);
   const rangeMonthly   = useMemo(() => computeMonthlyStats(rangeFiltered), [rangeFiltered]);
@@ -223,6 +253,20 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
       <tbody>${monthRows}</tbody>
     </table>
 
+    <!-- Section E: Billing Summary -->
+    <h2>E — Billing Summary</h2>
+    <div class="grid4" style="margin-bottom:16px">
+      <div class="card"><div class="val" style="color:#1a7f5e">PKR ${totalRevenue.toLocaleString()}</div><div class="lbl">Total Revenue</div></div>
+      <div class="card"><div class="val" style="color:#c53030">PKR ${totalPending.toLocaleString()}</div><div class="lbl">Total Pending</div></div>
+      <div class="card"><div class="val" style="color:#1a7f5e">${paidCount}</div><div class="lbl">Paid Invoices</div></div>
+      <div class="card"><div class="val" style="color:#c53030">${unpaidCount}</div><div class="lbl">Unpaid Invoices</div></div>
+    </div>
+    ${monthlyBilling.length > 0 ? `
+    <table>
+      <thead><tr><th>Month</th><th>Invoices</th><th>Revenue Collected</th><th>Paid</th><th>Unpaid</th></tr></thead>
+      <tbody>${monthlyBilling.map(m => `<tr><td>${m.month}</td><td>${m.invoices}</td><td>PKR ${m.revenue.toLocaleString()}</td><td>${m.paid}</td><td>${m.unpaid}</td></tr>`).join('')}</tbody>
+    </table>` : '<p style="color:#6b7280;font-size:12px">No billing records yet</p>'}
+
     <div class="footer">MediPlex Pediatric Clinic &nbsp;·&nbsp; This report is confidential &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
     </body></html>`;
 
@@ -234,8 +278,8 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
     toast.success('PDF ready — Print → Save as PDF');
   };
 
-  const tabs = ['overview','monthly','patients','trends'] as const;
-  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends' };
+  const tabs = ['overview','monthly','patients','trends','billing'] as const;
+  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing' };
 
   return (
     <div className="space-y-5">
@@ -308,7 +352,7 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
           </div>
           {/* Row 3: Attendance */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Clinic Attendance</div>
-          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-4">
             {[
               { label:'In Clinic',        val:rs.inClinic,                          color:'#166534' },
               { label:'Absent / No-Show', val:rs.absent,                            color:RED },
@@ -316,6 +360,21 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
             ].map(s => (
               <div key={s.label} className="text-center">
                 <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
+                <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {/* Row 4: Billing */}
+          <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Billing</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label:'Revenue (Period)',  val:`PKR ${filteredRevenue.toLocaleString()}`,  color:'#1a7f5e' },
+              { label:'Pending (Period)',  val:`PKR ${filteredPending.toLocaleString()}`,  color:RED },
+              { label:'Paid Invoices',     val:filteredInvoices.filter(i=>i.paymentStatus==='Paid').length,   color:'#1a7f5e' },
+              { label:'Unpaid Invoices',   val:filteredInvoices.filter(i=>i.paymentStatus==='Unpaid').length, color:RED },
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <div className="font-semibold text-[18px] leading-none" style={{ color:s.color }}>{s.val}</div>
                 <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
               </div>
             ))}
@@ -722,6 +781,115 @@ export default function AnalyticsClient({ data, stats, monthly, reasons, ages }:
                   <Bar dataKey="Follow-up" fill={BLUE}  radius={[2,2,0,0]} />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BILLING ──────────────────────────────────────────────────────────── */}
+      {activeTab === 'billing' && (
+        <div className="space-y-5">
+
+          {/* Billing summary cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { label:'Total Revenue',    val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2' },
+              { label:'Total Pending',    val:`PKR ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0' },
+              { label:'Paid Invoices',    val:paidCount,                               color:'#1a7f5e', bg:'#f0fdf4' },
+              { label:'Unpaid Invoices',  val:unpaidCount,                             color:RED,       bg:'#fef2f2' },
+            ].map(s => (
+              <div key={s.label} className="card p-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
+                <div className="text-[22px] font-semibold" style={{ color:s.color }}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Monthly billing chart */}
+          {monthlyBilling.length > 0 && (
+            <div className="card animate-in">
+              <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Revenue</div>
+              <div className="p-5" style={{ height:260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyBilling}>
+                    <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={60}
+                      tickFormatter={(v: number) => `${(v/1000).toFixed(0)}k`}/>
+                    <Tooltip {...TT} formatter={(v: unknown) => [`PKR ${Number(v).toLocaleString()}`, 'Revenue']}/>
+                    <Legend wrapperStyle={{ fontSize:11 }}/>
+                    <Bar dataKey="revenue" name="Revenue Collected" fill={GOLD} radius={[3,3,0,0]}/>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Monthly billing table */}
+          {monthlyBilling.length > 0 && (
+            <div className="card overflow-hidden animate-in">
+              <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Billing Breakdown</div>
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Month</th><th>Invoices</th><th>Revenue</th><th>Paid</th><th>Unpaid</th><th>Partial</th></tr>
+                  </thead>
+                  <tbody>
+                    {monthlyBilling.map(m => (
+                      <tr key={m.month}>
+                        <td className="font-medium text-navy">{m.month}</td>
+                        <td><span className="font-semibold text-navy">{m.invoices}</span></td>
+                        <td><span className="font-medium" style={{ color:'#1a7f5e' }}>PKR {m.revenue.toLocaleString()}</span></td>
+                        <td><span className="font-medium" style={{ color:'#1a7f5e' }}>{m.paid}</span></td>
+                        <td><span className="font-medium" style={{ color:RED }}>{m.unpaid}</span></td>
+                        <td><span className="font-medium" style={{ color:AMBER }}>{m.partial}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* All invoices list */}
+          <div className="card overflow-hidden animate-in">
+            <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
+              <div className="font-medium text-navy text-[14px]">All Invoices</div>
+              <div className="text-[12px] text-gray-400">{filteredInvoices.length} records</div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr><th>Invoice #</th><th>Patient</th><th>Date</th><th>Fee</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {filteredInvoices.length === 0 && (
+                    <tr><td colSpan={7} className="text-center py-8 text-gray-400 text-[13px]">No invoices in this period</td></tr>
+                  )}
+                  {filteredInvoices.map(inv => {
+                    const due = Math.max(0, inv.feeAmount - inv.discount - inv.paid);
+                    return (
+                      <tr key={inv.id}>
+                        <td className="font-mono text-[11px] text-gray-500">{inv.id}</td>
+                        <td>
+                          <div className="font-medium text-navy text-[13px]">{inv.childName}</div>
+                          <div className="text-[11px] text-gray-400">{inv.parentName}</div>
+                        </td>
+                        <td className="text-[12px] text-navy whitespace-nowrap">{formatUSDate(inv.date)}</td>
+                        <td className="text-[12px] font-medium text-navy">PKR {inv.feeAmount.toLocaleString()}</td>
+                        <td className="text-[12px] font-medium" style={{ color:'#1a7f5e' }}>PKR {inv.paid.toLocaleString()}</td>
+                        <td className="text-[12px] font-medium" style={{ color:due>0?RED:'#1a7f5e' }}>
+                          {due > 0 ? `PKR ${due.toLocaleString()}` : '✓ Cleared'}
+                        </td>
+                        <td>
+                          <span className={`pill ${inv.paymentStatus==='Paid'?'pill-confirmed':inv.paymentStatus==='Partial'?'pill-rescheduled':'pill-cancelled'}`}>
+                            {inv.paymentStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -3,39 +3,19 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
-import {
-  Plus, Download, FileText, Search, Filter,
-  CheckCircle, Clock, XCircle, X, Save, Printer
-} from 'lucide-react';
+import { Plus, Download, FileText, Search, X, Save, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  getInvoices, saveInvoice as storeSaveInvoice, deleteInvoice as storeDeleteInvoice,
+  InvoiceRecord
+} from '@/lib/store';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface Invoice {
-  id:            string;
-  appointmentId: string;
-  childName:     string;
-  parentName:    string;
-  date:          string;
-  visitType:     string;
-  reason:        string;
-  feeAmount:     number;
-  discount:      number;
-  paid:          number;
-  paymentMethod: string;
-  paymentStatus: 'Paid' | 'Partial' | 'Unpaid';
-  notes:         string;
-  createdAt:     string;
-}
+type Invoice = InvoiceRecord;
 
-const LS_KEY = 'mediplex_billing';
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
-function loadInvoices(): Invoice[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
-}
-function saveInvoices(data: Invoice[]) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch {}
-}
+function loadInvoices(): Invoice[] { return getInvoices(); }
+function saveInvoices(data: Invoice[]) { data.forEach(i => storeSaveInvoice(i)); }
 function genId() { return `INV-${Date.now().toString(36).toUpperCase()}`; }
 
 // ── Status pill ───────────────────────────────────────────────────────────────
@@ -118,11 +98,8 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     const paid = form.paid || 0;
     const status: Invoice['paymentStatus'] = paid >= net ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
     const inv: Invoice = { ...form as Invoice, paymentStatus: status };
-    const updated = invoices.some(i => i.id === inv.id)
-      ? invoices.map(i => i.id === inv.id ? inv : i)
-      : [inv, ...invoices];
-    setInvoices(updated);
-    saveInvoices(updated);
+    storeSaveInvoice(inv);
+    setInvoices(getInvoices());
     setShowForm(false);
     setSelected(null);
     toast.success(`Invoice ${inv.id} saved`);
@@ -130,9 +107,8 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
 
   const deleteInvoice = (id: string) => {
     if (!confirm('Delete this invoice?')) return;
-    const updated = invoices.filter(i => i.id !== id);
-    setInvoices(updated);
-    saveInvoices(updated);
+    storeDeleteInvoice(id);
+    setInvoices(getInvoices());
     setSelected(null);
     toast.success('Invoice deleted');
   };
