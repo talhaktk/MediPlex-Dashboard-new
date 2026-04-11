@@ -21,7 +21,6 @@ const getSev = (s:string) => SEV[s?.toLowerCase()] ?? SEV.unknown;
 const FORMULAS: Record<string,[number,number,string]> = {
   paracetamol:[15,1000,'Every 4–6 hrs'], acetaminophen:[15,1000,'Every 4–6 hrs'],
   aspirin:       [10, 500, 'Every 6 hrs with food — ⚠️ Avoid under 16yrs (Reye syndrome risk)'],
-  aspirin:       [10, 500, 'Every 6 hrs with food — ⚠️ Avoid under 16yrs (Reye syndrome risk)'],
   dexamethasone: [0.15, 10, 'Every 6 hrs'],
   ondansetron:   [0.1,  4,  'Every 8 hrs'],
   domperidone:   [0.25, 10, 'Three times daily before meals'],
