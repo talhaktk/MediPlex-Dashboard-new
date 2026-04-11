@@ -1,296 +1,453 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Search, X, Pill, Calculator, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Shield, Loader2, ExternalLink, Info, RefreshCw } from 'lucide-react';
+import {
+  Search, X, Pill, AlertTriangle, CheckCircle,
+  ChevronDown, ChevronUp, Shield, Loader2,
+  Info, RefreshCw, Activity, AlertCircle
+} from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  BNF_DRUGS, BNF_INTERACTIONS, searchDrugs, checkInteractions,
+  getDrugInfo, calcPaedDose, DrugInfo, Interaction
+} from '@/lib/bnf';
 
-interface Drug { rxcui: string; name: string; generic?: string; }
-interface Interaction { drug1: string; drug2: string; severity: string; description: string; comment: string; source: string; }
-interface FDALabel { brandName: string; genericName: string; manufacturer: string; dosageAdmin: string; warnings: string; contraindications: string; interactions: string; pediatricUse: string; geriatricUse: string; pregnancy: string; howSupplied: string; }
+interface Drug { rxcui: string; name: string; info?: DrugInfo; }
 
-const SEV: Record<string,{bg:string;border:string;color:string;icon:string;label:string}> = {
-  high:     {bg:'#fff0f0',border:'#fca5a5',color:'#991b1b',icon:'🚨',label:'High'},
-  severe:   {bg:'#fff0f0',border:'#fca5a5',color:'#991b1b',icon:'🚨',label:'Severe'},
-  moderate: {bg:'#fff9e6',border:'#fde68a',color:'#92400e',icon:'⚠️',label:'Moderate'},
-  low:      {bg:'#eff6ff',border:'#bfdbfe',color:'#1e40af',icon:'ℹ️',label:'Low'},
-  mild:     {bg:'#eff6ff',border:'#bfdbfe',color:'#1e40af',icon:'ℹ️',label:'Mild'},
-  unknown:  {bg:'#f9f7f3',border:'#e5e7eb',color:'#6b7280',icon:'❓',label:'Unknown'},
-};
-const getSev = (s:string) => SEV[s?.toLowerCase()] ?? SEV.unknown;
-
-const FORMULAS: Record<string,[number,number,string]> = {
-  paracetamol:[15,1000,'Every 4-6 hrs (max 4 doses/day)'],
-  acetaminophen:[15,1000,'Every 4-6 hrs (max 4 doses/day)'],
-  ibuprofen:[10,400,'Every 6-8 hrs with food'],
-  aspirin:[10,500,'Every 6 hrs — Avoid under 16yrs (Reye syndrome)'],
-  amoxicillin:[25,500,'Every 8 hrs'],
-  azithromycin:[10,500,'Once daily x5 days'],
-  metronidazole:[7.5,400,'Every 8 hrs'],
-  prednisolone:[1,40,'Once daily morning'],
-  dexamethasone:[0.15,10,'Every 6 hrs'],
-  cetirizine:[0.25,10,'Once daily evening'],
-  salbutamol:[0.1,5,'Every 4-6 hrs'],
-  omeprazole:[1,40,'Once daily before food'],
-  clarithromycin:[7.5,500,'Every 12 hrs'],
-  trimethoprim:[4,200,'Every 12 hrs'],
-  cefuroxime:[15,500,'Every 12 hrs'],
-  erythromycin:[12.5,500,'Every 6 hrs'],
-  amitriptyline:[0.5,25,'Every 8 hrs - start low'],
-  ondansetron:[0.1,4,'Every 8 hrs'],
-  domperidone:[0.25,10,'Three times daily before meals'],
-  diazepam:[0.1,5,'Every 6-8 hrs'],
-};
+const SEV_CFG = {
+  'Contraindicated': { bg:'#1a0000', border:'#dc2626', color:'#fca5a5', icon:'⛔', badge:'bg-red-900 text-red-200' },
+  'Severe':          { bg:'#fff0f0', border:'#fca5a5', color:'#991b1b', icon:'🚨', badge:'bg-red-100 text-red-800' },
+  'Moderate':        { bg:'#fff9e6', border:'#fde68a', color:'#92400e', icon:'⚠️', badge:'bg-amber-100 text-amber-800' },
+  'Mild':            { bg:'#eff6ff', border:'#bfdbfe', color:'#1e40af', icon:'ℹ️', badge:'bg-blue-100 text-blue-800' },
+} as const;
 
 export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
   const [tab,         setTab]         = useState<'interact'|'dose'>('interact');
-  const [input,       setInput]       = useState('');
+
+  // Interaction state
+  const [iSearch,     setISearch]     = useState('');
+  const [iSugg,       setISugg]       = useState<Drug[]>([]);
   const [drugs,       setDrugs]       = useState<Drug[]>([]);
-  const [suggestions, setSuggestions] = useState<Drug[]>([]);
-  const [searching,   setSearching]   = useState(false);
-  const [checking,    setChecking]    = useState(false);
   const [results,     setResults]     = useState<Interaction[]>([]);
   const [checked,     setChecked]     = useState(false);
   const [expanded,    setExpanded]    = useState<number|null>(null);
-  const [doseInput,   setDoseInput]   = useState('');
-  const [doseSugg,    setDoseSugg]    = useState<Drug[]>([]);
-  const [doseLoading, setDoseLoading] = useState(false);
-  const [fdaLabel,    setFdaLabel]    = useState<FDALabel|null>(null);
-  const [selDrug,     setSelDrug]     = useState('');
+
+  // Dose state
+  const [dSearch,     setDSearch]     = useState('');
+  const [dSugg,       setDSugg]       = useState<DrugInfo[]>([]);
+  const [selDrug,     setSelDrug]     = useState<DrugInfo|null>(null);
+  const [isChild,     setIsChild]     = useState(true);
   const [weight,      setWeight]      = useState('');
   const [ageY,        setAgeY]        = useState('');
   const [ageM,        setAgeM]        = useState('');
-  const [isChild,     setIsChild]     = useState(true);
-  const [doseResult,  setDoseResult]  = useState('');
+  const [calcDose,    setCalcDose]    = useState('');
+  const [loading,     setLoading]     = useState(false);
+
   const iRef = useRef<ReturnType<typeof setTimeout>|null>(null);
   const dRef = useRef<ReturnType<typeof setTimeout>|null>(null);
 
-  const nlmSearch = async (q:string, forDose=false) => {
-    if (q.length < 2) { forDose ? setDoseSugg([]) : setSuggestions([]); return; }
-    if (!forDose) setSearching(true);
-    try {
-      const r = await fetch(`/api/clinical?action=lookup&name=${encodeURIComponent(q)}`);
-      const d = await r.json();
-      forDose ? setDoseSugg(d.results||[]) : setSuggestions(d.results||[]);
-    } catch { forDose ? setDoseSugg([]) : setSuggestions([]); }
-    finally { if (!forDose) setSearching(false); }
+  // Search drugs
+  const onISearch = (v: string) => {
+    setISearch(v);
+    if (iRef.current) clearTimeout(iRef.current);
+    iRef.current = setTimeout(() => {
+      if (v.length < 2) { setISugg([]); return; }
+      const r = searchDrugs(v);
+      setISugg(r.map(d => ({ rxcui: d.rxcui, name: d.name, info: d })));
+    }, 200);
   };
 
-  const addDrug = (d:Drug) => {
-    if (drugs.find(x=>x.rxcui===d.rxcui)) { toast.error('Already added'); return; }
+  const onDSearch = (v: string) => {
+    setDSearch(v);
+    if (dRef.current) clearTimeout(dRef.current);
+    dRef.current = setTimeout(() => {
+      if (v.length < 2) { setDSugg([]); return; }
+      setDSugg(searchDrugs(v));
+    }, 200);
+  };
+
+  const addDrug = (d: Drug) => {
+    if (drugs.find(x => x.name === d.name)) { toast.error('Already added'); return; }
     if (drugs.length >= 8) { toast.error('Max 8 drugs'); return; }
-    setDrugs(p=>[...p,d]); setInput(''); setSuggestions([]); setChecked(false); setResults([]);
+    setDrugs(p => [...p, d]);
+    setISearch(''); setISugg([]);
+    setChecked(false); setResults([]);
   };
 
-  const checkInteractions = async () => {
+  const doCheck = () => {
     if (drugs.length < 2) { toast.error('Add at least 2 drugs'); return; }
-    setChecking(true); setChecked(false);
-    try {
-      const r = await fetch(`/api/clinical?action=interact&rxcuis=${drugs.map(d=>d.rxcui).join(',')}&drugnames=${drugs.map(d=>encodeURIComponent(d.name)).join(',')}`);
-      const d = await r.json();
-      setResults(d.interactions||[]);
-      (d.interactions||[]).length===0 ? toast.success('No interactions found — NLM database') : toast.error(`${d.interactions.length} interaction(s) found`);
-    } catch { setResults([]); toast.error('NLM API error — check internet connection'); }
-    setChecked(true); setChecking(false);
+    const names = drugs.map(d => d.name);
+    const r = checkInteractions(names);
+    setResults(r);
+    setChecked(true);
+    setExpanded(null);
+    r.length === 0
+      ? toast.success('No interactions found in BNF database')
+      : toast.error(`${r.length} interaction(s) found`);
   };
 
-  const fetchFDA = async (name:string, generic?:string) => {
-    setDoseLoading(true); setFdaLabel(null); setDoseResult('');
-    try {
-      const r = await fetch(`/api/clinical?action=openfda&name=${encodeURIComponent(name)}&generic=${encodeURIComponent(generic||name)}`);
-      const d = await r.json();
-      if (d.found) { setFdaLabel(d.result); toast.success('FDA label loaded'); }
-      else toast.error('Not found in FDA — try generic name (e.g. "paracetamol" not "Panadol")');
-    } catch { toast.error('FDA API error'); }
-    setDoseLoading(false);
+  const selectDrug = (d: DrugInfo) => {
+    setSelDrug(d);
+    setDSearch(d.name);
+    setDSugg([]);
+    setCalcDose('');
   };
 
-  const selectDrug = (d:Drug) => {
-    const isCombo = d.name.toLowerCase().includes(' and ') || d.name.toLowerCase().includes('hydrochloride') || d.name.toLowerCase().includes('sulfate') || d.name.toLowerCase().includes('hcl');
-    const useName = isCombo ? doseInput : d.name;
-    setSelDrug(useName); setDoseInput(useName); setDoseSugg([]); setDoseResult(''); setFdaLabel(null); fetchFDA(useName);
+  const doCalc = () => {
+    if (!selDrug) { toast.error('Select a drug first'); return; }
+    if (!weight) { toast.error('Enter patient weight'); return; }
+    const totalMonths = (parseFloat(ageY||'0') * 12) + parseFloat(ageM||'0');
+    const dose = calcPaedDose(selDrug, parseFloat(weight), totalMonths);
+    setCalcDose(dose);
   };
 
-  const calcDose = () => {
-    if (!weight) { toast.error('Enter weight'); return; }
-    const w = parseFloat(weight);
-    const name = (fdaLabel?.genericName||selDrug).toLowerCase();
-    const match = Object.entries(FORMULAS).find(([k])=>name.includes(k));
-    if (match) {
-      const [mgkg,max,freq] = match[1];
-      setDoseResult(`${Math.round(w*mgkg*10)/10}mg per dose (max ${max}mg) · ${freq}`);
-    } else {
-      setDoseResult('Formula not available — see FDA Paediatric Use section below');
-    }
-  };
+  const sevOrder = {'Contraindicated':0,'Severe':1,'Moderate':2,'Mild':3};
 
   return (
     <div className="space-y-5">
+
+      {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
-        {([['interact','💊 Drug Interaction Checker'],['dose','🧮 Dose Calculator']] as const).map(([k,l])=>(
-          <button key={k} onClick={()=>setTab(k)} className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all ${tab===k?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>{l}</button>
+        {([['interact','💊 Drug Interaction Checker'],['dose','🧮 Dose Calculator']] as const).map(([k,l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-all ${tab===k?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
+            {l}
+          </button>
         ))}
       </div>
 
-      {tab==='interact' && (
+      {/* ── INTERACTION CHECKER ─────────────────────────────────────────── */}
+      {tab === 'interact' && (
         <div className="space-y-4">
-          <div className="rounded-xl px-4 py-3 text-[12px]" style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.25)'}}>
-            <span className="font-medium text-amber-800">🏥 Live: </span>
-            <span className="text-amber-700">NLM RxNorm 100,000+ drugs · NLM RxNav Interactions · Free, no API key</span>
+          <div className="rounded-xl px-4 py-3 text-[12px]"
+            style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.25)'}}>
+            <span className="font-medium text-amber-800">📚 Data Source: </span>
+            <span className="text-amber-700">BNF / BNFC (British National Formulary) — Comprehensive drug interaction database · {BNF_INTERACTIONS.length} interactions · {BNF_DRUGS.length} drugs</span>
           </div>
 
           <div className="card p-5">
             <div className="font-medium text-navy text-[14px] mb-4">Search & Add Drugs</div>
             <div className="relative mb-4">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-              {searching && <Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gold animate-spin"/>}
-              <input value={input} onChange={e=>{setInput(e.target.value);if(iRef.current)clearTimeout(iRef.current);iRef.current=setTimeout(()=>nlmSearch(e.target.value),350);}}
-                placeholder="Type any drug — Warfarin, Metformin, Atorvastatin, Ciprofloxacin..."
-                className="w-full border border-black/10 rounded-lg pl-9 pr-8 py-2.5 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
-              {suggestions.length>0&&(
-                <div className="absolute top-full left-0 right-0 z-20 bg-white border border-black/10 rounded-lg shadow-lg mt-1 overflow-hidden max-h-72 overflow-y-auto">
-                  {suggestions.map(s=>(
-                    <button key={s.rxcui} onClick={()=>addDrug(s)} className="w-full text-left px-4 py-3 text-[13px] hover:bg-amber-50 border-b border-black/5 last:border-0 flex items-center justify-between">
-                      <span className="font-medium text-navy">{s.name}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">RxCUI {s.rxcui}</span>
+              <input value={iSearch} onChange={e => onISearch(e.target.value)}
+                placeholder="Type drug name — Warfarin, Aspirin, Metformin, Ibuprofen..."
+                className="w-full border border-black/10 rounded-lg pl-9 pr-3 py-2.5 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+              {iSugg.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-20 bg-white border border-black/10 rounded-lg shadow-lg mt-1 overflow-hidden">
+                  {iSugg.map(s => (
+                    <button key={s.name} onClick={() => addDrug(s)}
+                      className="w-full text-left px-4 py-3 hover:bg-amber-50 border-b border-black/5 last:border-0">
+                      <div className="font-medium text-navy text-[13px]">{s.name}</div>
+                      <div className="text-[11px] text-gray-400">{s.info?.category}</div>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            {drugs.length>0&&(
+
+            {drugs.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
-                {drugs.map(d=>(
-                  <span key={d.rxcui} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium" style={{background:'#dbeafe',color:'#1e40af',border:'1px solid #bfdbfe'}}>
-                    <Pill size={11}/>{d.name}<span className="text-[9px] opacity-50">#{d.rxcui}</span>
-                    <button onClick={()=>{setDrugs(p=>p.filter(x=>x.rxcui!==d.rxcui));setChecked(false);setResults([]);}} className="hover:text-red-500"><X size={11}/></button>
+                {drugs.map(d => (
+                  <span key={d.name} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium"
+                    style={{background:'#dbeafe',color:'#1e40af',border:'1px solid #bfdbfe'}}>
+                    <Pill size={11}/>{d.name}
+                    <button onClick={() => {setDrugs(p=>p.filter(x=>x.name!==d.name));setChecked(false);setResults([]);}}
+                      className="hover:text-red-500"><X size={11}/></button>
                   </span>
                 ))}
               </div>
             )}
+
             <div className="flex gap-2">
-              <button onClick={checkInteractions} disabled={drugs.length<2||checking} className="btn-gold gap-2 text-[13px] py-2.5 px-6">
-                {checking?<><Loader2 size={14} className="animate-spin"/>Checking NLM...</>:<><Shield size={14}/>Check Interactions ({drugs.length} drugs)</>}
+              <button onClick={doCheck} disabled={drugs.length < 2}
+                className="btn-gold gap-2 text-[13px] py-2.5 px-6">
+                <Shield size={14}/>Check Interactions ({drugs.length} drugs)
               </button>
-              {drugs.length>0&&<button onClick={()=>{setDrugs([]);setChecked(false);setResults([]);setInput('');}} className="btn-outline text-[12px] py-2 px-3 gap-1"><RefreshCw size={12}/>Clear</button>}
+              {drugs.length > 0 && (
+                <button onClick={() => {setDrugs([]);setChecked(false);setResults([]);setISearch('');}}
+                  className="btn-outline text-[12px] py-2 px-3 gap-1">
+                  <RefreshCw size={12}/>Clear
+                </button>
+              )}
             </div>
           </div>
 
-          {checked&&(
+          {checked && (
             <div className="space-y-3">
               <div className={`rounded-xl p-4 flex items-center gap-4 border ${results.length===0?'border-emerald-200 bg-emerald-50':'border-red-200 bg-red-50'}`}>
-                {results.length===0
-                  ?<><CheckCircle size={24} className="text-emerald-600 flex-shrink-0"/><div><div className="font-semibold text-emerald-800">No interactions found</div><div className="text-[12px] text-emerald-600">NLM RxNav database checked successfully</div></div></>
-                  :<><AlertTriangle size={24} className="text-red-600 flex-shrink-0"/><div><div className="font-semibold text-red-800">{results.length} Interaction(s) Found — NLM RxNav</div><div className="text-[12px] text-red-600">{results.filter(r=>['high','severe'].includes(r.severity?.toLowerCase())).length} severe · {results.filter(r=>r.severity?.toLowerCase()==='moderate').length} moderate</div></div></>}
-              </div>
-              {[...results].sort((a,b)=>{const o:Record<string,number>={high:0,severe:0,moderate:1,low:2,mild:2,unknown:3};return(o[a.severity?.toLowerCase()]??3)-(o[b.severity?.toLowerCase()]??3);}).map((r,i)=>{
-                const c=getSev(r.severity);
-                return(
-                  <div key={i} className="rounded-xl overflow-hidden" style={{background:c.bg,border:`1px solid ${c.border}`}}>
-                    <button className="w-full text-left px-5 py-4 flex items-center gap-4" onClick={()=>setExpanded(expanded===i?null:i)}>
-                      <span className="text-[20px] flex-shrink-0">{c.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <span className="font-semibold text-[14px]" style={{color:c.color}}>{r.drug1}</span>
-                          <span style={{color:c.color}}>+</span>
-                          <span className="font-semibold text-[14px]" style={{color:c.color}}>{r.drug2}</span>
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{background:'rgba(255,255,255,0.7)',color:c.color}}>{c.label}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'rgba(255,255,255,0.5)',color:c.color}}>{r.source}</span>
+                {results.length === 0
+                  ? <><CheckCircle size={24} className="text-emerald-600 flex-shrink-0"/>
+                      <div>
+                        <div className="font-semibold text-emerald-800">No interactions found</div>
+                        <div className="text-[12px] text-emerald-600">BNF/BNFC database checked — no clinically significant interactions identified</div>
+                      </div></>
+                  : <><AlertTriangle size={24} className="text-red-600 flex-shrink-0"/>
+                      <div>
+                        <div className="font-semibold text-red-800">{results.length} Interaction(s) Found — BNF/BNFC</div>
+                        <div className="text-[12px] text-red-600">
+                          {results.filter(r=>r.severity==='Contraindicated').length>0 && `${results.filter(r=>r.severity==='Contraindicated').length} contraindicated · `}
+                          {results.filter(r=>r.severity==='Severe').length>0 && `${results.filter(r=>r.severity==='Severe').length} severe · `}
+                          {results.filter(r=>r.severity==='Moderate').length>0 && `${results.filter(r=>r.severity==='Moderate').length} moderate`}
                         </div>
-                        <div className="text-[12px] truncate" style={{color:c.color}}>{r.description}</div>
+                      </div></>}
+              </div>
+
+              {[...results].sort((a,b) => sevOrder[a.severity] - sevOrder[b.severity]).map((r,i) => {
+                const c = SEV_CFG[r.severity];
+                return (
+                  <div key={i} className="rounded-xl overflow-hidden"
+                    style={{background:c.bg,border:`1.5px solid ${c.border}`}}>
+                    <button className="w-full text-left px-5 py-4 flex items-center gap-4"
+                      onClick={() => setExpanded(expanded===i?null:i)}>
+                      <span className="text-[22px] flex-shrink-0">{c.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="font-bold text-[15px]" style={{color:c.color}}>
+                            {r.drugs[0].charAt(0).toUpperCase()+r.drugs[0].slice(1)}
+                          </span>
+                          <span style={{color:c.color}}>+</span>
+                          <span className="font-bold text-[15px]" style={{color:c.color}}>
+                            {r.drugs[1].charAt(0).toUpperCase()+r.drugs[1].slice(1)}
+                          </span>
+                          <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${c.badge}`}>
+                            {r.severity}
+                          </span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/60 font-medium" style={{color:c.color}}>BNF</span>
+                        </div>
+                        <div className="text-[13px] font-medium" style={{color:c.color}}>{r.effect}</div>
                       </div>
                       {expanded===i?<ChevronUp size={16} style={{color:c.color}}/>:<ChevronDown size={16} style={{color:c.color}}/>}
                     </button>
-                    {expanded===i&&(
-                      <div className="px-5 pb-4 pt-3 space-y-3 border-t" style={{borderColor:c.border}}>
-                        {r.description&&<div><div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{color:c.color}}>Effect</div><div className="text-[13px]" style={{color:c.color}}>{r.description}</div></div>}
-                        {r.comment&&<div className="rounded-lg p-3" style={{background:'rgba(255,255,255,0.65)'}}><div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{color:c.color}}>Clinical Note</div><div className="text-[13px] font-medium" style={{color:c.color}}>{r.comment}</div></div>}
+                    {expanded === i && (
+                      <div className="px-5 pb-5 pt-3 space-y-3 border-t" style={{borderColor:c.border}}>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-widest font-bold mb-1.5" style={{color:c.color}}>Mechanism</div>
+                          <div className="text-[13px] leading-relaxed" style={{color:c.color}}>{r.mechanism}</div>
+                        </div>
+                        <div className="rounded-xl p-4" style={{background:'rgba(255,255,255,0.7)'}}>
+                          <div className="text-[10px] uppercase tracking-widest font-bold mb-1.5" style={{color:c.color}}>⚕️ Clinical Action Required</div>
+                          <div className="text-[14px] font-semibold leading-relaxed" style={{color:c.color}}>{r.action}</div>
+                        </div>
                       </div>
                     )}
                   </div>
                 );
               })}
-              <div className="text-[11px] text-gray-400 text-center flex items-center justify-center gap-1.5">
-                <Info size={11}/>NLM RxNav Interaction API · Always apply clinical judgement
-                <a href="https://rxnav.nlm.nih.gov" target="_blank" rel="noopener noreferrer" className="text-gold hover:underline flex items-center gap-0.5">RxNav<ExternalLink size={9}/></a>
+
+              <div className="text-[11px] text-gray-400 text-center flex items-center justify-center gap-1.5 pt-1">
+                <Info size={11}/>
+                British National Formulary (BNF/BNFC) · Always apply clinical judgement
               </div>
             </div>
           )}
         </div>
       )}
 
-      {tab==='dose'&&(
+      {/* ── DOSE CALCULATOR ──────────────────────────────────────────────── */}
+      {tab === 'dose' && (
         <div className="space-y-4">
-          <div className="rounded-xl px-4 py-3 text-[12px]" style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.25)'}}>
-            <span className="font-medium text-amber-800">🏥 Live: </span>
-            <span className="text-amber-700">OpenFDA drug labels · NLM RxNorm · Full dosing, warnings, paediatric info for any drug</span>
+          <div className="rounded-xl px-4 py-3 text-[12px]"
+            style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.25)'}}>
+            <span className="font-medium text-amber-800">📚 Data Source: </span>
+            <span className="text-amber-700">BNFC (BNF for Children) paediatric dosing formulas · BNF adult dosing · {BNF_DRUGS.length} drugs in database</span>
           </div>
+
           <div className="card p-5">
+            {/* Toggle */}
             <div className="flex gap-2 mb-5">
-              {([['true','👶 Paediatric'],['false','🧑 Adult']] as const).map(([v,l])=>(
-                <button key={v} onClick={()=>{setIsChild(v==='true');setDoseResult('');}} className={`px-4 py-2 rounded-lg text-[13px] font-medium border transition-all ${String(isChild)===v?'bg-navy text-white border-navy':'border-black/10 text-gray-500'}`}>{l}</button>
+              {([['true','👶 Paediatric'],['false','🧑 Adult']] as const).map(([v,l]) => (
+                <button key={v} onClick={() => {setIsChild(v==='true');setCalcDose('');}}
+                  className={`px-4 py-2 rounded-lg text-[13px] font-medium border transition-all ${String(isChild)===v?'bg-navy text-white border-navy':'border-black/10 text-gray-500'}`}>
+                  {l}
+                </button>
               ))}
             </div>
+
+            {/* Drug search */}
             <div className="mb-4 relative">
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Search Any Drug — NLM RxNorm (100,000+ drugs)</label>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                Search Drug — BNF Database ({BNF_DRUGS.length} drugs)
+              </label>
               <div className="relative">
                 <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                {doseLoading&&<Loader2 size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-gold animate-spin"/>}
-                <input value={doseInput} onChange={e=>{setDoseInput(e.target.value);setSelDrug('');setFdaLabel(null);setDoseResult('');if(dRef.current)clearTimeout(dRef.current);dRef.current=setTimeout(()=>nlmSearch(e.target.value,true),350);}}
-                  placeholder="Any drug — Metformin, Atorvastatin, Ciprofloxacin, Amoxicillin..."
-                  className="w-full border border-black/10 rounded-lg pl-8 pr-8 py-2.5 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                <input value={dSearch} onChange={e => onDSearch(e.target.value)}
+                  placeholder="Paracetamol, Ibuprofen, Amoxicillin, Prednisolone..."
+                  className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2.5 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
               </div>
-              {doseSugg.length>0&&(
-                <div className="absolute top-full left-0 right-0 z-20 bg-white border border-black/10 rounded-lg shadow-lg mt-1 overflow-hidden max-h-72 overflow-y-auto">
-                  {doseSugg.map(d=>(
-                    <button key={d.rxcui} onClick={()=>selectDrug(d)} className="w-full text-left px-4 py-3 text-[13px] hover:bg-amber-50 border-b border-black/5 last:border-0 flex items-center justify-between">
-                      <span className="font-medium text-navy">{d.name}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">RxCUI {d.rxcui}</span>
+              {dSugg.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-20 bg-white border border-black/10 rounded-lg shadow-lg mt-1 overflow-hidden">
+                  {dSugg.map(d => (
+                    <button key={d.name} onClick={() => selectDrug(d)}
+                      className="w-full text-left px-4 py-3 hover:bg-amber-50 border-b border-black/5 last:border-0">
+                      <div className="font-medium text-navy text-[13px]">{d.name}</div>
+                      <div className="text-[11px] text-gray-400">{d.category} · Forms: {d.forms.slice(0,2).join(', ')}</div>
                     </button>
                   ))}
                 </div>
               )}
-              {selDrug&&!doseLoading&&<div className="mt-2 px-3 py-2 rounded-lg text-[12px]" style={{background:'#dcfce7',border:'1px solid #86efac'}}>✓ <span className="font-medium text-emerald-800">{selDrug}</span>{fdaLabel?.genericName&&<span className="text-emerald-600 ml-1">· {fdaLabel.genericName}</span>}</div>}
             </div>
-            {isChild&&selDrug&&(
+
+            {/* Paediatric fields */}
+            {isChild && selDrug && (
               <div className="grid grid-cols-3 gap-3 mb-4">
-                {[{l:'Weight (kg) *',v:weight,s:setWeight},{l:'Age (years)',v:ageY,s:setAgeY},{l:'Age (months)',v:ageM,s:setAgeM}].map((f,i)=>(
-                  <div key={i}><label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.l}</label>
-                  <input type="number" placeholder="0" value={f.v} onChange={e=>f.s(e.target.value)} className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/></div>
+                {[
+                  {l:'Weight (kg) *',v:weight,s:setWeight},
+                  {l:'Age (years)', v:ageY,  s:setAgeY  },
+                  {l:'Age (months)',v:ageM,  s:setAgeM  },
+                ].map((f,i) => (
+                  <div key={i}>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.l}</label>
+                    <input type="number" placeholder="0" value={f.v} onChange={e => f.s(e.target.value)}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                  </div>
                 ))}
               </div>
             )}
-            {isChild&&selDrug&&weight&&<button onClick={calcDose} className="btn-gold gap-2 text-[13px] py-2.5 px-5"><Calculator size={14}/>Calculate Paediatric Dose</button>}
-            {doseResult&&<div className="rounded-xl p-4 mt-3" style={{background:'#f9f7f3',border:'2px solid rgba(201,168,76,0.35)'}}><div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Calculated Dose</div><div className="text-[18px] font-bold text-gold">{doseResult}</div><div className="text-[11px] text-gray-400 mt-1">Based on {weight}kg · Verify with FDA info below</div></div>}
+
+            {selDrug && isChild && weight && (
+              <button onClick={doCalc} className="btn-gold gap-2 text-[13px] py-2.5 px-5">
+                <Activity size={14}/>Calculate BNFC Paediatric Dose
+              </button>
+            )}
           </div>
 
-          {doseLoading&&<div className="card p-10 flex items-center justify-center gap-3 text-gray-400"><Loader2 size={22} className="animate-spin text-gold"/><div><div className="text-[13px] font-medium text-navy">Fetching FDA drug label...</div><div className="text-[11px]">Connecting to OpenFDA</div></div></div>}
+          {/* Dose result card */}
+          {selDrug && (
+            <div className="space-y-4">
+              {/* Calculated dose — prominent */}
+              {calcDose && isChild && (
+                <div className="rounded-xl p-6" style={{background:'linear-gradient(135deg,#0a1628,#142240)',border:'2px solid rgba(201,168,76,0.4)'}}>
+                  <div className="text-[11px] uppercase tracking-widest text-gold/70 font-medium mb-2">BNFC Calculated Paediatric Dose</div>
+                  <div className="text-[28px] font-bold text-gold leading-tight mb-1">{calcDose}</div>
+                  <div className="text-[13px] text-white/60">{selDrug.paediatric.frequency}</div>
+                  <div className="text-[12px] text-white/40 mt-1">Route: {selDrug.paediatric.route} · Based on {weight}kg body weight</div>
+                  {selDrug.paediatric.warning && (
+                    <div className="mt-3 rounded-lg p-3 flex items-start gap-2"
+                      style={{background:'rgba(220,38,38,0.15)',border:'1px solid rgba(220,38,38,0.3)'}}>
+                      <AlertCircle size={14} className="text-red-400 flex-shrink-0 mt-0.5"/>
+                      <div className="text-[12px] text-red-300">{selDrug.paediatric.warning}</div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-          {fdaLabel&&!doseLoading&&(
-            <div className="card p-5 animate-in space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-black/5">
+              {/* Adult dose */}
+              {!isChild && (
+                <div className="rounded-xl p-6" style={{background:'linear-gradient(135deg,#0a1628,#142240)',border:'2px solid rgba(201,168,76,0.4)'}}>
+                  <div className="text-[11px] uppercase tracking-widest text-gold/70 font-medium mb-2">BNF Adult Dose</div>
+                  <div className="text-[26px] font-bold text-gold leading-tight mb-1">{selDrug.adult.standard}</div>
+                  <div className="text-[13px] text-white/60">{selDrug.adult.frequency}</div>
+                  <div className="text-[12px] text-white/40 mt-1">Route: {selDrug.adult.route}{selDrug.adult.max ? ` · Max: ${selDrug.adult.max}` : ''}</div>
+                  {selDrug.adult.notes && (
+                    <div className="mt-2 text-[12px] text-white/50">{selDrug.adult.notes}</div>
+                  )}
+                </div>
+              )}
+
+              {/* Drug info card */}
+              <div className="card p-5 space-y-4">
+                <div className="flex items-start justify-between pb-3 border-b border-black/5">
+                  <div>
+                    <div className="font-display font-semibold text-navy text-[18px]">{selDrug.name}</div>
+                    <div className="text-[12px] text-gray-400">{selDrug.category}</div>
+                  </div>
+                  <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
+                    style={{background:'#dbeafe',color:'#1e40af'}}>BNF/BNFC</span>
+                </div>
+
+                {/* Available forms */}
                 <div>
-                  <div className="font-display font-semibold text-navy text-[18px]">{fdaLabel.brandName||selDrug}</div>
-                  {fdaLabel.genericName&&<div className="text-[12px] text-gray-500">Generic: {fdaLabel.genericName}</div>}
-                  {fdaLabel.manufacturer&&<div className="text-[11px] text-gray-400">{fdaLabel.manufacturer}</div>}
+                  <div className="text-[11px] uppercase tracking-widest text-gray-400 font-medium mb-2">Available Formulations</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selDrug.forms.map(f => (
+                      <span key={f} className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 font-medium">{f}</span>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-[11px] px-2.5 py-1 rounded-full font-medium" style={{background:'#dbeafe',color:'#1e40af'}}>Live · OpenFDA</span>
+
+                {/* Paediatric doses by age */}
+                {isChild && (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-widest text-emerald-600 font-medium mb-2">BNFC Doses by Age Group</div>
+                    <div className="space-y-1.5">
+                      {[
+                        {label:'Neonate',         val:selDrug.paediatric.neonatal},
+                        {label:'1–11 months',      val:selDrug.paediatric.age1to11m},
+                        {label:'1–4 years',        val:selDrug.paediatric.age1to4y},
+                        {label:'5–11 years',       val:selDrug.paediatric.age5to11y},
+                        {label:'12–17 years',      val:selDrug.paediatric.age12to17y},
+                      ].filter(r => r.val).map(r => (
+                        <div key={r.label} className="flex gap-3 text-[12px] p-2.5 rounded-lg bg-gray-50">
+                          <span className="font-semibold text-navy w-28 flex-shrink-0">{r.label}</span>
+                          <span className="text-gray-600">{r.val}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {selDrug.paediatric.notes && (
+                      <div className="mt-2 text-[12px] text-gray-500 italic">{selDrug.paediatric.notes}</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Contraindications */}
+                {selDrug.contraindications.length > 0 && (
+                  <div className="rounded-xl p-4" style={{background:'#fff0f0',border:'1px solid #fecaca'}}>
+                    <div className="text-[11px] uppercase tracking-widest text-red-600 font-bold mb-2">⛔ Contraindications</div>
+                    <div className="space-y-1">
+                      {selDrug.contraindications.map(c => (
+                        <div key={c} className="text-[13px] text-red-800 flex items-start gap-2">
+                          <span className="text-red-400 flex-shrink-0">•</span>{c}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cautions */}
+                {selDrug.cautions.length > 0 && (
+                  <div className="rounded-xl p-4" style={{background:'#fff9e6',border:'1px solid #fde68a'}}>
+                    <div className="text-[11px] uppercase tracking-widest text-amber-700 font-bold mb-2">⚠️ Cautions</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selDrug.cautions.map(c => (
+                        <span key={c} className="text-[12px] px-2.5 py-1 rounded-full bg-amber-100 text-amber-900">{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Side effects */}
+                {selDrug.sideEffects.length > 0 && (
+                  <div>
+                    <div className="text-[11px] uppercase tracking-widest text-gray-500 font-medium mb-2">Common Side Effects</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {selDrug.sideEffects.map(s => (
+                        <span key={s} className="text-[11px] px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Monitoring */}
+                {selDrug.monitoring && (
+                  <div className="rounded-xl p-4" style={{background:'#eff6ff',border:'1px solid #bfdbfe'}}>
+                    <div className="text-[11px] uppercase tracking-widest text-blue-700 font-bold mb-1">Monitoring</div>
+                    <div className="text-[13px] text-blue-800">{selDrug.monitoring}</div>
+                  </div>
+                )}
+
+                {/* Dose adjustments */}
+                {(selDrug.renalDose || selDrug.hepaticDose) && (
+                  <div className="rounded-xl p-4" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.2)'}}>
+                    <div className="text-[11px] uppercase tracking-widest text-amber-700 font-bold mb-2">Dose Adjustments</div>
+                    {selDrug.renalDose   && <div className="text-[12px] text-gray-700 mb-1"><span className="font-semibold">Renal: </span>{selDrug.renalDose}</div>}
+                    {selDrug.hepaticDose && <div className="text-[12px] text-gray-700"><span className="font-semibold">Hepatic: </span>{selDrug.hepaticDose}</div>}
+                  </div>
+                )}
+
+                <div className="text-[10px] text-gray-400 pt-1 border-t border-black/5">
+                  Source: British National Formulary (BNF) / BNF for Children (BNFC) · Always verify with current edition · Clinical judgement required
+                </div>
               </div>
-              {[
-                {label:'📋 Dosage & Administration',val:fdaLabel.dosageAdmin,      bg:'#f9f7f3',border:'rgba(201,168,76,0.2)',tc:'#0a1628'},
-                {label:'👶 Paediatric Use',          val:fdaLabel.pediatricUse,     bg:'#f0fdf4',border:'#bbf7d0',             tc:'#166534'},
-                {label:'💊 Drug Interactions',       val:fdaLabel.interactions,     bg:'#fff9e6',border:'#fde68a',             tc:'#92400e'},
-                {label:'🚫 Contraindications',       val:fdaLabel.contraindications,bg:'#fff0f0',border:'#fecaca',             tc:'#991b1b'},
-                {label:'⚠️ Warnings',                val:fdaLabel.warnings,         bg:'#fff0f0',border:'#fca5a5',             tc:'#991b1b'},
-                {label:'👴 Geriatric Use',            val:fdaLabel.geriatricUse,     bg:'#eff6ff',border:'#bfdbfe',             tc:'#1e40af'},
-                {label:'🤰 Pregnancy',               val:fdaLabel.pregnancy,        bg:'#fdf4ff',border:'#e9d5ff',             tc:'#7e22ce'},
-                {label:'📦 How Supplied',            val:fdaLabel.howSupplied,      bg:'#f9f7f3',border:'#e5e7eb',             tc:'#374151'},
-              ].filter(f=>f.val).map(f=>(
-                <div key={f.label}>
-                  <div className="text-[11px] uppercase tracking-widest font-semibold mb-2" style={{color:f.tc}}>{f.label}</div>
-                  <div className="text-[13px] rounded-xl p-4 leading-relaxed" style={{background:f.bg,border:`1px solid ${f.border}`,color:f.tc}}>{f.val}</div>
-                </div>
-              ))}
-              <div className="pt-2 border-t border-black/5 text-[10px] text-gray-400">Source: U.S. Food & Drug Administration · OpenFDA · Data is informational — verify with current prescribing information</div>
             </div>
           )}
         </div>
