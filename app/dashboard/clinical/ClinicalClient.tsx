@@ -20,12 +20,25 @@ const getSev = (s:string) => SEV[s?.toLowerCase()] ?? SEV.unknown;
 
 const FORMULAS: Record<string,[number,number,string]> = {
   paracetamol:[15,1000,'Every 4–6 hrs'], acetaminophen:[15,1000,'Every 4–6 hrs'],
+  aspirin:       [10, 500, 'Every 6 hrs with food — ⚠️ Avoid under 16yrs (Reye syndrome risk)'],
+  aspirin:       [10, 500, 'Every 6 hrs with food — ⚠️ Avoid under 16yrs (Reye syndrome risk)'],
+  dexamethasone: [0.15, 10, 'Every 6 hrs'],
+  ondansetron:   [0.1,  4,  'Every 8 hrs'],
+  domperidone:   [0.25, 10, 'Three times daily before meals'],
+  diazepam:      [0.1,  5,  'Every 6-8 hrs'],
   ibuprofen:[10,400,'Every 6–8 hrs with food'], amoxicillin:[25,500,'Every 8 hrs'],
   azithromycin:[10,500,'Once daily x5 days'], metronidazole:[7.5,400,'Every 8 hrs'],
   prednisolone:[1,40,'Once daily (morning)'], cetirizine:[0.25,10,'Once daily'],
   salbutamol:[0.1,5,'Every 4–6 hrs'], omeprazole:[1,40,'Once daily before food'],
   clarithromycin:[7.5,500,'Every 12 hrs'], trimethoprim:[4,200,'Every 12 hrs'],
   cefuroxime:[15,500,'Every 12 hrs'], erythromycin:[12.5,500,'Every 6 hrs'],
+  aspirin:       [10, 500, '⚠ Avoid in children <16yrs (Reye syndrome). Kawasaki: 80-100mg/kg/day under specialist only'],
+  amitriptyline: [0.5, 25, 'Every 8 hrs (pain) — start low'],
+  prednisolone:  [1,  40,  'Once daily morning'],
+  dexamethasone: [0.15, 10, 'Every 6 hrs'],
+  ondansetron:   [0.1, 4,  'Every 8 hrs IV/oral'],
+  diazepam:      [0.1, 5,  'Every 6-8 hrs (anxiety) / 0.3mg/kg PR for seizures'],
+  domperidone:   [0.25, 10, 'Three times daily before meals'],
 };
 
 export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {

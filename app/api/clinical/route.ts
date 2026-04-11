@@ -124,6 +124,17 @@ const LOCAL_DB = [
   {d:['sildenafil','nitrates'],        s:'High',     e:'Severe hypotension — additive vasodilation',                              a:'Absolutely contraindicated. Do not combine.'},
   {d:['carbamazepine','clarithromycin'],s:'High',    e:'Carbamazepine toxicity — inhibited metabolism',                           a:'Avoid. Monitor levels if unavoidable.'},
   {d:['lithium','furosemide'],         s:'High',     e:'Lithium toxicity — diuretics reduce renal clearance',                    a:'Monitor lithium levels closely.'},
+{d:['levothyroxine','calcium'],      s:'Moderate', e:'Calcium reduces levothyroxine absorption by up to 40%',                    a:'Take levothyroxine 4 hours apart from calcium supplements.'},
+  {d:['levothyroxine','antacids'],     s:'Moderate', e:'Antacids reduce levothyroxine absorption',                                  a:'Take levothyroxine 4 hours apart from antacids.'},
+  {d:['levothyroxine','iron'],         s:'Moderate', e:'Iron reduces levothyroxine absorption',                                     a:'Take levothyroxine 4 hours apart from iron supplements.'},
+  {d:['diazepam','morphine'],          s:'High',     e:'Severe respiratory depression — CNS + respiratory depressant combination',  a:'Avoid combination. If unavoidable, use lowest doses with monitoring.'},
+  {d:['diazepam','codeine'],           s:'High',     e:'Severe CNS and respiratory depression',                                     a:'Avoid benzodiazepines with opioids.'},
+  {d:['diazepam','tramadol'],          s:'High',     e:'Severe CNS and respiratory depression',                                     a:'Avoid benzodiazepines with opioids.'},
+  {d:['simvastatin','fluconazole'],    s:'High',     e:'Greatly increased statin levels — rhabdomyolysis risk',                    a:'Avoid. Stop statin during fluconazole course.'},
+  {d:['atorvastatin','fluconazole'],   s:'High',     e:'Increased statin levels — myopathy risk',                                   a:'Use lowest statin dose, monitor muscle symptoms.'},
+  {d:['ace inhibitors','lithium'],     s:'High',     e:'Lithium toxicity — ACE inhibitors reduce renal lithium clearance',         a:'Monitor lithium levels closely. Reduce lithium dose.'},
+  {d:['lisinopril','lithium'],         s:'High',     e:'Lithium toxicity — ACE inhibitors reduce renal lithium clearance',         a:'Monitor lithium levels closely.'},
+  {d:['ramipril','lithium'],           s:'High',     e:'Lithium toxicity',                                                          a:'Monitor lithium levels closely.'},
 ];
 
 function searchLocal(q: string) {
