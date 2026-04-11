@@ -31,7 +31,6 @@ const FORMULAS: Record<string,[number,number,string]> = {
   salbutamol:[0.1,5,'Every 4–6 hrs'], omeprazole:[1,40,'Once daily before food'],
   clarithromycin:[7.5,500,'Every 12 hrs'], trimethoprim:[4,200,'Every 12 hrs'],
   cefuroxime:[15,500,'Every 12 hrs'], erythromycin:[12.5,500,'Every 6 hrs'],
-  aspirin:       [10, 500, '⚠ Avoid in children <16yrs (Reye syndrome). Kawasaki: 80-100mg/kg/day under specialist only'],
   amitriptyline: [0.5, 25, 'Every 8 hrs (pain) — start low'],
   prednisolone:  [1,  40,  'Once daily morning'],
   dexamethasone: [0.15, 10, 'Every 6 hrs'],
