@@ -91,8 +91,7 @@ export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
     setDoseLoading(false);
   };
 
-  const selectDrug = (d:Drug) => { setSelDrug(d.name); setDoseInput(d.name); setDoseSugg([]); setDoseResult(''); setFdaLabel(null); fetchFDA(d.name); };
-
+const selectDrug = (d:Drug) => { const searchName = (d.name.toLowerCase().includes(' and ') || d.name.toLowerCase().includes('hydrochloride') || d.name.toLowerCase().includes('sulfate')) ? doseInput : d.name; setSelDrug(searchName); setDoseInput(searchName); setDoseSugg([]); setDoseResult(''); setFdaLabel(null); fetchFDA(searchName); };
   const calcDose = () => {
     if (!weight) { toast.error('Enter weight'); return; }
     const w = parseFloat(weight);
