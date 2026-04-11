@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const rxcuis = (searchParams.get('rxcuis') || '').split(',').filter(Boolean);
     if (rxcuis.length < 2) return NextResponse.json({ interactions: [] });
     const ingredientCuis = await Promise.all(rxcuis.map(toIngredient));
-    const unique = [...new Set(ingredientCuis)];
+const unique = ingredientCuis.filter((v, i, a) => a.indexOf(v) === i);
     const data = await get(`${RXNAV}/interaction/list.json?rxcuis=${unique.join('+')}`);
     const interactions: object[] = [];
     for (const group of (data?.fullInteractionTypeGroup || [])) {
