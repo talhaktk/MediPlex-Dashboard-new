@@ -72,7 +72,7 @@ export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
     if (drugs.length < 2) { toast.error('Add at least 2 drugs'); return; }
     setChecking(true); setChecked(false);
     try {
-      const r = await fetch(`/api/clinical?action=interact&rxcuis=${drugs.map(d=>d.rxcui).join(',')}`);
+      const r = await fetch(`/api/clinical?action=interact&rxcuis=${drugs.map(d=>d.rxcui).join(',')}&drugnames=${drugs.map(d=>encodeURIComponent(d.name)).join(',')}`);
       const d = await r.json();
       setResults(d.interactions||[]);
       (d.interactions||[]).length===0 ? toast.success('No interactions found — NLM database') : toast.error(`${d.interactions.length} interaction(s) found`);
