@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Search, X, Pill, Calculator, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Shield, Loader2, ExternalLink, Info, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-interface Drug { rxcui: string; name: string; }
+interface Drug { rxcui: string; name: string; generic?: string; }
 interface Interaction { drug1: string; drug2: string; severity: string; description: string; comment: string; source: string; }
 interface FDALabel { brandName: string; genericName: string; manufacturer: string; dosageAdmin: string; warnings: string; contraindications: string; interactions: string; pediatricUse: string; geriatricUse: string; pregnancy: string; howSupplied: string; }
 
@@ -80,10 +80,10 @@ export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
     setChecked(true); setChecking(false);
   };
 
-  const fetchFDA = async (name:string) => {
+  const fetchFDA = async (name:string, generic?:string) => {
     setDoseLoading(true); setFdaLabel(null); setDoseResult('');
     try {
-      const r = await fetch(`/api/clinical?action=openfda&name=${encodeURIComponent(name)}`);
+      const r = await fetch(`/api/clinical?action=openfda&name=${encodeURIComponent(name)}&generic=${encodeURIComponent(generic||name)}`);
       const d = await r.json();
       if (d.found) { setFdaLabel(d.result); toast.success('FDA label loaded'); }
       else toast.error('Not found in FDA — try generic name (e.g. "paracetamol" not "Panadol")');
@@ -91,7 +91,12 @@ export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
     setDoseLoading(false);
   };
 
-const selectDrug = (d:Drug) => { const searchName = (d.name.toLowerCase().includes(' and ') || d.name.toLowerCase().includes('hydrochloride') || d.name.toLowerCase().includes('sulfate')) ? doseInput : d.name; setSelDrug(searchName); setDoseInput(searchName); setDoseSugg([]); setDoseResult(''); setFdaLabel(null); fetchFDA(searchName); };
+  const selectDrug = (d:Drug) => {
+    const isCombo = d.name.toLowerCase().includes(' and ') || d.name.toLowerCase().includes('hydrochloride') || d.name.toLowerCase().includes('sulfate') || d.name.toLowerCase().includes('hcl');
+    const useName = isCombo ? doseInput : d.name;
+    setSelDrug(useName); setDoseInput(useName); setDoseSugg([]); setDoseResult(''); setFdaLabel(null); fetchFDA(useName);
+  };
+
   const calcDose = () => {
     if (!weight) { toast.error('Enter weight'); return; }
     const w = parseFloat(weight);

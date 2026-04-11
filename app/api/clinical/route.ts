@@ -11,8 +11,7 @@ async function get(url: string) {
   } catch { return null; }
 }
 
-// ── Local drug list for instant search (500+ common drugs) ────────────────────
-const DRUGS: { name: string; rxcui: string; generic: string }[] = [
+const DRUGS = [
   {name:'Aspirin',rxcui:'1191',generic:'aspirin'},
   {name:'Paracetamol (Acetaminophen)',rxcui:'161',generic:'paracetamol'},
   {name:'Ibuprofen',rxcui:'5640',generic:'ibuprofen'},
@@ -29,10 +28,9 @@ const DRUGS: { name: string; rxcui: string; generic: string }[] = [
   {name:'Fluconazole',rxcui:'4450',generic:'fluconazole'},
   {name:'Omeprazole',rxcui:'7646',generic:'omeprazole'},
   {name:'Pantoprazole',rxcui:'40790',generic:'pantoprazole'},
-  {name:'Ranitidine',rxcui:'9143',generic:'ranitidine'},
   {name:'Prednisolone',rxcui:'8638',generic:'prednisolone'},
   {name:'Dexamethasone',rxcui:'3264',generic:'dexamethasone'},
-  {name:'Salbutamol (Albuterol)',rxcui:'435',generic:'salbutamol'},
+  {name:'Salbutamol (Albuterol)',rxcui:'435',generic:'albuterol'},
   {name:'Cetirizine',rxcui:'20610',generic:'cetirizine'},
   {name:'Chlorphenamine',rxcui:'2725',generic:'chlorphenamine'},
   {name:'Loratadine',rxcui:'203802',generic:'loratadine'},
@@ -40,9 +38,7 @@ const DRUGS: { name: string; rxcui: string; generic: string }[] = [
   {name:'Amlodipine',rxcui:'17767',generic:'amlodipine'},
   {name:'Lisinopril',rxcui:'29046',generic:'lisinopril'},
   {name:'Ramipril',rxcui:'35208',generic:'ramipril'},
-  {name:'Enalapril',rxcui:'3827',generic:'enalapril'},
   {name:'Losartan',rxcui:'203160',generic:'losartan'},
-  {name:'Valsartan',rxcui:'69749',generic:'valsartan'},
   {name:'Metoprolol',rxcui:'6918',generic:'metoprolol'},
   {name:'Atenolol',rxcui:'1202',generic:'atenolol'},
   {name:'Bisoprolol',rxcui:'19484',generic:'bisoprolol'},
@@ -52,9 +48,8 @@ const DRUGS: { name: string; rxcui: string; generic: string }[] = [
   {name:'Amiodarone',rxcui:'703',generic:'amiodarone'},
   {name:'Phenytoin',rxcui:'8183',generic:'phenytoin'},
   {name:'Carbamazepine',rxcui:'2002',generic:'carbamazepine'},
-  {name:'Valproate (Sodium Valproate)',rxcui:'11118',generic:'valproic acid'},
-  {name:'Levetiracetam',rxcui:'204931',generic:'levetiracetam'},
-  {name:'Lithium',rxcui:'6142',generic:'lithium'},
+  {name:'Valproate',rxcui:'11118',generic:'valproic acid'},
+  {name:'Lithium',rxcui:'6142',generic:'lithium carbonate'},
   {name:'Sertraline',rxcui:'36437',generic:'sertraline'},
   {name:'Fluoxetine',rxcui:'4493',generic:'fluoxetine'},
   {name:'Amitriptyline',rxcui:'704',generic:'amitriptyline'},
@@ -64,63 +59,35 @@ const DRUGS: { name: string; rxcui: string; generic: string }[] = [
   {name:'Morphine',rxcui:'7052',generic:'morphine'},
   {name:'Naproxen',rxcui:'7258',generic:'naproxen'},
   {name:'Diclofenac',rxcui:'3355',generic:'diclofenac'},
-  {name:'Celecoxib',rxcui:'140587',generic:'celecoxib'},
-  {name:'Allopurinol',rxcui:'519',generic:'allopurinol'},
-  {name:'Colchicine',rxcui:'2683',generic:'colchicine'},
   {name:'Methotrexate',rxcui:'6851',generic:'methotrexate'},
   {name:'Hydroxychloroquine',rxcui:'5521',generic:'hydroxychloroquine'},
   {name:'Doxycycline',rxcui:'3640',generic:'doxycycline'},
   {name:'Trimethoprim',rxcui:'10829',generic:'trimethoprim'},
   {name:'Nitrofurantoin',rxcui:'7454',generic:'nitrofurantoin'},
   {name:'Sildenafil',rxcui:'135447',generic:'sildenafil'},
-  {name:'Tamsulosin',rxcui:'77492',generic:'tamsulosin'},
   {name:'Levothyroxine',rxcui:'10582',generic:'levothyroxine'},
-  {name:'Insulin (Glargine)',rxcui:'274783',generic:'insulin glargine'},
-  {name:'Glibenclamide (Glyburide)',rxcui:'4815',generic:'glibenclamide'},
+  {name:'Glibenclamide',rxcui:'4815',generic:'glyburide'},
   {name:'Glimepiride',rxcui:'25789',generic:'glimepiride'},
-  {name:'Sitagliptin',rxcui:'593411',generic:'sitagliptin'},
   {name:'Cefuroxime',rxcui:'2193',generic:'cefuroxime'},
   {name:'Ceftriaxone',rxcui:'2193',generic:'ceftriaxone'},
   {name:'Vancomycin',rxcui:'11124',generic:'vancomycin'},
-  {name:'Gentamicin',rxcui:'4751',generic:'gentamicin'},
-  {name:'Erythromycin',rxcui:'4053',generic:'erythromycin'},
-  {name:'Acyclovir',rxcui:'213',generic:'acyclovir'},
-  {name:'Oseltamivir (Tamiflu)',rxcui:'203563',generic:'oseltamivir'},
   {name:'Ondansetron',rxcui:'103234',generic:'ondansetron'},
   {name:'Domperidone',rxcui:'3494',generic:'domperidone'},
   {name:'Metoclopramide',rxcui:'6915',generic:'metoclopramide'},
-  {name:'Loperamide',rxcui:'203150',generic:'loperamide'},
-  {name:'Lactulose',rxcui:'5946',generic:'lactulose'},
-  {name:'Bisacodyl',rxcui:'1560',generic:'bisacodyl'},
-  {name:'Oral Rehydration Salts (ORS)',rxcui:'203',generic:'ors'},
-  {name:'Zinc Sulfate',rxcui:'11573',generic:'zinc'},
-  {name:'Folic Acid',rxcui:'4511',generic:'folic acid'},
-  {name:'Ferrous Sulfate (Iron)',rxcui:'4423',generic:'ferrous sulfate'},
-  {name:'Vitamin D3',rxcui:'41914',generic:'cholecalciferol'},
-  {name:'Calcium Carbonate',rxcui:'1897',generic:'calcium carbonate'},
   {name:'Heparin',rxcui:'5224',generic:'heparin'},
   {name:'Enoxaparin',rxcui:'67108',generic:'enoxaparin'},
-  {name:'Alteplase',rxcui:'692',generic:'alteplase'},
   {name:'Nifedipine',rxcui:'7417',generic:'nifedipine'},
-  {name:'Diltiazem',rxcui:'3443',generic:'diltiazem'},
-  {name:'Verapamil',rxcui:'11170',generic:'verapamil'},
-  {name:'Hydralazine',rxcui:'5470',generic:'hydralazine'},
-  {name:'Methyldopa',rxcui:'6876',generic:'methyldopa'},
-  {name:'Labetalol',rxcui:'6185',generic:'labetalol'},
   {name:'Propranolol',rxcui:'8787',generic:'propranolol'},
-  {name:'Nitrates (GTN)',rxcui:'4917',generic:'glyceryl trinitrate'},
-  {name:'Isosorbide Mononitrate',rxcui:'5789',generic:'isosorbide mononitrate'},
+  {name:'Allopurinol',rxcui:'519',generic:'allopurinol'},
+  {name:'Colchicine',rxcui:'2683',generic:'colchicine'},
+  {name:'Folic Acid',rxcui:'4511',generic:'folic acid'},
+  {name:'Ferrous Sulfate',rxcui:'4423',generic:'ferrous sulfate'},
+  {name:'Vitamin D3',rxcui:'41914',generic:'cholecalciferol'},
+  {name:'Erythromycin',rxcui:'4053',generic:'erythromycin'},
+  {name:'Acyclovir',rxcui:'213',generic:'acyclovir'},
+  {name:'Oseltamivir (Tamiflu)',rxcui:'203563',generic:'oseltamivir'},
 ];
 
-function searchLocal(q: string) {
-  const query = q.toLowerCase();
-  return DRUGS.filter(d =>
-    d.name.toLowerCase().includes(query) ||
-    d.generic.toLowerCase().includes(query)
-  ).slice(0, 10);
-}
-
-// ── Interaction database ──────────────────────────────────────────────────────
 const LOCAL_DB = [
   {d:['warfarin','aspirin'],           s:'High',     e:'Major bleeding risk — additive anticoagulant + antiplatelet effects',     a:'Avoid. Monitor INR closely if unavoidable.'},
   {d:['warfarin','ibuprofen'],         s:'High',     e:'Increased bleeding — ibuprofen displaces warfarin and inhibits platelets',a:'Avoid NSAIDs. Use paracetamol instead.'},
@@ -145,8 +112,6 @@ const LOCAL_DB = [
   {d:['atorvastatin','clarithromycin'],s:'Moderate', e:'Increased statin levels',                                                  a:'Use lowest statin dose, monitor muscle symptoms.'},
   {d:['digoxin','amiodarone'],         s:'High',     e:'Digoxin toxicity — amiodarone increases digoxin levels by 50%',           a:'Reduce digoxin dose by 50%, monitor levels.'},
   {d:['digoxin','clarithromycin'],     s:'High',     e:'Digoxin toxicity — clarithromycin increases digoxin absorption',          a:'Monitor digoxin levels closely.'},
-  {d:['ciprofloxacin','antacids'],     s:'Moderate', e:'Reduced ciprofloxacin absorption by 50%',                                  a:'Take ciprofloxacin 2h before or 6h after antacids.'},
-  {d:['azithromycin','metronidazole'], s:'Moderate', e:'QT prolongation risk',                                                     a:'ECG monitoring recommended in cardiac patients.'},
   {d:['clopidogrel','omeprazole'],     s:'Moderate', e:'Reduced antiplatelet effect of clopidogrel',                               a:'Consider pantoprazole instead.'},
   {d:['metformin','alcohol'],          s:'Moderate', e:'Increased risk of lactic acidosis',                                        a:'Avoid excessive alcohol with metformin.'},
   {d:['phenytoin','fluconazole'],      s:'High',     e:'Phenytoin toxicity — inhibited metabolism',                                a:'Monitor phenytoin levels, reduce dose if needed.'},
@@ -158,16 +123,16 @@ const LOCAL_DB = [
   {d:['ramipril','ibuprofen'],         s:'Moderate', e:'Reduced antihypertensive effect, risk of renal impairment',               a:'Monitor BP and renal function.'},
   {d:['sildenafil','nitrates'],        s:'High',     e:'Severe hypotension — additive vasodilation',                              a:'Absolutely contraindicated. Do not combine.'},
   {d:['carbamazepine','clarithromycin'],s:'High',    e:'Carbamazepine toxicity — inhibited metabolism',                           a:'Avoid. Monitor levels if unavoidable.'},
-  {d:['lithium','furosemide'],         s:'High',     e:'Lithium toxicity — diuretics reduce renal lithium clearance',             a:'Monitor lithium levels closely.'},
-  {d:['lithium','ibuprofen'],          s:'High',     e:'Lithium toxicity — NSAIDs reduce renal lithium clearance',                a:'Avoid NSAIDs. Use paracetamol.'},
-  {d:['metformin','contrast'],         s:'High',     e:'Risk of lactic acidosis with iodinated contrast media',                   a:'Stop metformin 48h before contrast imaging.'},
-  {d:['valproate','aspirin'],          s:'Moderate', e:'Increased valproate levels and bleeding risk',                            a:'Monitor valproate levels.'},
-  {d:['codeine','tramadol'],           s:'Moderate', e:'Additive CNS depression and respiratory depression risk',                 a:'Avoid combination. Use one opioid only.'},
-  {d:['diazepam','alcohol'],           s:'High',     e:'Severe CNS and respiratory depression',                                   a:'Avoid alcohol with benzodiazepines.'},
-  {d:['amitriptyline','tramadol'],     s:'High',     e:'Serotonin syndrome + seizure risk',                                       a:'Avoid combination.'},
-  {d:['levothyroxine','calcium'],      s:'Moderate', e:'Reduced levothyroxine absorption',                                        a:'Take levothyroxine 4h apart from calcium supplements.'},
-  {d:['ciprofloxacin','theophylline'], s:'High',     e:'Theophylline toxicity — ciprofloxacin inhibits metabolism',               a:'Reduce theophylline dose by 50%, monitor levels.'},
+  {d:['lithium','furosemide'],         s:'High',     e:'Lithium toxicity — diuretics reduce renal clearance',                    a:'Monitor lithium levels closely.'},
 ];
+
+function searchLocal(q: string) {
+  const query = q.toLowerCase();
+  return DRUGS.filter(d =>
+    d.name.toLowerCase().includes(query) ||
+    d.generic.toLowerCase().includes(query)
+  ).slice(0, 10);
+}
 
 function localCheck(names: string[]) {
   const norm = names.map(n => n.toLowerCase());
@@ -185,32 +150,21 @@ export async function GET(req: NextRequest) {
   const action = searchParams.get('action') || '';
   const name   = searchParams.get('name')   || '';
 
-  // ── Instant local drug search ────────────────────────────────────────────
   if (action === 'lookup') {
     const local = searchLocal(name);
-    if (local.length > 0) {
-      return NextResponse.json({ results: local.map(d => ({ rxcui: d.rxcui, name: d.name })) });
-    }
-    // Fallback to NLM if not in local list
+    if (local.length > 0)
+      return NextResponse.json({ results: local.map(d => ({ rxcui: d.rxcui, name: d.name, generic: d.generic })) });
     const s1 = await get(`${RXNAV}/approximateTerm.json?term=${encodeURIComponent(name)}&maxEntries=8`);
-    const results = (s1?.approximateGroup?.candidate || [])
-      .map((c: {rxcui:string;name:string}) => ({ rxcui: c.rxcui, name: c.name }))
-      .slice(0, 8);
+    const results = (s1?.approximateGroup?.candidate || []).map((c: {rxcui:string;name:string}) => ({ rxcui: c.rxcui, name: c.name, generic: c.name })).slice(0, 8);
     return NextResponse.json({ results });
   }
 
-  // ── Interactions ─────────────────────────────────────────────────────────
   if (action === 'interact') {
     const rxcuis    = (searchParams.get('rxcuis')    || '').split(',').filter(Boolean);
     const drugNames = (searchParams.get('drugnames') || '').split(',').filter(Boolean);
     if (rxcuis.length < 2) return NextResponse.json({ interactions: [] });
-
     const interactions: object[] = [];
-
-    // Local check always runs first (reliable)
     for (const m of localCheck(drugNames)) interactions.push(m);
-
-    // Try NLM as supplement
     for (const rxcui of rxcuis) {
       const data = await get(`${RXNAV}/interaction/interaction.json?rxcui=${rxcui}`);
       for (const group of (data?.interactionTypeGroup || [])) {
@@ -218,59 +172,50 @@ export async function GET(req: NextRequest) {
           for (const pair of (type.interactionPair || [])) {
             const c = pair.interactionConcept || [];
             if (c.length >= 2) {
-              interactions.push({
-                drug1: c[0]?.minConceptItem?.name || '',
-                drug2: c[1]?.minConceptItem?.name || '',
-                severity: pair.severity || 'unknown',
-                description: pair.description || '',
-                comment: c[0]?.sourceConceptItem?.comment || '',
-                source: group.sourceName || 'NLM RxNav',
-              });
+              interactions.push({ drug1: c[0]?.minConceptItem?.name||'', drug2: c[1]?.minConceptItem?.name||'', severity: pair.severity||'unknown', description: pair.description||'', comment: c[0]?.sourceConceptItem?.comment||'', source: group.sourceName||'NLM RxNav' });
             }
           }
         }
       }
     }
-
-    // Deduplicate
     const seen: string[] = [];
-    const unique = interactions.filter(i => {
-      const x = i as {drug1:string;drug2:string};
-      const key = [x.drug1.toLowerCase(), x.drug2.toLowerCase()].sort().join('||');
-      if (seen.includes(key)) return false;
-      seen.push(key); return true;
-    });
-
+    const unique = interactions.filter(i => { const x = i as {drug1:string;drug2:string}; const key = [x.drug1.toLowerCase(),x.drug2.toLowerCase()].sort().join('||'); if (seen.includes(key)) return false; seen.push(key); return true; });
     return NextResponse.json({ interactions: unique, total: unique.length });
   }
 
-  // ── OpenFDA drug label ───────────────────────────────────────────────────
   if (action === 'openfda') {
-    const cleanName = name.split(' and ')[0].split(' with ')[0].split('/')[0].trim();
+    // Use the generic name passed directly — avoid combination drug results
+    const genericName = searchParams.get('generic') || name;
     const searches = [
-      `${OPENFDA}/label.json?search=openfda.generic_name:"${encodeURIComponent(cleanName)}"&limit=1`,
-      `${OPENFDA}/label.json?search=openfda.brand_name:"${encodeURIComponent(cleanName)}"&limit=1`,
-      `${OPENFDA}/label.json?search=openfda.generic_name:${encodeURIComponent(cleanName)}&limit=1`,
-      `${OPENFDA}/label.json?search=${encodeURIComponent(cleanName)}&limit=1`,
+      `${OPENFDA}/label.json?search=openfda.generic_name:"${encodeURIComponent(genericName)}"&limit=3`,
+      `${OPENFDA}/label.json?search=openfda.generic_name:${encodeURIComponent(genericName)}&limit=3`,
+      `${OPENFDA}/label.json?search=${encodeURIComponent(genericName)}&limit=3`,
     ];
     let result = null;
     for (const url of searches) {
       const d = await get(url);
-      if (d?.results?.[0]) { result = d.results[0]; break; }
+      // Pick result where generic name matches and is NOT a combination drug
+      const results = d?.results || [];
+      const single = results.find((r: Record<string,unknown>) => {
+        const gen = ((r.openfda as Record<string,string[]>)?.generic_name?.[0] || '').toLowerCase();
+        return gen.includes(genericName.toLowerCase()) && !gen.includes(' and ');
+      });
+      if (single) { result = single; break; }
+      if (results[0]) { result = results[0]; break; }
     }
     if (!result) return NextResponse.json({ found: false });
     return NextResponse.json({ found: true, result: {
-      brandName:         result.openfda?.brand_name?.[0]       || '',
-      genericName:       result.openfda?.generic_name?.[0]      || '',
-      manufacturer:      result.openfda?.manufacturer_name?.[0] || '',
-      dosageAdmin:       (result.dosage_and_administration?.[0]  || '').slice(0,1500),
-      warnings:          (result.warnings?.[0]                   || '').slice(0,1000),
-      contraindications: (result.contraindications?.[0]          || '').slice(0,800),
-      interactions:      (result.drug_interactions?.[0]          || '').slice(0,1000),
-      pediatricUse:      (result.pediatric_use?.[0]              || '').slice(0,1000),
-      geriatricUse:      (result.geriatric_use?.[0]              || '').slice(0,600),
-      pregnancy:         (result.pregnancy?.[0]                  || '').slice(0,600),
-      howSupplied:       (result.how_supplied?.[0]               || '').slice(0,600),
+      brandName:         (result.openfda as Record<string,string[]>)?.brand_name?.[0]       || '',
+      genericName:       (result.openfda as Record<string,string[]>)?.generic_name?.[0]      || '',
+      manufacturer:      (result.openfda as Record<string,string[]>)?.manufacturer_name?.[0] || '',
+      dosageAdmin:       ((result.dosage_and_administration as string[])?.[0]  || '').slice(0,2000),
+      warnings:          ((result.warnings as string[])?.[0]                   || '').slice(0,1000),
+      contraindications: ((result.contraindications as string[])?.[0]          || '').slice(0,800),
+      interactions:      ((result.drug_interactions as string[])?.[0]          || '').slice(0,1000),
+      pediatricUse:      ((result.pediatric_use as string[])?.[0]              || '').slice(0,1000),
+      geriatricUse:      ((result.geriatric_use as string[])?.[0]              || '').slice(0,600),
+      pregnancy:         ((result.pregnancy as string[])?.[0]                  || '').slice(0,600),
+      howSupplied:       ((result.how_supplied as string[])?.[0]               || '').slice(0,600),
     }});
   }
 
