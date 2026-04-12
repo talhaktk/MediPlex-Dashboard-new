@@ -6354,3 +6354,73 @@ export const MASTER_INTERACTIONS: Interaction[] = [
   ...INTERACTIONS_TOPUP,
   ...INTERACTIONS_SEAL
 ];
+
+export const BNF_DRUGS = MASTER_DRUGS;
+export const BNF_INTERACTIONS = MASTER_INTERACTIONS;
+
+export function searchDrugs(query: string): DrugInfo[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return MASTER_DRUGS;
+  return MASTER_DRUGS.filter(d =>
+    d.name.toLowerCase().includes(q) ||
+    d.category.toLowerCase().includes(q)
+  );
+}
+
+export function getDrugInfo(name: string): DrugInfo | undefined {
+  return MASTER_DRUGS.find(d => d.name.toLowerCase() === name.toLowerCase());
+}
+
+export function calcPaedDose(drug: DrugInfo, weightKg: number, ageMonths: number): string {
+  const p = drug.paediatric;
+  if (!p) return 'No paediatric data';
+  if (p.mgPerKg && p.mgPerKg > 0) {
+    const raw = weightKg * p.mgPerKg;
+    const dose = p.maxDose ? Math.min(raw, p.maxDose) : raw;
+    return `${Math.round(dose * 10) / 10}mg per dose`;
+  }
+  if (ageMonths < 1 && p.neonatal) return p.neonatal;
+  if (ageMonths < 12 && p.age1to11m) return p.age1to11m;
+  if (ageMonths < 60 && p.age1to4y) return p.age1to4y;
+  if (ageMonths < 144 && p.age5to11y) return p.age5to11y;
+  if (p.age12to17y) return p.age12to17y;
+  return p.age1to4y || p.age5to11y || 'Consult specialist';
+}
+
+export function checkInteractions(drugNames: string[]): Interaction[] {
+  const CLASS_MAP: Record<string,string[]> = {
+    ibuprofen:['nsaid','nsaids'],diclofenac:['nsaid','nsaids'],naproxen:['nsaid','nsaids'],
+    celecoxib:['nsaid','nsaids'],etoricoxib:['nsaid','nsaids'],ketorolac:['nsaid','nsaids'],
+    meloxicam:['nsaid','nsaids'],piroxicam:['nsaid','nsaids'],mefenamic:['nsaid','nsaids'],
+    atorvastatin:['statin','statins'],simvastatin:['statin','statins'],
+    rosuvastatin:['statin','statins'],pravastatin:['statin','statins'],
+    amlodipine:['calcium channel blocker','ccb'],nifedipine:['calcium channel blocker','ccb'],
+    diltiazem:['calcium channel blocker','ccb'],verapamil:['calcium channel blocker','ccb'],
+    fluoxetine:['ssri'],sertraline:['ssri'],citalopram:['ssri'],escitalopram:['ssri'],
+    lisinopril:['ace inhibitor','acei'],ramipril:['ace inhibitor','acei'],
+    losartan:['arb'],valsartan:['arb'],candesartan:['arb'],
+    metoprolol:['beta-blocker'],atenolol:['beta-blocker'],bisoprolol:['beta-blocker'],
+    diazepam:['benzodiazepine'],lorazepam:['benzodiazepine'],alprazolam:['benzodiazepine'],
+  };
+  function getAliases(name: string): string[] {
+    const n = name.toLowerCase().split('(')[0].trim();
+    const extra = Object.entries(CLASS_MAP).filter(([k]) => n.includes(k)).flatMap(([,v]) => v);
+    return [n, ...extra];
+  }
+  function matchesDrug(aliases: string[], id: string): boolean {
+    const d = id.toLowerCase();
+    return aliases.some(a => d.includes(a) || a.includes(d.split('(')[0].trim()));
+  }
+  const aliasGroups = drugNames.map(d => getAliases(d));
+  const matched = MASTER_INTERACTIONS.filter(i =>
+    aliasGroups.every(aliases => i.drugs.some(id => matchesDrug(aliases, id)))
+  );
+  const rank: Record<string,number> = {Contraindicated:4,Severe:3,Moderate:2,Mild:1};
+  const seen = new Map<string,Interaction>();
+  for (const i of matched) {
+    const key = i.drugs.slice().sort().join('|')+'|'+i.effect.slice(0,40).toLowerCase();
+    const ex = seen.get(key);
+    if (!ex || rank[i.severity] > rank[ex.severity]) seen.set(key, i);
+  }
+  return Array.from(seen.values());
+}
