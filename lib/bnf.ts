@@ -6354,3 +6354,11 @@ export const MASTER_INTERACTIONS: Interaction[] = [
   ...INTERACTIONS_TOPUP,
   ...INTERACTIONS_SEAL
 ];
+
+export const BNF_DRUGS = MASTER_DRUGS;
+export const BNF_INTERACTIONS = MASTER_INTERACTIONS;
+export function checkInteractions(drugNames: string[]): Interaction[] {
+  return MASTER_INTERACTIONS.filter(i =>
+    drugNames.some(d => i.drugs.some(id => id.toLowerCase().includes(d.toLowerCase())))
+  );
+}
