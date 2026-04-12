@@ -6398,7 +6398,6 @@ export function checkInteractions(drugNames: string[]): Interaction[] {
     }
   }
   return Array.from(seen.values());
-});
 }
 export function getDrugInfo(name: string): DrugInfo | undefined {
   return MASTER_DRUGS.find(d => d.name.toLowerCase() === name.toLowerCase());
