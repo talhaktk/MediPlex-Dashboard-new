@@ -5984,7 +5984,7 @@ export function searchDrugs(query: string): DrugInfo[] {
   if (!q) return ALL_DRUGS;
   return ALL_DRUGS.filter(d =>
     d.name.toLowerCase().includes(q) ||
-    d.class.toLowerCase().includes(q) ||
+    d.drugClass?.toLowerCase().includes(q) ||
     d.indications.some(i => i.toLowerCase().includes(q))
   );
 }
