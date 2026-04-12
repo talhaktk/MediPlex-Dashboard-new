@@ -224,7 +224,7 @@ export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
                           <div className="text-[10px] uppercase tracking-widest font-bold mb-1.5" style={{color:c.color}}>Mechanism</div>
                           <div className="text-[13px] leading-relaxed" style={{color:c.color}}>{r.mechanism}</div>
                         </div>
-                        <div className="rounded-xl p-4" style={{background:'rgba(255,255,255,0.7)'}}>
+                        <div className="rounded-xl p-4" style={{background:'rgba(0,0,0,0.25)'}}>
                           <div className="text-[10px] uppercase tracking-widest font-bold mb-1.5" style={{color:c.color}}>⚕️ Clinical Action Required</div>
                           <div className="text-[14px] font-semibold leading-relaxed" style={{color:c.color}}>{r.action}</div>
                         </div>
