@@ -76,7 +76,7 @@ export default function ClinicalClient({ bnfApiKey }: { bnfApiKey: string }) {
 
   const doCheck = () => {
     if (drugs.length < 2) { toast.error('Add at least 2 drugs'); return; }
-    const names = drugs.map(d => d.name.split("(")[0].trim().toLowerCase());
+    const names = drugs.map(d => d.name);
     const r = checkInteractions(names);
     setResults(r);
     setChecked(true);
