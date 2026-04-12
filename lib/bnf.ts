@@ -6358,28 +6358,41 @@ export const MASTER_INTERACTIONS: Interaction[] = [
 export const BNF_DRUGS = MASTER_DRUGS;
 export const BNF_INTERACTIONS = MASTER_INTERACTIONS;
 export function checkInteractions(drugNames: string[]): Interaction[] {
-  const NSAID_LIST = ['ibuprofen','diclofenac','naproxen','celecoxib','etoricoxib','mefenamic','ketorolac','indomethacin','meloxicam','piroxicam','aspirin'];
-  const STATIN_LIST = ['atorvastatin','simvastatin','rosuvastatin','pravastatin','fluvastatin','lovastatin'];
-  const CCB_LIST = ['amlodipine','nifedipine','diltiazem','verapamil','felodipine','lercanidipine'];
-  const BENZO_LIST = ['diazepam','lorazepam','clonazepam','alprazolam','temazepam','midazolam','nitrazepam'];
-  const SSRI_LIST = ['fluoxetine','sertraline','citalopram','escitalopram','paroxetine','fluvoxamine'];
-  const ACE_LIST = ['lisinopril','ramipril','enalapril','perindopril','captopril','fosinopril'];
-  const ARB_LIST = ['losartan','valsartan','irbesartan','candesartan','telmisartan','olmesartan'];
-  const BB_LIST = ['metoprolol','atenolol','bisoprolol','propranolol','carvedilol','nebivolol','labetalol'];
-
-  function expandName(name: string): string[] {
+  const CLASS_MAP: Record<string,string[]> = {
+    ibuprofen:['nsaid','nsaids'],diclofenac:['nsaid','nsaids'],naproxen:['nsaid','nsaids'],
+    celecoxib:['nsaid','nsaids','cox-2'],etoricoxib:['nsaid','nsaids'],ketorolac:['nsaid','nsaids'],
+    atorvastatin:['statin','statins'],simvastatin:['statin','statins'],rosuvastatin:['statin','statins'],
+    pravastatin:['statin','statins'],fluvastatin:['statin','statins'],
+    amlodipine:['calcium channel blocker','ccb'],nifedipine:['calcium channel blocker','ccb'],
+    diltiazem:['calcium channel blocker','ccb'],verapamil:['calcium channel blocker','ccb'],
+    fluoxetine:['ssri'],sertraline:['ssri'],citalopram:['ssri'],escitalopram:['ssri'],paroxetine:['ssri'],
+    lisinopril:['ace inhibitor','acei'],ramipril:['ace inhibitor','acei'],enalapril:['ace inhibitor','acei'],
+    losartan:['arb'],valsartan:['arb'],candesartan:['arb'],irbesartan:['arb'],
+    metoprolol:['beta-blocker'],atenolol:['beta-blocker'],bisoprolol:['beta-blocker'],propranolol:['beta-blocker'],
+    diazepam:['benzodiazepine'],lorazepam:['benzodiazepine'],alprazolam:['benzodiazepine'],
+  };
+  function getAliases(name: string): string[] {
     const n = name.toLowerCase().split('(')[0].trim();
-    const aliases: string[] = [n];
-    if (NSAID_LIST.some(x => n.includes(x))) aliases.push('nsaid','nsaids','anti-inflammatory');
-    if (STATIN_LIST.some(x => n.includes(x))) aliases.push('statin','statins');
-    if (CCB_LIST.some(x => n.includes(x))) aliases.push('calcium channel blocker','ccb');
-    if (BENZO_LIST.some(x => n.includes(x))) aliases.push('benzodiazepine','benzo');
-    if (SSRI_LIST.some(x => n.includes(x))) aliases.push('ssri','antidepressant');
-    if (ACE_LIST.some(x => n.includes(x))) aliases.push('ace inhibitor','acei');
-    if (ARB_LIST.some(x => n.includes(x))) aliases.push('arb','angiotensin');
-    if (BB_LIST.some(x => n.includes(x))) aliases.push('beta-blocker','beta blocker');
-    return aliases;
+    const extra = Object.entries(CLASS_MAP).filter(([k]) => n.includes(k)).flatMap(([,v]) => v);
+    return [n, ...extra];
   }
+  function matches(drugAlias: string[], interactionDrug: string): boolean {
+    const id = interactionDrug.toLowerCase();
+    return drugAlias.some(a => id.includes(a) || a.includes(id.split('(')[0].trim()));
+  }
+  const aliasGroups = drugNames.map(d => getAliases(d));
+  const matched = MASTER_INTERACTIONS.filter(i =>
+    aliasGroups.every(aliases => i.drugs.some(id => matches(aliases, id)))
+  );
+  const severityRank: Record<string,number> = {Contraindicated:4,Severe:3,Moderate:2,Mild:1};
+  const seen = new Map<string, Interaction>();
+  for (const i of matched) {
+    const key = i.drugs.slice().sort().join('|') + '|' + i.effect.slice(0,40).toLowerCase();
+    const existing = seen.get(key);
+    if (!existing || severityRank[i.severity] > severityRank[existing.severity]) seen.set(key, i);
+  }
+  return Array.from(seen.values());
+}
 
   const expanded = drugNames.flatMap(d => expandName(d));
   const matched = MASTER_INTERACTIONS.filter(i => {
