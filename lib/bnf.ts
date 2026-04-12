@@ -6359,9 +6359,10 @@ export const BNF_DRUGS = MASTER_DRUGS;
 export const BNF_INTERACTIONS = MASTER_INTERACTIONS;
 export function checkInteractions(drugNames: string[]): Interaction[] {
   const q = drugNames.map(d => d.toLowerCase().split('(')[0].trim());
-  return MASTER_INTERACTIONS.filter(i =>
-    q.some(a => i.drugs.some(id => id.toLowerCase().includes(a) || a.includes(id.toLowerCase().split(' ')[0])))
-  );
+  return MASTER_INTERACTIONS.filter(i => {
+    const iDrugs = i.drugs.map(d => d.toLowerCase());
+    return q.every(name => iDrugs.some(id => id.includes(name) || name.includes(id.split('(')[0].trim())));
+  });
 }
 export function getDrugInfo(name: string): DrugInfo | undefined {
   return MASTER_DRUGS.find(d => d.name.toLowerCase() === name.toLowerCase());
