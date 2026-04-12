@@ -2372,7 +2372,7 @@ const ALLERGY_IMMUNE_RAW:C[] = [
   {n:'Fluticasone nasal spray',g:'fluticasone propionate/furoate',c:'Allergy/ENT - Intranasal corticosteroid',r:'371001',f:['Nasal spray 50mcg/actuation (propionate)','Nasal spray 27.5mcg/actuation (furoate — Avamys)'],
    pd:'Fluticasone propionate ≥4y: 1 spray each nostril once daily.',pm:200,pf:'Once daily',pr:'Intranasal',pw:'Once-daily fluticasone furoate (Avamys) — convenient. Also treats ocular symptoms. Lower systemic bioavailability than beclometasone. Effective allergic rhinitis. May take 1-2 weeks for full effect.',
    ad:'2 sprays each nostril once daily',af:'Once daily',ar:'Intranasal',am:'200mcg/day (prop); 110mcg/day (furoate)',
-   ci:['None at nasal doses'],ca:['Avoid in patients on ritonavir (CYP3A4 — Cushing\\'s risk with furoate)'],
+   ci:['None at nasal doses'],ca:['Avoid in patients on ritonavir (CYP3A4 — Cushing\s risk with furoate)'],
    se:['Epistaxis','Headache','Nasal irritation'],mo:'Symptom response. Epistaxis.'},
   {n:'Azelastine nasal/ophthalmic',g:'azelastine hydrochloride',c:'Allergy/ENT - Topical antihistamine (allergic rhinitis/conjunctivitis)',r:'43940',f:['Nasal spray 140mcg/actuation','Eye drops 0.05%'],
    pd:'≥5y (nasal): 140mcg each nostril twice daily.',pm:0,pf:'Twice daily',pr:'Intranasal/Ophthalmic',pw:'Rapid onset (15 min). Useful for immediate symptom relief. Can be combined with nasal steroid (Dymista = azelastine + fluticasone). Bitter taste if swallowed.',
