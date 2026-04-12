@@ -6358,12 +6358,14 @@ export const MASTER_INTERACTIONS: Interaction[] = [
 export const BNF_DRUGS = MASTER_DRUGS;
 export const BNF_INTERACTIONS = MASTER_INTERACTIONS;
 export function checkInteractions(drugNames: string[]): Interaction[] {
+  const q = drugNames.map(d => d.toLowerCase());
+  if (q.length < 2) return MASTER_INTERACTIONS.filter(i =>
+    i.drugs.some(id => id.toLowerCase().includes(q[0] || ''))
+  );
   return MASTER_INTERACTIONS.filter(i =>
-    drugNames.some(d => i.drugs.some(id => id.toLowerCase().includes(d.toLowerCase())))
+    q.filter(a => i.drugs.some(id => id.toLowerCase().includes(a))).length >= 2
   );
 }
-
-export function getDrugInfo(name: string): DrugInfo | undefined {
   return MASTER_DRUGS.find(d => d.name.toLowerCase() === name.toLowerCase());
 }
 export function calcPaedDose(drug: DrugInfo, weightKg: number, ageMonths: number): string {
