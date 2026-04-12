@@ -6362,3 +6362,22 @@ export function checkInteractions(drugNames: string[]): Interaction[] {
     drugNames.some(d => i.drugs.some(id => id.toLowerCase().includes(d.toLowerCase())))
   );
 }
+
+export function getDrugInfo(name: string): DrugInfo | undefined {
+  return MASTER_DRUGS.find(d => d.name.toLowerCase() === name.toLowerCase());
+}
+export function calcPaedDose(drug: DrugInfo, weightKg: number, ageMonths: number): string {
+  const p = drug.paediatric;
+  if (!p) return 'No paediatric data';
+  if (p.mgPerKg && p.mgPerKg > 0) {
+    const raw = weightKg * p.mgPerKg;
+    const dose = p.maxDose ? Math.min(raw, p.maxDose) : raw;
+    return `${Math.round(dose * 10) / 10}mg per dose`;
+  }
+  if (ageMonths < 1 && p.neonatal) return p.neonatal;
+  if (ageMonths < 12 && p.age1to11m) return p.age1to11m;
+  if (ageMonths < 60 && p.age1to4y) return p.age1to4y;
+  if (ageMonths < 144 && p.age5to11y) return p.age5to11y;
+  if (p.age12to17y) return p.age12to17y;
+  return p.age1to4y || p.age5to11y || 'Consult specialist';
+}
