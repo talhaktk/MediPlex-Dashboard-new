@@ -6387,24 +6387,20 @@ export function calcPaedDose(drug: DrugInfo, kg: number, mo: number): string { c
 export function checkInteractions(drugNames: string[]): Interaction[] {
   const CLASS_LOOKUP: Record<string,string[]> = {
     'ibuprofen':['nsaid','nsaids'],'diclofenac':['nsaid','nsaids'],'naproxen':['nsaid','nsaids'],
-    'celecoxib':['nsaid','nsaids','cox-2'],'etoricoxib':['nsaid','nsaids'],'ketorolac':['nsaid','nsaids'],
+    'celecoxib':['nsaid','nsaids'],'etoricoxib':['nsaid','nsaids'],'ketorolac':['nsaid','nsaids'],
     'mefenamic':['nsaid','nsaids'],'meloxicam':['nsaid','nsaids'],'piroxicam':['nsaid','nsaids'],
-    'indomethacin':['nsaid','nsaids'],'indometacin':['nsaid','nsaids'],
-    'atorvastatin':['statin','statins'],'simvastatin':['statin','statins'],
-    'rosuvastatin':['statin','statins'],'pravastatin':['statin','statins'],
-    'fluvastatin':['statin','statins'],'lovastatin':['statin','statins'],
-    'amlodipine':['calcium channel blocker','ccb','dihydropyridine ccb'],
-    'nifedipine':['calcium channel blocker','ccb'],'diltiazem':['calcium channel blocker','ccb'],
-    'verapamil':['calcium channel blocker','ccb'],
+    'indomethacin':['nsaid','nsaids'],'indometacin':['nsaid','nsaids'],'aspirin':['nsaid','nsaids','antiplatelet'],
+    'atorvastatin':['statin','statins'],'simvastatin':['statin','statins'],'rosuvastatin':['statin','statins'],
+    'pravastatin':['statin','statins'],'fluvastatin':['statin','statins'],'lovastatin':['statin','statins'],
+    'amlodipine':['calcium channel blocker','ccb'],'nifedipine':['calcium channel blocker','ccb'],
+    'diltiazem':['calcium channel blocker','ccb'],'verapamil':['calcium channel blocker','ccb'],
     'felodipine':['calcium channel blocker','ccb'],'lercanidipine':['calcium channel blocker','ccb'],
     'fluoxetine':['ssri','ssris'],'sertraline':['ssri','ssris'],'citalopram':['ssri','ssris'],
     'escitalopram':['ssri','ssris'],'paroxetine':['ssri','ssris'],'fluvoxamine':['ssri','ssris'],
-    'lisinopril':['ace inhibitor','acei','ace inhibitors'],
-    'ramipril':['ace inhibitor','acei','ace inhibitors'],
-    'enalapril':['ace inhibitor','acei','ace inhibitors'],
-    'perindopril':['ace inhibitor','acei','ace inhibitors'],
-    'losartan':['arb','arbs'],'valsartan':['arb','arbs'],
-    'candesartan':['arb','arbs'],'irbesartan':['arb','arbs'],'telmisartan':['arb','arbs'],
+    'lisinopril':['ace inhibitor','acei','ace inhibitors'],'ramipril':['ace inhibitor','acei','ace inhibitors'],
+    'enalapril':['ace inhibitor','acei','ace inhibitors'],'perindopril':['ace inhibitor','acei','ace inhibitors'],
+    'losartan':['arb','arbs'],'valsartan':['arb','arbs'],'candesartan':['arb','arbs'],
+    'irbesartan':['arb','arbs'],'telmisartan':['arb','arbs'],
     'metoprolol':['beta-blocker','beta-blockers'],'atenolol':['beta-blocker','beta-blockers'],
     'bisoprolol':['beta-blocker','beta-blockers'],'propranolol':['beta-blocker','beta-blockers'],
     'carvedilol':['beta-blocker','beta-blockers'],'nebivolol':['beta-blocker','beta-blockers'],
@@ -6412,63 +6408,54 @@ export function checkInteractions(drugNames: string[]): Interaction[] {
     'diazepam':['benzodiazepine','benzodiazepines'],'lorazepam':['benzodiazepine','benzodiazepines'],
     'alprazolam':['benzodiazepine','benzodiazepines'],'temazepam':['benzodiazepine','benzodiazepines'],
     'clonazepam':['benzodiazepine','benzodiazepines'],'midazolam':['benzodiazepine','benzodiazepines'],
-    'morphine':['opioid','opioids'],'codeine':['opioid','opioids'],
-    'tramadol':['opioid','opioids'],'fentanyl':['opioid','opioids'],
-    'oxycodone':['opioid','opioids'],'buprenorphine':['opioid','opioids'],
-    'methadone':['opioid','opioids'],
-    'amoxicillin':['penicillin','penicillins'],'ampicillin':['penicillin','penicillins'],
-    'flucloxacillin':['penicillin','penicillins'],
+    'morphine':['opioid','opioids'],'codeine':['opioid','opioids'],'tramadol':['opioid','opioids'],
+    'fentanyl':['opioid','opioids'],'oxycodone':['opioid','opioids'],
+    'buprenorphine':['opioid','opioids'],'methadone':['opioid','opioids'],
     'ciprofloxacin':['quinolone','quinolones','fluoroquinolone','fluoroquinolones'],
     'levofloxacin':['quinolone','quinolones','fluoroquinolone','fluoroquinolones'],
     'clarithromycin':['macrolide','macrolides'],'erythromycin':['macrolide','macrolides'],
     'azithromycin':['macrolide','macrolides'],
-    'fluconazole':['azole','azoles','antifungal azole'],'itraconazole':['azole','azoles'],
-    'voriconazole':['azole','azoles'],'ketoconazole':['azole','azoles'],
-    'posaconazole':['azole','azoles'],
-    'furosemide':['loop diuretic','loop diuretics'],
-    'bumetanide':['loop diuretic','loop diuretics'],
+    'fluconazole':['azole','azoles'],'itraconazole':['azole','azoles'],
+    'voriconazole':['azole','azoles'],'ketoconazole':['azole','azoles'],'posaconazole':['azole','azoles'],
+    'furosemide':['loop diuretic','loop diuretics'],'bumetanide':['loop diuretic','loop diuretics'],
     'spironolactone':['potassium-sparing diuretic','potassium-sparing diuretics'],
     'amiloride':['potassium-sparing diuretic','potassium-sparing diuretics'],
-    'hydrochlorothiazide':['thiazide','thiazide diuretic','thiazides'],
-    'bendroflumethiazide':['thiazide','thiazide diuretic','thiazides'],
+    'hydrochlorothiazide':['thiazide','thiazides'],'bendroflumethiazide':['thiazide','thiazides'],
+    'prednisolone':['corticosteroid','corticosteroids','steroid'],
+    'dexamethasone':['corticosteroid','corticosteroids','steroid'],
+    'hydrocortisone':['corticosteroid','corticosteroids','steroid'],
+    'gentamicin':['aminoglycoside','aminoglycosides'],'tobramycin':['aminoglycoside','aminoglycosides'],
+    'amikacin':['aminoglycoside','aminoglycosides'],
     'phenytoin':['antiepileptic','aed','enzyme-inducing aed'],
     'carbamazepine':['antiepileptic','aed','enzyme-inducing aed'],
     'phenobarbitone':['antiepileptic','aed','enzyme-inducing aed'],
     'phenobarbital':['antiepileptic','aed','enzyme-inducing aed'],
-    'valproate':['antiepileptic','aed'],'valproic acid':['antiepileptic','aed'],
-    'gentamicin':['aminoglycoside','aminoglycosides'],
-    'tobramycin':['aminoglycoside','aminoglycosides'],
-    'amikacin':['aminoglycoside','aminoglycosides'],
-    'prednisolone':['corticosteroid','corticosteroids','steroid'],
-    'dexamethasone':['corticosteroid','corticosteroids','steroid'],
-    'hydrocortisone':['corticosteroid','corticosteroids','steroid'],
-    'warfarin':['anticoagulant','oral anticoagulant'],
-    'metformin':['biguanide'],'glibenclamide':['sulphonylurea','sulfonylurea','sulphonylureas'],
+    'glibenclamide':['sulphonylurea','sulfonylurea','sulphonylureas'],
     'glipizide':['sulphonylurea','sulfonylurea','sulphonylureas'],
     'gliclazide':['sulphonylurea','sulfonylurea','sulphonylureas'],
-    'lithium':['lithium salts'],
     'haloperidol':['antipsychotic','typical antipsychotic'],
     'olanzapine':['antipsychotic'],'quetiapine':['antipsychotic'],
     'risperidone':['antipsychotic'],'clozapine':['antipsychotic'],
     'amitriptyline':['tricyclic antidepressant','tca','tcas'],
     'nortriptyline':['tricyclic antidepressant','tca','tcas'],
     'clomipramine':['tricyclic antidepressant','tca','tcas'],
-    'phenelzine':['maoi','maois'],'tranylcypromine':['maoi','maois'],
-    'moclobemide':['maoi','maois'],
+    'phenelzine':['maoi','maois'],'tranylcypromine':['maoi','maois'],'moclobemide':['maoi','maois'],
     'rifampicin':['enzyme inducer','cyp3a4 inducer'],
+    'clopidogrel':['antiplatelet','p2y12 inhibitor'],
+    'ticagrelor':['antiplatelet','p2y12 inhibitor'],
+    'metronidazole':['antibiotic','nitroimidazole'],
+    'warfarin':['anticoagulant','oral anticoagulant'],
+    'metformin':['biguanide'],
+    'lithium':['lithium salts'],
     'digoxin':['cardiac glycoside'],
     'amiodarone':['antiarrhythmic','class iii antiarrhythmic'],
     'methotrexate':['antifolate','dmard'],
     'azathioprine':['immunosuppressant','thiopurine'],
     'ciclosporin':['immunosuppressant','calcineurin inhibitor'],
     'tacrolimus':['immunosuppressant','calcineurin inhibitor'],
-    'insulin':['insulin','insulins'],
-    'aspirin':['nsaid','nsaids','antiplatelet'],
-    'clopidogrel':['antiplatelet','p2y12 inhibitor'],
-    'ticagrelor':['antiplatelet','p2y12 inhibitor'],
   };
 
-  function getDrugAliases(drugName: string): string[] {
+  function getAliases(drugName: string): string[] {
     const base = drugName.toLowerCase().split('(')[0].trim();
     const aliases = new Set<string>([base]);
     for (const [key, classes] of Object.entries(CLASS_LOOKUP)) {
@@ -6480,32 +6467,36 @@ export function checkInteractions(drugNames: string[]): Interaction[] {
     return Array.from(aliases);
   }
 
-  function drugMatchesInteractionEntry(drugAliases: string[], interactionEntry: string): boolean {
-    const entry = interactionEntry.toLowerCase();
-    const entryBase = entry.split('(')[0].trim();
-    return drugAliases.some(alias => 
-      entry.includes(alias) || 
-      alias.includes(entryBase) ||
-      entryBase.includes(alias)
-    );
+  function matchesEntry(aliases: string[], entry: string): boolean {
+    const e = entry.toLowerCase();
+    const eBase = e.split('(')[0].trim();
+    return aliases.some(a => e.includes(a) || a.includes(eBase) || eBase.includes(a));
   }
 
-  const drugAliasMap = drugNames.map(d => getDrugAliases(d));
-
-  const r = MASTER_INTERACTIONS.filter(interaction => {
-    return drugAliasMap.every(aliases =>
-      interaction.drugs.some(interactionDrug =>
-        drugMatchesInteractionEntry(aliases, interactionDrug)
-      )
-    );
-  });
-
+  // Generate all pairs from the drug list
+  const allResults: Interaction[] = [];
   const rank: Record<string,number> = {Contraindicated:4, Severe:3, Moderate:2, Mild:1};
   const seen = new Map<string, Interaction>();
-  for (const i of r) {
-    const k = i.drugs.slice().sort().join('|') + i.effect.slice(0,30);
-    const e = seen.get(k);
-    if (!e || rank[i.severity] > rank[e.severity]) seen.set(k, i);
+
+  for (let i = 0; i < drugNames.length; i++) {
+    for (let j = i + 1; j < drugNames.length; j++) {
+      const aliasA = getAliases(drugNames[i]);
+      const aliasB = getAliases(drugNames[j]);
+
+      const matches = MASTER_INTERACTIONS.filter(interaction =>
+        (interaction.drugs.some(d => matchesEntry(aliasA, d)) &&
+         interaction.drugs.some(d => matchesEntry(aliasB, d)))
+      );
+
+      for (const interaction of matches) {
+        const k = interaction.drugs.slice().sort().join('|') + interaction.effect.slice(0,30);
+        const existing = seen.get(k);
+        if (!existing || rank[interaction.severity] > rank[existing.severity]) {
+          seen.set(k, interaction);
+        }
+      }
+    }
   }
+
   return Array.from(seen.values());
 }
