@@ -150,17 +150,17 @@ export default function ScribeClient() {
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [copied, setCopied] = useState(false);
-const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null);
+  const recognitionRef = useRef<any>(null);
   const currentMode = MODES.find(m => m.id === mode)!;
 
   const startRecording = () => {
-    const SR = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast.error('Speech recognition not supported in this browser'); return; }
     const recognition = new SR();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-GB';
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
+    recognition.onresult = (e: any) => {
       let transcript = '';
       for (let i = 0; i < e.results.length; i++) {
         transcript += e.results[i][0].transcript;
@@ -168,7 +168,7 @@ const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | nu
       setInput(transcript);
     };
     recognition.onerror = () => { setStatus('idle'); toast.error('Microphone error'); };
-    recognition.onend = () => setStatus(prev => prev === 'recording' ? 'idle' : prev);
+    recognition.onend = () => setStatus((prev: Status) => prev === 'recording' ? 'idle' : prev);
     recognition.start();
     recognitionRef.current = recognition;
     setStatus('recording');
