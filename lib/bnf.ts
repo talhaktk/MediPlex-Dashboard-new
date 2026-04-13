@@ -6384,4 +6384,128 @@ export const BNF_INTERACTIONS = MASTER_INTERACTIONS;
 export function searchDrugs(q: string): DrugInfo[] { return MASTER_DRUGS.filter(d => d.name.toLowerCase().includes(q.toLowerCase())||d.category.toLowerCase().includes(q.toLowerCase())); }
 export function getDrugInfo(n: string): DrugInfo | undefined { return MASTER_DRUGS.find(d => d.name.toLowerCase()===n.toLowerCase()); }
 export function calcPaedDose(drug: DrugInfo, kg: number, mo: number): string { const p=drug.paediatric; if(!p) return 'No data'; if(p.mgPerKg&&p.mgPerKg>0){const r=kg*p.mgPerKg; return String(Math.round((p.maxDose?Math.min(r,p.maxDose):r)*10)/10)+'mg';} if(mo<1&&p.neonatal)return p.neonatal; if(mo<12&&p.age1to11m)return p.age1to11m; if(mo<60&&p.age1to4y)return p.age1to4y; if(mo<144&&p.age5to11y)return p.age5to11y; if(p.age12to17y)return p.age12to17y; return 'Consult specialist'; }
-export function checkInteractions(drugNames: string[]): Interaction[] { const q=drugNames.map(d=>d.toLowerCase().split('(')[0].trim()); const r=MASTER_INTERACTIONS.filter(i=>q.every(a=>i.drugs.some(id=>id.toLowerCase().includes(a)||a.includes(id.toLowerCase().split('(')[0].trim())))); const rank:Record<string,number>={Contraindicated:4,Severe:3,Moderate:2,Mild:1}; const seen=new Map<string,Interaction>(); for(const i of r){const k=i.drugs.slice().sort().join('|')+i.effect.slice(0,30); const e=seen.get(k); if(!e||rank[i.severity]>rank[e.severity])seen.set(k,i);} return Array.from(seen.values()); }
+export function checkInteractions(drugNames: string[]): Interaction[] {
+  const CLASS_LOOKUP: Record<string,string[]> = {
+    'ibuprofen':['nsaid','nsaids'],'diclofenac':['nsaid','nsaids'],'naproxen':['nsaid','nsaids'],
+    'celecoxib':['nsaid','nsaids','cox-2'],'etoricoxib':['nsaid','nsaids'],'ketorolac':['nsaid','nsaids'],
+    'mefenamic':['nsaid','nsaids'],'meloxicam':['nsaid','nsaids'],'piroxicam':['nsaid','nsaids'],
+    'indomethacin':['nsaid','nsaids'],'indometacin':['nsaid','nsaids'],
+    'atorvastatin':['statin','statins'],'simvastatin':['statin','statins'],
+    'rosuvastatin':['statin','statins'],'pravastatin':['statin','statins'],
+    'fluvastatin':['statin','statins'],'lovastatin':['statin','statins'],
+    'amlodipine':['calcium channel blocker','ccb','dihydropyridine ccb'],
+    'nifedipine':['calcium channel blocker','ccb'],'diltiazem':['calcium channel blocker','ccb'],
+    'verapamil':['calcium channel blocker','ccb'],
+    'felodipine':['calcium channel blocker','ccb'],'lercanidipine':['calcium channel blocker','ccb'],
+    'fluoxetine':['ssri','ssris'],'sertraline':['ssri','ssris'],'citalopram':['ssri','ssris'],
+    'escitalopram':['ssri','ssris'],'paroxetine':['ssri','ssris'],'fluvoxamine':['ssri','ssris'],
+    'lisinopril':['ace inhibitor','acei','ace inhibitors'],
+    'ramipril':['ace inhibitor','acei','ace inhibitors'],
+    'enalapril':['ace inhibitor','acei','ace inhibitors'],
+    'perindopril':['ace inhibitor','acei','ace inhibitors'],
+    'losartan':['arb','arbs'],'valsartan':['arb','arbs'],
+    'candesartan':['arb','arbs'],'irbesartan':['arb','arbs'],'telmisartan':['arb','arbs'],
+    'metoprolol':['beta-blocker','beta-blockers'],'atenolol':['beta-blocker','beta-blockers'],
+    'bisoprolol':['beta-blocker','beta-blockers'],'propranolol':['beta-blocker','beta-blockers'],
+    'carvedilol':['beta-blocker','beta-blockers'],'nebivolol':['beta-blocker','beta-blockers'],
+    'sotalol':['beta-blocker','beta-blockers'],
+    'diazepam':['benzodiazepine','benzodiazepines'],'lorazepam':['benzodiazepine','benzodiazepines'],
+    'alprazolam':['benzodiazepine','benzodiazepines'],'temazepam':['benzodiazepine','benzodiazepines'],
+    'clonazepam':['benzodiazepine','benzodiazepines'],'midazolam':['benzodiazepine','benzodiazepines'],
+    'morphine':['opioid','opioids'],'codeine':['opioid','opioids'],
+    'tramadol':['opioid','opioids'],'fentanyl':['opioid','opioids'],
+    'oxycodone':['opioid','opioids'],'buprenorphine':['opioid','opioids'],
+    'methadone':['opioid','opioids'],
+    'amoxicillin':['penicillin','penicillins'],'ampicillin':['penicillin','penicillins'],
+    'flucloxacillin':['penicillin','penicillins'],
+    'ciprofloxacin':['quinolone','quinolones','fluoroquinolone','fluoroquinolones'],
+    'levofloxacin':['quinolone','quinolones','fluoroquinolone','fluoroquinolones'],
+    'clarithromycin':['macrolide','macrolides'],'erythromycin':['macrolide','macrolides'],
+    'azithromycin':['macrolide','macrolides'],
+    'fluconazole':['azole','azoles','antifungal azole'],'itraconazole':['azole','azoles'],
+    'voriconazole':['azole','azoles'],'ketoconazole':['azole','azoles'],
+    'posaconazole':['azole','azoles'],
+    'furosemide':['loop diuretic','loop diuretics'],
+    'bumetanide':['loop diuretic','loop diuretics'],
+    'spironolactone':['potassium-sparing diuretic','potassium-sparing diuretics'],
+    'amiloride':['potassium-sparing diuretic','potassium-sparing diuretics'],
+    'hydrochlorothiazide':['thiazide','thiazide diuretic','thiazides'],
+    'bendroflumethiazide':['thiazide','thiazide diuretic','thiazides'],
+    'phenytoin':['antiepileptic','aed','enzyme-inducing aed'],
+    'carbamazepine':['antiepileptic','aed','enzyme-inducing aed'],
+    'phenobarbitone':['antiepileptic','aed','enzyme-inducing aed'],
+    'phenobarbital':['antiepileptic','aed','enzyme-inducing aed'],
+    'valproate':['antiepileptic','aed'],'valproic acid':['antiepileptic','aed'],
+    'gentamicin':['aminoglycoside','aminoglycosides'],
+    'tobramycin':['aminoglycoside','aminoglycosides'],
+    'amikacin':['aminoglycoside','aminoglycosides'],
+    'prednisolone':['corticosteroid','corticosteroids','steroid'],
+    'dexamethasone':['corticosteroid','corticosteroids','steroid'],
+    'hydrocortisone':['corticosteroid','corticosteroids','steroid'],
+    'warfarin':['anticoagulant','oral anticoagulant'],
+    'metformin':['biguanide'],'glibenclamide':['sulphonylurea','sulfonylurea','sulphonylureas'],
+    'glipizide':['sulphonylurea','sulfonylurea','sulphonylureas'],
+    'gliclazide':['sulphonylurea','sulfonylurea','sulphonylureas'],
+    'lithium':['lithium salts'],
+    'haloperidol':['antipsychotic','typical antipsychotic'],
+    'olanzapine':['antipsychotic'],'quetiapine':['antipsychotic'],
+    'risperidone':['antipsychotic'],'clozapine':['antipsychotic'],
+    'amitriptyline':['tricyclic antidepressant','tca','tcas'],
+    'nortriptyline':['tricyclic antidepressant','tca','tcas'],
+    'clomipramine':['tricyclic antidepressant','tca','tcas'],
+    'phenelzine':['maoi','maois'],'tranylcypromine':['maoi','maois'],
+    'moclobemide':['maoi','maois'],
+    'rifampicin':['enzyme inducer','cyp3a4 inducer'],
+    'digoxin':['cardiac glycoside'],
+    'amiodarone':['antiarrhythmic','class iii antiarrhythmic'],
+    'methotrexate':['antifolate','dmard'],
+    'azathioprine':['immunosuppressant','thiopurine'],
+    'ciclosporin':['immunosuppressant','calcineurin inhibitor'],
+    'tacrolimus':['immunosuppressant','calcineurin inhibitor'],
+    'insulin':['insulin','insulins'],
+    'aspirin':['nsaid','nsaids','antiplatelet'],
+    'clopidogrel':['antiplatelet','p2y12 inhibitor'],
+    'ticagrelor':['antiplatelet','p2y12 inhibitor'],
+  };
+
+  function getDrugAliases(drugName: string): string[] {
+    const base = drugName.toLowerCase().split('(')[0].trim();
+    const aliases = new Set<string>([base]);
+    for (const [key, classes] of Object.entries(CLASS_LOOKUP)) {
+      if (base.includes(key) || key.includes(base)) {
+        classes.forEach(c => aliases.add(c));
+        aliases.add(key);
+      }
+    }
+    return Array.from(aliases);
+  }
+
+  function drugMatchesInteractionEntry(drugAliases: string[], interactionEntry: string): boolean {
+    const entry = interactionEntry.toLowerCase();
+    const entryBase = entry.split('(')[0].trim();
+    return drugAliases.some(alias => 
+      entry.includes(alias) || 
+      alias.includes(entryBase) ||
+      entryBase.includes(alias)
+    );
+  }
+
+  const drugAliasMap = drugNames.map(d => getDrugAliases(d));
+
+  const r = MASTER_INTERACTIONS.filter(interaction => {
+    return drugAliasMap.every(aliases =>
+      interaction.drugs.some(interactionDrug =>
+        drugMatchesInteractionEntry(aliases, interactionDrug)
+      )
+    );
+  });
+
+  const rank: Record<string,number> = {Contraindicated:4, Severe:3, Moderate:2, Mild:1};
+  const seen = new Map<string, Interaction>();
+  for (const i of r) {
+    const k = i.drugs.slice().sort().join('|') + i.effect.slice(0,30);
+    const e = seen.get(k);
+    if (!e || rank[i.severity] > rank[e.severity]) seen.set(k, i);
+  }
+  return Array.from(seen.values());
+}
