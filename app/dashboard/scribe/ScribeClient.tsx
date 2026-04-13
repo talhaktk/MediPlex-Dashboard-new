@@ -150,7 +150,7 @@ export default function ScribeClient() {
   const [output, setOutput] = useState('');
   const [status, setStatus] = useState<Status>('idle');
   const [copied, setCopied] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+const recognitionRef = useRef<InstanceType<typeof window.SpeechRecognition> | null>(null);
   const currentMode = MODES.find(m => m.id === mode)!;
 
   const startRecording = () => {
