@@ -111,3 +111,40 @@ export function formatUSDate(dateStr: string): string {
   const d = parseISO(dateStr);
   return isValid(d) ? format(d, 'MMM d, yyyy') : dateStr;
 }
+// ─── Missing Helpers for Analytics ──────────────────────────────────────────
+
+export function filterAppointments(
+  data: Appointment[],
+  filters: { status?: string; visitType?: string; dateFrom?: string; dateTo?: string; search?: string }
+): Appointment[] {
+  return data.filter(a => {
+    if (filters.status && filters.status !== 'all' && a.status !== filters.status) return false;
+    if (filters.visitType && filters.visitType !== 'all' && a.visitType !== filters.visitType) return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      return (
+        a.childName.toLowerCase().includes(q) ||
+        a.parentName.toLowerCase().includes(q) ||
+        (a.reason || '').toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+}
+
+export function exportToCSV(data: Appointment[], filename = 'appointments.csv'): void {
+  const headers = ['Child Name', 'Parent Name', 'Date', 'Time', 'Reason', 'Status'];
+  const rows = data.map(a => [
+    a.childName, a.parentName, a.appointmentDate, a.appointmentTime, a.reason, a.status
+  ]);
+  const csv = [headers, ...rows].map(row => row.map(c => `"${c}"`).join(',')).join('\n');
+
+  if (typeof window !== 'undefined') {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+  }
+}
