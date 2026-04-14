@@ -1,12 +1,12 @@
-import { fetchAppointmentsFromDb } from '@/lib/data'; // Points to the new function you just created
+// Change the import path to match your filename 'sheets'
+import { fetchAppointmentsFromDb } from '@/lib/sheets'; 
 import Topbar from '@/components/layout/Topbar';
 import AppointmentsClient from './AppointmentsClient';
 
-// Disable static caching so you see real-time database changes
 export const revalidate = 0; 
 
 export default async function AppointmentsPage() {
-  // Fetching from Supabase instead of Google Sheets
+  // Use the new function name you created
   const data = await fetchAppointmentsFromDb();
 
   return (
