@@ -24,11 +24,11 @@ export default async function AnalyticsPage() {
         <AnalyticsClient 
           data={data}
           stats={stats}
-          monthlyStats={monthlyStats}
-          reasonStats={reasonStats}
-          ageStats={ageStats}
+          // If the component expects 'monthly', 'reasons', and 'ages' instead:
+          monthly={monthlyStats}
+          reasons={reasonStats}
+          ages={ageStats}
         />
       </main>
     </>
   );
-}
