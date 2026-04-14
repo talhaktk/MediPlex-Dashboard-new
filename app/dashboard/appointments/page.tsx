@@ -1,11 +1,14 @@
-import { fetchAppointmentsFromSheet } from '@/lib/sheets';
+import { fetchAppointmentsFromDb } from '@/lib/data'; // Points to the new function you just created
 import Topbar from '@/components/layout/Topbar';
 import AppointmentsClient from './AppointmentsClient';
 
-export const revalidate = 60;
+// Disable static caching so you see real-time database changes
+export const revalidate = 0; 
 
 export default async function AppointmentsPage() {
-  const data = await fetchAppointmentsFromSheet();
+  // Fetching from Supabase instead of Google Sheets
+  const data = await fetchAppointmentsFromDb();
+
   return (
     <>
       <Topbar
