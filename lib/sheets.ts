@@ -2,6 +2,9 @@ import type { Appointment, AppointmentStatus, DashboardStats, MonthlyStats, Reas
 import { parseISO, isValid, format, startOfMonth } from 'date-fns';
 import { createClient } from '@supabase/supabase-js';
 
+// This "alias" fixes all your other pages (Billing, Calendar, etc.) at once!
+export const fetchAppointmentsFromSheet = fetchAppointmentsFromDb;
+
 // 1. Initialize Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
