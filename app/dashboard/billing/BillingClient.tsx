@@ -6,12 +6,11 @@ import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
 import { Plus, Download, FileText, Search, X, Save, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-  getInvoices, saveInvoice as storeSaveInvoice, deleteInvoice as storeDeleteInvoice,
-  InvoiceRecord
 } from '@/lib/store';
 
-type Invoice = InvoiceRecord;
+type Invoice = InvoiceRecord & {
+  mr_number?: string;
+};
 
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
@@ -34,12 +33,12 @@ function PayPill({ status }: { status: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function BillingClient({ data }: { data: Appointment[] }) {
-  const [invoices,   setInvoices]   = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [search,     setSearch]     = useState('');
   const [filterPay,  setFilterPay]  = useState('all');
   const [showForm,   setShowForm]   = useState(false);
   const [selected,   setSelected]   = useState<Invoice | null>(null);
-  const [form,       setForm]       = useState<Partial<Invoice>>({});
+const [form, setForm] = useState<Partial<Invoice>>({});
   const [aptSearch,  setAptSearch]  = useState('');
   // Add this near your other useState hooks
 const [selectedPatient, setSelectedPatient] = useState<any>(null);
