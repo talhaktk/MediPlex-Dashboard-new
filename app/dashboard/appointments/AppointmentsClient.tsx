@@ -48,7 +48,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     }
   };
 
-
   const getAttendance = (a: Appointment) => storeAtt[a.id] ?? {
     attendanceStatus: a.attendanceStatus || 'Not Set',
     checkInTime:  a.checkInTime  || '',
@@ -62,7 +61,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     }
     if (sortBy === 'date') {
       result = [...result].sort((a, b) => {
-        // Convert "9:15 AM" → minutes since midnight for proper numeric sort
         const toMins = (t: string) => {
           if (!t) return 0;
           const m = t.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -81,7 +79,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
             ? dateA.localeCompare(dateB)
             : dateB.localeCompare(dateA);
         }
-        // Same date — sort by time numerically
         const diff = toMins(a.appointmentTime) - toMins(b.appointmentTime);
         return sortDir === 'asc' ? diff : -diff;
       });
@@ -101,7 +98,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
       });
     }
     return result;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, status, visitType, search, dateFrom, dateTo, attendance, sortAtt, sortBy, sortDir]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
@@ -113,6 +109,7 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     a.appointmentDate === today &&
     (a.status === 'Confirmed' || a.status === 'Rescheduled' || a.status === 'Pending')
   );
+  
   const totalToday  = todayData.length;
   const checkedIn   = todayData.filter(a => getAttendance(a).attendanceStatus === 'Checked-In').length;
   const inClinic    = todayData.filter(a => getAttendance(a).attendanceStatus === 'In Clinic').length;
@@ -183,7 +180,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
 
       </div>
 
-     
       {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="text-[13px] text-gray-500">
@@ -244,9 +240,8 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
       </div>
 
       {/* ── Table ────────────────────────────────────────────────────────────── */}
-      
-<div className="card animate-in">
-  <div className="overflow-visible">
+      <div className="card animate-in">
+        <div className="overflow-visible">
           <table className="data-table">
             <thead>
               <tr>
@@ -391,20 +386,19 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
           </div>
         </div>
       </div>
+      
       {/* Patient Record Quick Modal */}
-      {{/* Patient Record Quick Modal */}
       {patientRecordApt && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl">
-             <CheckInFlow
-               appointment={patientRecordApt}
-               onComplete={() => { setPatientRecordApt(null); refreshAttendance(); }}
-               onCancel={() => setPatientRecordApt(null)}
-             />
+            <CheckInFlow
+              appointment={patientRecordApt}
+              onComplete={() => { setPatientRecordApt(null); refreshAttendance(); }}
+              onCancel={() => setPatientRecordApt(null)}
+            />
           </div>
         </div>
       )}
     </div>
   );
 }
-
