@@ -95,7 +95,7 @@ const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     setForm({
       id:            genId(),
       appointmentId: apt?.id || '',
-      mr_number:     apt?.mr_number || '', // Maps MR# from Supabase
+mr_number: (apt as any)?.mr_number || '',
       childName:     apt?.childName || '',
       parentName:    apt?.parentName || '',
       date:          apt?.appointmentDate || new Date().toISOString().split('T')[0],
