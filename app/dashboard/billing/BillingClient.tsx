@@ -28,6 +28,7 @@ type Invoice = {
 
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
+// ── Generate human-readable invoice ID ───────────────────────────────────────
 function genId() {
   return `INV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 }
@@ -35,22 +36,30 @@ function genId() {
 // ── Map DB row → Invoice ──────────────────────────────────────────────────────
 function mapRow(r: any): Invoice {
   return {
-    id:            r.id,
-    appointmentId: r.appointment_id || '',
-    mr_number:     r.mr_number || '',
-    childName:     r.child_name || '',
-    parentName:    r.parent_name || '',
-    date:          r.date || r.created_at?.split('T')[0] || '',
-    visitType:     r.visit_type || '',
-    reason:        r.reason || '',
+    id:            String(r.id ?? ''),
+    appointmentId: String(r.appointment_id ?? ''),
+    mr_number:     r.mr_number ?? '',
+    childName:     r.child_name ?? '',
+    parentName:    r.parent_name ?? '',
+    date:          r.date ?? r.created_at?.split('T')[0] ?? '',
+    visitType:     r.visit_type ?? '',
+    reason:        r.reason ?? '',
     feeAmount:     Number(r.consultation_fee) || 0,
     discount:      Number(r.discount) || 0,
     paid:          Number(r.amount_paid) || 0,
-    paymentMethod: r.payment_method || 'Cash',
-    paymentStatus: (r.payment_status || r.status || 'Unpaid') as Invoice['paymentStatus'],
-    notes:         r.notes || '',
-    createdAt:     r.created_at || new Date().toISOString(),
+    paymentMethod: r.payment_method ?? 'Cash',
+    paymentStatus: (r.payment_status ?? r.status ?? 'Unpaid') as Invoice['paymentStatus'],
+    notes:         r.notes ?? '',
+    createdAt:     r.created_at ?? new Date().toISOString(),
   };
+}
+
+// ── Compute payment status ────────────────────────────────────────────────────
+function computeStatus(fee: number, discount: number, paid: number): Invoice['paymentStatus'] {
+  const net = fee - discount;
+  if (paid >= net) return 'Paid';
+  if (paid > 0)    return 'Partial';
+  return 'Unpaid';
 }
 
 // ── Status pill ───────────────────────────────────────────────────────────────
@@ -77,7 +86,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const [form,      setForm]      = useState<Partial<Invoice>>({});
   const [aptSearch, setAptSearch] = useState('');
 
-  // ── Fetch + realtime ────────────────────────────────────────────────────────
+  // ── Fetch + realtime sync ────────────────────────────────────────────────────
   useEffect(() => {
     const fetchInvoices = async () => {
       const { data: rows, error } = await supabase
@@ -86,7 +95,8 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Fetch error:', error);
+        console.error('Billing fetch error:', error.message);
+        toast.error('Could not load invoices: ' + error.message);
         return;
       }
       if (rows) setInvoices(rows.map(mapRow));
@@ -95,7 +105,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     fetchInvoices();
 
     const channel = supabase
-      .channel('billing-sync')
+      .channel('billing-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, () => {
         fetchInvoices();
       })
@@ -111,7 +121,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
       .filter(a =>
         a.childName &&
         a.appointmentDate &&
-        !invoicedIds.has(a.id) &&
+        !invoicedIds.has(String(a.id)) &&
         (a.status === 'Confirmed' || a.status === 'Rescheduled')
       )
       .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate));
@@ -123,11 +133,10 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     if (filterPay !== 'all') r = r.filter(i => i.paymentStatus === filterPay);
     if (search) {
       const q = search.toLowerCase();
-      r = r.filter(
-        i =>
-          i.childName.toLowerCase().includes(q) ||
-          i.parentName.toLowerCase().includes(q) ||
-          i.id.toLowerCase().includes(q)
+      r = r.filter(i =>
+        i.childName.toLowerCase().includes(q) ||
+        i.parentName.toLowerCase().includes(q) ||
+        i.id.toLowerCase().includes(q)
       );
     }
     return [...r].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -143,13 +152,13 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const openNewForm = (apt?: Appointment) => {
     setForm({
       id:            genId(),
-      appointmentId: apt?.id?.toString() || '',
-      mr_number:     (apt as any)?.mr_number || '',
-      childName:     apt?.childName || '',
-      parentName:    apt?.parentName || '',
-      date:          apt?.appointmentDate || new Date().toISOString().split('T')[0],
-      visitType:     apt?.visitType || '',
-      reason:        apt?.reason || '',
+      appointmentId: apt ? String(apt.id) : '',
+      mr_number:     (apt as any)?.mr_number ?? '',
+      childName:     apt?.childName ?? '',
+      parentName:    apt?.parentName ?? '',
+      date:          apt?.appointmentDate ?? new Date().toISOString().split('T')[0],
+      visitType:     apt?.visitType ?? '',
+      reason:        apt?.reason ?? '',
       feeAmount:     500,
       discount:      0,
       paid:          0,
@@ -164,43 +173,49 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
 
   // ── Save invoice ────────────────────────────────────────────────────────────
   const saveInvoice = async () => {
-    if (!form.childName || !form.feeAmount) {
-      toast.error('Patient name and fee are required');
+    if (!form.childName?.trim()) {
+      toast.error('Patient name is required');
+      return;
+    }
+    if (!form.feeAmount || form.feeAmount <= 0) {
+      toast.error('Please enter a valid fee amount');
       return;
     }
 
-    const net    = (form.feeAmount || 0) - (form.discount || 0);
-    const paid   = form.paid || 0;
-    const status: Invoice['paymentStatus'] =
-      paid >= net ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
+    const status = computeStatus(
+      form.feeAmount || 0,
+      form.discount  || 0,
+      form.paid      || 0,
+    );
+
+    // Always ensure ID is a string starting with INV-
+    const invoiceId = (form.id && form.id.startsWith('INV-')) ? form.id : genId();
+
+    const payload = {
+      id:               invoiceId,
+      appointment_id:   form.appointmentId || null,
+      mr_number:        form.mr_number     || '',
+      child_name:       form.childName.trim(),
+      parent_name:      form.parentName    || '',
+      date:             form.date          || new Date().toISOString().split('T')[0],
+      visit_type:       form.visitType     || '',
+      reason:           form.reason        || '',
+      consultation_fee: form.feeAmount,
+      discount:         form.discount      || 0,
+      amount_paid:      form.paid          || 0,
+      payment_method:   form.paymentMethod || 'Cash',
+      payment_status:   status,
+      notes:            form.notes         || '',
+      created_at:       form.createdAt     || new Date().toISOString(),
+    };
 
     try {
-      const { error } = await supabase.from('billing').upsert([
-        {
-          id:               form.id,
-          appointment_id:   form.appointmentId || null,
-          mr_number:        form.mr_number || '',
-          child_name:       form.childName,
-          parent_name:      form.parentName || '',
-          date:             form.date,
-          visit_type:       form.visitType || '',
-          reason:           form.reason || '',
-          consultation_fee: form.feeAmount,
-          discount:         form.discount || 0,
-          amount_paid:      form.paid || 0,
-          payment_method:   form.paymentMethod || 'Cash',
-          payment_status:   status,
-          notes:            form.notes || '',
-          created_at:       form.createdAt || new Date().toISOString(),
-        },
-      ]);
-
+      const { error } = await supabase.from('billing').upsert([payload]);
       if (error) throw error;
-
       setShowForm(false);
-      toast.success(`Invoice ${form.id} saved!`);
+      toast.success(`Invoice ${invoiceId} saved!`);
     } catch (err: any) {
-      console.error('Supabase Error:', err);
+      console.error('Supabase save error:', err);
       toast.error('Failed to save: ' + err.message);
     }
   };
@@ -213,7 +228,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     else toast.success('Invoice deleted');
   };
 
-  // ── Print invoice (A4 full) ─────────────────────────────────────────────────
+  // ── Print invoice ───────────────────────────────────────────────────────────
   const printInvoice = (inv: Invoice) => {
     const net = inv.feeAmount - inv.discount;
     const due = Math.max(0, net - inv.paid);
@@ -237,7 +252,9 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
       .fee-table td{padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:13px}
       .total-row td{font-weight:700;font-size:14px;background:#f9f7f3}
       .due-row td{font-weight:700;font-size:16px;color:${due > 0 ? '#c53030' : '#1a7f5e'}}
-      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${inv.paymentStatus === 'Paid' ? '#e8f7f2' : inv.paymentStatus === 'Partial' ? '#fff9e6' : '#fff0f0'};color:${inv.paymentStatus === 'Paid' ? '#1a7f5e' : inv.paymentStatus === 'Partial' ? '#b47a00' : '#c53030'}}
+      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+        background:${inv.paymentStatus === 'Paid' ? '#e8f7f2' : inv.paymentStatus === 'Partial' ? '#fff9e6' : '#fff0f0'};
+        color:${inv.paymentStatus === 'Paid' ? '#1a7f5e' : inv.paymentStatus === 'Partial' ? '#b47a00' : '#c53030'}}
       .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
     </style></head><body>
     <div class="header">
@@ -311,10 +328,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
           { label: 'Unpaid Invoices', value: unpaidCount,                            color: '#c53030', bg: '#fef2f2' },
         ].map(s => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: s.bg }}
-            >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
               <span className="text-[18px] font-bold" style={{ color: s.color }}>
                 {typeof s.value === 'number' ? s.value : '₨'}
               </span>
@@ -331,15 +345,12 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-2">
           {['all', 'Paid', 'Partial', 'Unpaid'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilterPay(f)}
+            <button key={f} onClick={() => setFilterPay(f)}
               className={`px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all ${
                 filterPay === f
                   ? 'bg-navy text-white border-navy'
                   : 'border-black/10 text-gray-500 hover:border-gold'
-              }`}
-            >
+              }`}>
               {f === 'all' ? 'All' : f}
             </button>
           ))}
@@ -347,13 +358,9 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
         <div className="flex gap-2 flex-1 justify-end">
           <div className="relative flex-1 max-w-xs">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search invoices..."
-              value={search}
+            <input type="text" placeholder="Search invoices..." value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold"
-            />
+              className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold" />
           </div>
           <button onClick={() => openNewForm()} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
             <Plus size={13} /> New Invoice
@@ -373,45 +380,32 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
 
           {/* Pick appointment */}
           {!form.appointmentId && (
-            <div
-              className="mb-5 rounded-xl p-4"
-              style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.2)' }}
-            >
+            <div className="mb-5 rounded-xl p-4" style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.2)' }}>
               <div className="text-[12px] font-medium text-navy mb-3">
                 Pick an appointment (or fill manually below)
               </div>
               <div className="relative mb-3">
                 <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search patient..."
-                  value={aptSearch}
+                <input type="text" placeholder="Search patient..." value={aptSearch}
                   onChange={e => setAptSearch(e.target.value)}
-                  className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] bg-white outline-none focus:border-gold"
-                />
+                  className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] bg-white outline-none focus:border-gold" />
               </div>
               <div className="max-h-40 overflow-y-auto space-y-1">
                 {aptFiltered.slice(0, 20).map(a => (
-                  <button
-                    key={a.id}
-                    onClick={() =>
-                      setForm(prev => ({
-                        ...prev,
-                        appointmentId: a.id?.toString(),
-                        mr_number: (a as any).mr_number || '',
-                        childName: a.childName,
-                        parentName: a.parentName,
-                        date: a.appointmentDate,
-                        visitType: a.visitType,
-                        reason: a.reason,
-                      }))
-                    }
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white text-[12px] transition-colors flex items-center justify-between"
-                  >
+                  <button key={a.id}
+                    onClick={() => setForm(prev => ({
+                      ...prev,
+                      appointmentId: String(a.id),
+                      mr_number:     (a as any).mr_number || '',
+                      childName:     a.childName,
+                      parentName:    a.parentName,
+                      date:          a.appointmentDate,
+                      visitType:     a.visitType,
+                      reason:        a.reason,
+                    }))}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white text-[12px] transition-colors flex items-center justify-between">
                     <span className="font-medium text-navy">{a.childName}</span>
-                    <span className="text-gray-400">
-                      {formatUSDate(a.appointmentDate)} · {a.appointmentTime}
-                    </span>
+                    <span className="text-gray-400">{formatUSDate(a.appointmentDate)} · {a.appointmentTime}</span>
                   </button>
                 ))}
                 {aptFiltered.length === 0 && (
@@ -429,74 +423,48 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
               { label: 'Visit Type',   key: 'visitType',  type: 'text' },
             ].map(f => (
               <div key={f.key}>
-                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-                  {f.label}
-                </label>
-                <input
-                  type={f.type}
-                  value={(form as Record<string, unknown>)[f.key] as string || ''}
+                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.label}</label>
+                <input type={f.type} value={(form as any)[f.key] || ''}
                   onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
-                />
+                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
               </div>
             ))}
 
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-                Consultation Fee (PKR)
-              </label>
-              <input
-                type="number"
-                value={form.feeAmount || ''}
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Consultation Fee (PKR)</label>
+              <input type="number" min="0" value={form.feeAmount || ''}
                 onChange={e => setForm(prev => ({ ...prev, feeAmount: Number(e.target.value) }))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
-              />
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-                Discount (PKR)
-              </label>
-              <input
-                type="number"
-                value={form.discount || ''}
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Discount (PKR)</label>
+              <input type="number" min="0" value={form.discount || ''}
                 onChange={e => setForm(prev => ({ ...prev, discount: Number(e.target.value) }))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
-              />
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-                Amount Paid (PKR)
-              </label>
-              <input
-                type="number"
-                value={form.paid || ''}
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Amount Paid (PKR)</label>
+              <input type="number" min="0" value={form.paid || ''}
                 onChange={e => setForm(prev => ({ ...prev, paid: Number(e.target.value) }))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
-              />
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-                Payment Method
-              </label>
-              <select
-                value={form.paymentMethod || 'Cash'}
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Payment Method</label>
+              <select value={form.paymentMethod || 'Cash'}
                 onChange={e => setForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
-              >
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
                 {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>
 
           {/* Net summary preview */}
-          <div
-            className="mt-4 rounded-xl p-4 grid grid-cols-3 gap-4 text-center"
-            style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}
-          >
+          <div className="mt-4 rounded-xl p-4 grid grid-cols-3 gap-4 text-center"
+            style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}>
             {[
-              { label: 'Net Amount',  value: `PKR ${((form.feeAmount || 0) - (form.discount || 0)).toLocaleString()}`,                                    color: '#0a1628' },
-              { label: 'Paid',        value: `PKR ${(form.paid || 0).toLocaleString()}`,                                                                    color: '#1a7f5e' },
-              { label: 'Balance Due', value: `PKR ${Math.max(0, (form.feeAmount || 0) - (form.discount || 0) - (form.paid || 0)).toLocaleString()}`,       color: '#c53030' },
+              { label: 'Net Amount',  value: `PKR ${((form.feeAmount || 0) - (form.discount || 0)).toLocaleString()}`, color: '#0a1628' },
+              { label: 'Paid',        value: `PKR ${(form.paid || 0).toLocaleString()}`,                               color: '#1a7f5e' },
+              { label: 'Balance Due', value: `PKR ${Math.max(0, (form.feeAmount || 0) - (form.discount || 0) - (form.paid || 0)).toLocaleString()}`, color: '#c53030' },
             ].map(s => (
               <div key={s.label}>
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
@@ -506,16 +474,11 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
           </div>
 
           <div className="mt-4">
-            <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-              Notes
-            </label>
-            <textarea
-              rows={2}
-              value={form.notes || ''}
+            <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Notes</label>
+            <textarea rows={2} value={form.notes || ''}
               onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Any additional notes..."
-              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none"
-            />
+              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none" />
           </div>
 
           <div className="flex gap-2 mt-4 pt-4 border-t border-black/5">
@@ -582,25 +545,19 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                     <td><PayPill status={inv.paymentStatus} /></td>
                     <td>
                       <div className="flex gap-1">
-                        <button
-                          onClick={() => { setForm(inv); setShowForm(true); }}
+                        <button onClick={() => { setForm(inv); setShowForm(true); }}
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gold/10 transition-colors"
-                          title="Edit"
-                        >
+                          title="Edit">
                           <FileText size={12} className="text-gray-600" />
                         </button>
-                        <button
-                          onClick={() => printInvoice(inv)}
+                        <button onClick={() => printInvoice(inv)}
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors"
-                          title="Print PDF"
-                        >
+                          title="Print PDF">
                           <Printer size={12} className="text-gray-600" />
                         </button>
-                        <button
-                          onClick={() => deleteInvoice(inv.id)}
+                        <button onClick={() => deleteInvoice(inv.id)}
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-red-50 transition-colors"
-                          title="Delete"
-                        >
+                          title="Delete">
                           <X size={12} className="text-gray-500" />
                         </button>
                       </div>
