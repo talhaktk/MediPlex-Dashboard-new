@@ -134,54 +134,33 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
   return (
     <div className="space-y-5">
 
-      {/* ── Today's summary cards ──────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      // ── Today's summary stats ──────────────────────────────────────────────────
+  const today = new Date().toISOString().split('T')[0];
+  const todayData = data.filter(a =>
+    a.appointmentDate === today &&
+    (a.status === 'Confirmed' || a.status === 'Rescheduled' || a.status === 'Pending')
+  );
+  
+  const totalToday  = todayData.length;
+  const checkedIn   = todayData.filter(a => getAttendance(a).attendanceStatus === 'Checked-In').length;
+  const inClinic    = todayData.filter(a => getAttendance(a).attendanceStatus === 'In Clinic').length;
+  const absentToday = todayData.filter(a => ['Absent','No-Show'].includes(getAttendance(a).attendanceStatus)).length;
 
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#f0fdf4' }}>
-            <CalendarCheck size={16} style={{ color: '#16a34a' }} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Total Today</div>
-            <div className="text-[26px] font-semibold text-navy leading-none">{totalToday}</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">Confirmed + Rescheduled</div>
-          </div>
-        </div>
+  const handleExport = () => {
+    const toExport = selected.length > 0 ? filtered.filter(a => selected.includes(a.id)) : filtered;
+    exportToCSV(toExport, `mediplex_appointments_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success(`Exported ${toExport.length} records`);
+  };
 
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dbeafe' }}>
-            <UserCheck size={16} style={{ color: '#1d4ed8' }} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Checked-In</div>
-            <div className="text-[26px] font-semibold text-navy leading-none">{checkedIn}</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">Waiting room</div>
-          </div>
-        </div>
+  const clearFilters = () => {
+    setStatus('all'); setVisitType('all'); setAttendance('all');
+    setSearch(''); setDateFrom(''); setDateTo(''); setPage(1);
+  };
 
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dcfce7' }}>
-            <Stethoscope size={16} style={{ color: '#166534' }} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">In Clinic</div>
-            <div className="text-[26px] font-semibold text-navy leading-none">{inClinic}</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">With doctor now</div>
-          </div>
-        </div>
+  const hasFilters = status !== 'all' || visitType !== 'all' || attendance !== 'all' || search || dateFrom || dateTo;
 
-        <div className="card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fee2e2' }}>
-            <XCircle size={16} style={{ color: '#dc2626' }} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Absent / No-Show</div>
-            <div className="text-[26px] font-semibold text-navy leading-none">{absentToday}</div>
-            <div className="text-[10px] text-gray-400 mt-0.5">Did not arrive</div>
-          </div>
-        </div>
-
-      </div>
+  return (
+    <div className="space-y-5"></div>
 
       {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
