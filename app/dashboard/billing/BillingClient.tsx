@@ -14,8 +14,6 @@ type Invoice = InvoiceRecord & {
 
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
-function loadInvoices(): Invoice[] { return getInvoices(); }
-function saveInvoices(data: Invoice[]) { data.forEach(i => storeSaveInvoice(i)); }
 function genId() { return `INV-${Date.now().toString(36).toUpperCase()}`; }
 
 // ── Status pill ───────────────────────────────────────────────────────────────
