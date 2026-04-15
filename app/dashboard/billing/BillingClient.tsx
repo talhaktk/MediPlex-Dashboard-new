@@ -1,5 +1,6 @@
 'use client';
 
+import { supabase } from '@/lib/supabase';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
@@ -40,8 +41,31 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const [selected,   setSelected]   = useState<Invoice | null>(null);
   const [form,       setForm]       = useState<Partial<Invoice>>({});
   const [aptSearch,  setAptSearch]  = useState('');
+  // Add this near your other useState hooks
+const [selectedPatient, setSelectedPatient] = useState<any>(null);
+const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
-  useEffect(() => { setInvoices(loadInvoices()); }, []);
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      const { data } = await supabase
+        .from('billing')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setInvoices(data);
+    };
+
+    fetchInvoices();
+
+    // This listener catches changes from Supabase and updates your UI instantly
+    const channel = supabase
+      .channel('billing-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, () => {
+        fetchInvoices();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   // Appointments not yet invoiced
   const uninvoiced = useMemo(() => {
@@ -70,10 +94,11 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
   const unpaidCount   = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
 
-  const openNewForm = (apt?: Appointment) => {
+ const openNewForm = (apt?: Appointment) => {
     setForm({
       id:            genId(),
       appointmentId: apt?.id || '',
+      mr_number:     apt?.mr_number || '', // Maps MR# from Supabase
       childName:     apt?.childName || '',
       parentName:    apt?.parentName || '',
       date:          apt?.appointmentDate || new Date().toISOString().split('T')[0],
@@ -92,25 +117,63 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     setSelected(null);
   };
 
-  const saveInvoice = () => {
-    if (!form.childName || !form.feeAmount) { toast.error('Patient name and fee are required'); return; }
-    const net  = (form.feeAmount||0) - (form.discount||0);
+  const saveInvoice = async () => {
+    // 1. Validation
+    if (!form.childName || !form.feeAmount) { 
+      toast.error('Patient name and fee are required'); 
+      return; 
+    }
+
+    // 2. Calculate local status
+    const net = (form.feeAmount || 0) - (form.discount || 0);
     const paid = form.paid || 0;
     const status: Invoice['paymentStatus'] = paid >= net ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
-    const inv: Invoice = { ...form as Invoice, paymentStatus: status };
-    storeSaveInvoice(inv);
-    setInvoices(getInvoices());
-    setShowForm(false);
-    setSelected(null);
-    toast.success(`Invoice ${inv.id} saved`);
+
+    // 3. Push to Supabase
+    try {
+      const { error } = await supabase
+        .from('billing')
+        .upsert([{
+          id: form.id, // Uses the generated INV-ID
+          appointment_id: form.appointmentId,
+          mr_number: form.mr_number || '', // Critical for patient-wise tracking
+          child_name: form.childName,
+          parent_name: form.parentName,
+          consultation_fee: form.feeAmount,
+          discount: form.discount,
+          amount_paid: form.paid,
+          payment_method: form.paymentMethod,
+          payment_status: status,
+          notes: form.notes,
+          created_at: form.createdAt || new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+
+      // 4. Cleanup UI (Realtime listener will handle the table refresh)
+      setShowForm(false);
+      setSelected(null);
+      toast.success(`Invoice ${form.id} synced to Supabase`);
+      
+    } catch (error: any) {
+      console.error('Supabase Error:', error);
+      toast.error('Failed to save to database: ' + error.message);
+    }
   };
 
-  const deleteInvoice = (id: string) => {
+  const deleteInvoice = async (id: string) => {
     if (!confirm('Delete this invoice?')) return;
-    storeDeleteInvoice(id);
-    setInvoices(getInvoices());
-    setSelected(null);
-    toast.success('Invoice deleted');
+    
+    const { error } = await supabase
+      .from('billing')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error('Delete failed: ' + error.message);
+    } else {
+      toast.success('Invoice removed from Database');
+    }
   };
 
   // ── PDF Invoice ─────────────────────────────────────────────────────────────
