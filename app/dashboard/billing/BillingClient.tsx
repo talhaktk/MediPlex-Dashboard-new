@@ -6,7 +6,7 @@ import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
 import { Plus, Download, FileText, Search, X, Save, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
-} from '@/lib/store';
+
 
 type Invoice = InvoiceRecord & {
   mr_number?: string;
