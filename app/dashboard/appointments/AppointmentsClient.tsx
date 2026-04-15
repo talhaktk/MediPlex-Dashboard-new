@@ -243,8 +243,9 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
       </div>
 
       {/* ── Table ────────────────────────────────────────────────────────────── */}
-      <div className="card overflow-hidden animate-in">
-        <div className="overflow-x-auto">
+      
+<div className="card animate-in">
+  <div className="overflow-visible">
           <table className="data-table">
             <thead>
               <tr>
@@ -390,13 +391,19 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
         </div>
       </div>
       {/* Patient Record Quick Modal */}
+      {{/* Patient Record Quick Modal */}
       {patientRecordApt && (
-        <CheckInFlow
-          appointment={patientRecordApt}
-          onComplete={() => { setPatientRecordApt(null); refreshAttendance(); }}
-          onCancel={() => setPatientRecordApt(null)}
-        />
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl">
+             <CheckInFlow
+               appointment={patientRecordApt}
+               onComplete={() => { setPatientRecordApt(null); refreshAttendance(); }}
+               onCancel={() => setPatientRecordApt(null)}
+             />
+          </div>
+        </div>
       )}
     </div>
   );
 }
+
