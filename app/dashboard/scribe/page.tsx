@@ -1,10 +1,17 @@
-import { Suspense } from 'react';
+import { fetchAppointmentsFromSheet } from '@/lib/sheets';
+import Topbar from '@/components/layout/Topbar';
 import ScribeClient from './ScribeClient';
 
-export default function ScribePage() {
+export const revalidate = 60;
+
+export default async function ScribePage() {
+  const data = await fetchAppointmentsFromSheet();
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64 text-white/50">Loading AI Scribe...</div>}>
-      <ScribeClient />
-    </Suspense>
+    <>
+      <Topbar title="AI Scribe" subtitle="Clinical documentation powered by AI" />
+      <main className="flex-1 p-8">
+        <ScribeClient data={data} />
+      </main>
+    </>
   );
 }
