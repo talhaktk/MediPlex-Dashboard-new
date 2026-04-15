@@ -9,52 +9,52 @@ import toast from 'react-hot-toast';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Invoice = {
-  id: number;                // CHANGED: DB ID is now a number
-  invoiceNumber: string;     // ADDED: For the 'INV-...' string
-  appointmentId: string;
-  mr_number: string;
-  childName: string;
-  parentName: string;
-  date: string;
-  visitType: string;
-  reason: string;
-  feeAmount: number;
-  discount: number;
-  paid: number;
+  dbId:          number | null;   // integer PK from Supabase (null for new)
+  id:            string;          // INV-xxx display number (stored in invoice_number)
+  mr_number:     string;
+  childName:     string;
+  parentName:    string;
+  date:          string;
+  visitType:     string;
+  reason:        string;
+  feeAmount:     number;
+  discount:      number;
+  paid:          number;
   paymentMethod: string;
   paymentStatus: 'Paid' | 'Partial' | 'Unpaid';
-  notes: string;
-  createdAt: string;
+  notes:         string;
+  createdAt:     string;
 };
 
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
-function genId() {
+// ── Generate human-readable invoice number ────────────────────────────────────
+function genInvoiceNumber() {
   return `INV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
 }
 
 // ── Map DB row → Invoice ──────────────────────────────────────────────────────
 function mapRow(r: any): Invoice {
   return {
-    id:            r.id,                    // Keep numeric
-    invoiceNumber: r.invoice_number ?? '',  // Map custom string
-    appointmentId: String(r.appointment_id ?? ''),
-    mr_number:     r.mr_number ?? '',
-    childName:     r.child_name ?? '',
-    parentName:    r.parent_name ?? '',
-    date:          r.date ?? r.created_at?.split('T')[0] ?? '',
-    visitType:     r.visit_type ?? '',
-    reason:        r.reason ?? '',
+    dbId:          r.id ?? null,
+    id:            r.invoice_number || `INV-${r.id}`,
+    mr_number:     r.mr_number     ?? '',
+    childName:     r.child_name    ?? '',
+    parentName:    r.parent_name   ?? '',
+    date:          r.date          ?? r.created_at?.split('T')[0] ?? '',
+    visitType:     r.visit_type    ?? '',
+    reason:        r.reason        ?? '',
     feeAmount:     Number(r.consultation_fee) || 0,
-    discount:      Number(r.discount) || 0,
-    paid:          Number(r.amount_paid) || 0,
+    discount:      Number(r.discount)         || 0,
+    paid:          Number(r.amount_paid)      || 0,
     paymentMethod: r.payment_method ?? 'Cash',
-    paymentStatus: (r.payment_status ?? r.status ?? 'Unpaid') as Invoice['paymentStatus'],
-    notes:         r.notes ?? '',
+    paymentStatus: (r.payment_status ?? 'Unpaid') as Invoice['paymentStatus'],
+    notes:         r.notes    ?? '',
     createdAt:     r.created_at ?? new Date().toISOString(),
   };
 }
 
+// ── Compute payment status ────────────────────────────────────────────────────
 function computeStatus(fee: number, discount: number, paid: number): Invoice['paymentStatus'] {
   const net = fee - discount;
   if (paid >= net) return 'Paid';
@@ -62,6 +62,7 @@ function computeStatus(fee: number, discount: number, paid: number): Invoice['pa
   return 'Unpaid';
 }
 
+// ── Status pill ───────────────────────────────────────────────────────────────
 function PayPill({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; color: string }> = {
     Paid:    { bg: '#e8f7f2', color: '#1a7f5e' },
@@ -69,17 +70,26 @@ function PayPill({ status }: { status: string }) {
     Unpaid:  { bg: '#fff0f0', color: '#c53030' },
   };
   const c = cfg[status] || cfg.Unpaid;
-  return <span className="pill" style={{ background: c.bg, color: c.color }}>{status}</span>;
+  return (
+    <span className="pill" style={{ background: c.bg, color: c.color }}>
+      {status}
+    </span>
+  );
 }
 
+// ── Form state type (includes aptId only for pre-filling, never sent to DB) ───
+type FormState = Partial<Invoice> & { aptId?: string };
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function BillingClient({ data }: { data: Appointment[] }) {
   const [invoices,  setInvoices]  = useState<Invoice[]>([]);
   const [search,    setSearch]    = useState('');
   const [filterPay, setFilterPay] = useState('all');
   const [showForm,  setShowForm]  = useState(false);
-  const [form,      setForm]      = useState<Partial<Invoice>>({});
+  const [form,      setForm]      = useState<FormState>({});
   const [aptSearch, setAptSearch] = useState('');
 
+  // ── Fetch + realtime sync ─────────────────────────────────────────────────
   useEffect(() => {
     const fetchInvoices = async () => {
       const { data: rows, error } = await supabase
@@ -88,6 +98,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
         .order('created_at', { ascending: false });
 
       if (error) {
+        console.error('Billing fetch error:', error.message);
         toast.error('Could not load invoices: ' + error.message);
         return;
       }
@@ -95,49 +106,76 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     };
 
     fetchInvoices();
-    const channel = supabase.channel('billing-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, () => { fetchInvoices(); })
+
+    const channel = supabase
+      .channel('billing-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, () => {
+        fetchInvoices();
+      })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const uninvoiced = useMemo(() => {
-    const invoicedIds = new Set(invoices.map(i => i.appointmentId));
-    return data.filter(a => 
-      a.childName && a.appointmentDate && !invoicedIds.has(String(a.id)) && 
-      (a.status === 'Confirmed' || a.status === 'Rescheduled')
-    ).sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate));
-  }, [data, invoices]);
-
+  // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let r = invoices;
     if (filterPay !== 'all') r = r.filter(i => i.paymentStatus === filterPay);
     if (search) {
       const q = search.toLowerCase();
-      r = r.filter(i => 
-        i.childName.toLowerCase().includes(q) || 
-        i.invoiceNumber.toLowerCase().includes(q) // Search by custom INV ID
+      r = r.filter(i =>
+        i.childName.toLowerCase().includes(q)  ||
+        i.parentName.toLowerCase().includes(q) ||
+        i.id.toLowerCase().includes(q)
       );
     }
     return [...r].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [invoices, filterPay, search]);
 
+  // ── Uninvoiced appointments (for quick-fill picker) ───────────────────────
+  const invoicedAptIds = useMemo(
+    () => new Set(invoices.map(i => i.mr_number).filter(Boolean)),
+    [invoices]
+  );
+
+  const uninvoiced = useMemo(() =>
+    data
+      .filter(a =>
+        a.childName &&
+        a.appointmentDate &&
+        (a.status === 'Confirmed' || a.status === 'Rescheduled')
+      )
+      .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate)),
+    [data]
+  );
+
+  const aptFiltered = uninvoiced.filter(a => {
+    if (!aptSearch) return true;
+    const q = aptSearch.toLowerCase();
+    return (
+      a.childName.toLowerCase().includes(q) ||
+      a.parentName.toLowerCase().includes(q)
+    );
+  });
+
+  // ── Summary stats ─────────────────────────────────────────────────────────
   const totalRevenue = invoices.reduce((s, i) => s + i.paid, 0);
   const totalPending = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
   const paidCount    = invoices.filter(i => i.paymentStatus === 'Paid').length;
   const unpaidCount  = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
 
+  // ── Open new/edit form ────────────────────────────────────────────────────
   const openNewForm = (apt?: Appointment) => {
     setForm({
-      id:            undefined, 
-      invoiceNumber: genId(), 
-      appointmentId: apt ? String(apt.id) : '',
+      dbId:          null,
+      id:            genInvoiceNumber(),
+      aptId:         apt ? String(apt.id) : '',
       mr_number:     (apt as any)?.mr_number ?? '',
-      childName:     apt?.childName ?? '',
+      childName:     apt?.childName  ?? '',
       parentName:    apt?.parentName ?? '',
       date:          apt?.appointmentDate ?? new Date().toISOString().split('T')[0],
-      visitType:     apt?.visitType ?? '',
-      reason:        apt?.reason ?? '',
+      visitType:     apt?.visitType  ?? '',
+      reason:        apt?.reason     ?? '',
       feeAmount:     500,
       discount:      0,
       paid:          0,
@@ -150,152 +188,403 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     setShowForm(true);
   };
 
-  const saveInvoice = async () => {
-    if (!form.childName?.trim()) { toast.error('Patient name is required'); return; }
-    
-    const status = computeStatus(form.feeAmount || 0, form.discount || 0, form.paid || 0);
-    const displayInvoiceId = form.invoiceNumber || genId();
+  const openEditForm = (inv: Invoice) => {
+    setForm({ ...inv, aptId: '' });
+    setShowForm(true);
+  };
 
-    const payload = {
-      ...(form.id ? { id: form.id } : {}), 
-      invoice_number:   displayInvoiceId,
-      appointment_id:   form.appointmentId || null,
-      mr_number:        form.mr_number     || '',
-      child_name:       form.childName.trim(),
-      parent_name:      form.parentName    || '',
-      date:             form.date          || new Date().toISOString().split('T')[0],
-      visit_type:       form.visitType     || '',
-      reason:           form.reason        || '',
+  // ── Save invoice ──────────────────────────────────────────────────────────
+  const saveInvoice = async () => {
+    if (!form.childName?.trim()) {
+      toast.error('Patient name is required');
+      return;
+    }
+    if (!form.feeAmount || form.feeAmount <= 0) {
+      toast.error('Please enter a valid fee amount');
+      return;
+    }
+
+    const status = computeStatus(
+      form.feeAmount || 0,
+      form.discount  || 0,
+      form.paid      || 0,
+    );
+
+    // Build payload — NO appointment_id (column doesn't exist in DB)
+    const payload: Record<string, any> = {
+      invoice_number:   form.id || genInvoiceNumber(),
+      mr_number:        form.mr_number  || '',
+      child_name:       form.childName!.trim(),
+      parent_name:      form.parentName || '',
+      date:             form.date       || new Date().toISOString().split('T')[0],
+      visit_type:       form.visitType  || '',
+      reason:           form.reason     || '',
       consultation_fee: form.feeAmount,
-      discount:         form.discount      || 0,
-      amount_paid:      form.paid          || 0,
+      discount:         form.discount   || 0,
+      amount_paid:      form.paid       || 0,
       payment_method:   form.paymentMethod || 'Cash',
       payment_status:   status,
-      notes:            form.notes         || '',
-      created_at:       form.createdAt     || new Date().toISOString(),
+      notes:            form.notes      || '',
     };
+
+    // Include integer PK only when editing an existing row
+    if (form.dbId != null) {
+      payload.id = form.dbId;
+    }
 
     try {
       const { error } = await supabase.from('billing').upsert([payload]);
       if (error) throw error;
       setShowForm(false);
-      toast.success(`Invoice ${displayInvoiceId} saved!`);
+      toast.success(`Invoice ${payload.invoice_number} saved!`);
     } catch (err: any) {
+      console.error('Supabase save error:', err);
       toast.error('Failed to save: ' + err.message);
     }
   };
 
-  const deleteInvoice = async (id: number) => {
+  // ── Delete invoice ────────────────────────────────────────────────────────
+  const deleteInvoice = async (inv: Invoice) => {
     if (!confirm('Delete this invoice?')) return;
-    const { error } = await supabase.from('billing').delete().eq('id', id);
+    if (inv.dbId == null) { toast.error('Cannot delete: no DB id'); return; }
+    const { error } = await supabase.from('billing').delete().eq('id', inv.dbId);
     if (error) toast.error('Delete failed: ' + error.message);
     else toast.success('Invoice deleted');
   };
 
+  // ── Print invoice ─────────────────────────────────────────────────────────
   const printInvoice = (inv: Invoice) => {
     const net = inv.feeAmount - inv.discount;
     const due = Math.max(0, net - inv.paid);
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Invoice ${inv.invoiceNumber}</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <title>Invoice ${inv.id}</title>
     <style>
-      body{font-family:Arial,sans-serif;padding:40px;}
-      .header{display:flex;justify-content:space-between;border-bottom:2px solid #c9a84c;padding-bottom:20px;}
-      .invoice-id{font-size:28px;font-weight:700;color:#c9a84c;}
-      .fee-table{width:100%;border-collapse:collapse;margin-top:20px;}
-      .fee-table th{background:#f9f7f3;padding:10px;text-align:left;}
-      .fee-table td{padding:10px;border-bottom:1px solid #eee;}
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;color:#0a1628;padding:40px;font-size:13px}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #c9a84c}
+      .clinic-name{font-size:22px;font-weight:700;color:#0a1628}
+      .clinic-sub{font-size:11px;color:#6b7280;margin-top:3px}
+      .invoice-id{font-size:28px;font-weight:700;color:#c9a84c;text-align:right}
+      .invoice-label{font-size:11px;color:#6b7280;text-align:right}
+      .section{margin-bottom:24px}
+      .section-title{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:600;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e5e7eb}
+      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+      .field-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:2px}
+      .field-val{font-size:13px;font-weight:500;color:#0a1628}
+      .fee-table{width:100%;border-collapse:collapse}
+      .fee-table th{background:#f9f7f3;padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase}
+      .fee-table td{padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:13px}
+      .total-row td{font-weight:700;font-size:14px;background:#f9f7f3}
+      .due-row td{font-weight:700;font-size:16px;color:${due > 0 ? '#c53030' : '#1a7f5e'}}
+      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+        background:${inv.paymentStatus === 'Paid' ? '#e8f7f2' : inv.paymentStatus === 'Partial' ? '#fff9e6' : '#fff0f0'};
+        color:${inv.paymentStatus === 'Paid' ? '#1a7f5e' : inv.paymentStatus === 'Partial' ? '#b47a00' : '#c53030'}}
+      .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
     </style></head><body>
     <div class="header">
-      <div><h2>${process.env.NEXT_PUBLIC_CLINIC_NAME || 'MediPlex Pediatric Clinic'}</h2></div>
-      <div style="text-align:right"><div class="invoice-id">${inv.invoiceNumber}</div><div>Date: ${formatUSDate(inv.date)}</div></div>
+      <div>
+        <div class="clinic-name">${process.env.NEXT_PUBLIC_CLINIC_NAME || 'MediPlex Pediatric Clinic'}</div>
+        <div class="clinic-sub">${process.env.NEXT_PUBLIC_CLINIC_ADDRESS || ''}</div>
+        <div class="clinic-sub">${process.env.NEXT_PUBLIC_CLINIC_PHONE || ''} · ${process.env.NEXT_PUBLIC_CLINIC_EMAIL || ''}</div>
+      </div>
+      <div>
+        <div class="invoice-label">INVOICE</div>
+        <div class="invoice-id">${inv.id}</div>
+        <div class="invoice-label" style="margin-top:4px">Date: ${formatUSDate(inv.date)}</div>
+      </div>
     </div>
-    <p><strong>Patient:</strong> ${inv.childName}</p>
-    <table class="fee-table">
-      <thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
-      <tbody>
-        <tr><td>Consultation Fee</td><td style="text-align:right">PKR ${inv.feeAmount.toLocaleString()}</td></tr>
-        <tr><td>Net Amount</td><td style="text-align:right">PKR ${net.toLocaleString()}</td></tr>
-        <tr style="font-weight:bold"><td>Balance Due</td><td style="text-align:right">PKR ${due.toLocaleString()}</td></tr>
-      </tbody>
-    </table>
+    <div class="grid2" style="margin-bottom:24px">
+      <div class="section">
+        <div class="section-title">Patient Details</div>
+        <div class="field-label">Child Name</div><div class="field-val" style="margin-bottom:8px">${inv.childName}</div>
+        <div class="field-label">Parent / Guardian</div><div class="field-val" style="margin-bottom:8px">${inv.parentName}</div>
+        <div class="field-label">Visit Type</div><div class="field-val">${inv.visitType || '—'}</div>
+      </div>
+      <div class="section">
+        <div class="section-title">Visit Details</div>
+        <div class="field-label">Appointment Date</div><div class="field-val" style="margin-bottom:8px">${formatUSDate(inv.date)}</div>
+        <div class="field-label">Reason</div><div class="field-val" style="margin-bottom:8px">${inv.reason || '—'}</div>
+        <div class="field-label">Payment Status</div><div style="margin-top:4px"><span class="badge">${inv.paymentStatus}</span></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Fee Breakdown</div>
+      <table class="fee-table">
+        <thead><tr><th>Description</th><th style="text-align:right">Amount</th></tr></thead>
+        <tbody>
+          <tr><td>Consultation Fee</td><td style="text-align:right">PKR ${inv.feeAmount.toLocaleString()}</td></tr>
+          ${inv.discount > 0 ? `<tr><td style="color:#1a7f5e">Discount</td><td style="text-align:right;color:#1a7f5e">- PKR ${inv.discount.toLocaleString()}</td></tr>` : ''}
+          <tr class="total-row"><td>Net Amount</td><td style="text-align:right">PKR ${net.toLocaleString()}</td></tr>
+          <tr><td>Amount Paid (${inv.paymentMethod})</td><td style="text-align:right;color:#1a7f5e">PKR ${inv.paid.toLocaleString()}</td></tr>
+          <tr class="due-row"><td>Balance Due</td><td style="text-align:right">PKR ${due.toLocaleString()}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    ${inv.notes ? `<div class="section"><div class="section-title">Notes</div><div style="font-size:13px;color:#374151">${inv.notes}</div></div>` : ''}
+    <div class="footer">Thank you for visiting ${process.env.NEXT_PUBLIC_CLINIC_NAME || 'MediPlex Pediatric Clinic'} · ${process.env.NEXT_PUBLIC_DOCTOR_NAME || 'Dr. Talha'}</div>
     </body></html>`;
     const w = window.open('', '_blank');
-    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
+    if (!w) { toast.error('Allow popups to print invoice'); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
   };
 
-  const aptFiltered = uninvoiced.filter(a => {
-    if (!aptSearch) return true;
-    const q = aptSearch.toLowerCase();
-    return a.childName.toLowerCase().includes(q) || a.parentName.toLowerCase().includes(q);
-  });
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="text-[10px] uppercase text-gray-400">Total Revenue</div>
-          <div className="text-[18px] font-semibold">PKR {totalRevenue.toLocaleString()}</div>
-        </div>
-        <div className="card p-4">
-          <div className="text-[10px] uppercase text-gray-400">Pending</div>
-          <div className="text-[18px] font-semibold text-red-600">PKR {totalPending.toLocaleString()}</div>
-        </div>
+        {[
+          { label: 'Total Revenue',   value: `PKR ${totalRevenue.toLocaleString()}`, color: '#1a7f5e', bg: '#e8f7f2' },
+          { label: 'Pending Amount',  value: `PKR ${totalPending.toLocaleString()}`, color: '#c53030', bg: '#fff0f0' },
+          { label: 'Paid Invoices',   value: paidCount,                              color: '#1a7f5e', bg: '#f0fdf4' },
+          { label: 'Unpaid Invoices', value: unpaidCount,                            color: '#c53030', bg: '#fef2f2' },
+        ].map(s => (
+          <div key={s.label} className="card p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
+              <span className="text-[18px] font-bold" style={{ color: s.color }}>
+                {typeof s.value === 'number' ? s.value : '₨'}
+              </span>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
+              <div className="text-[18px] font-semibold text-navy leading-tight">{s.value}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Toolbar */}
-      <div className="flex justify-between items-center">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-2">
           {['all', 'Paid', 'Partial', 'Unpaid'].map(f => (
-            <button key={f} onClick={() => setFilterPay(f)} className={`px-3 py-1 rounded ${filterPay === f ? 'bg-navy text-white' : 'bg-gray-100'}`}>{f}</button>
+            <button key={f} onClick={() => setFilterPay(f)}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all ${
+                filterPay === f
+                  ? 'bg-navy text-white border-navy'
+                  : 'border-black/10 text-gray-500 hover:border-gold'
+              }`}>
+              {f === 'all' ? 'All' : f}
+            </button>
           ))}
         </div>
-        <button onClick={() => openNewForm()} className="btn-gold px-4 py-2 text-[12px] rounded">+ New Invoice</button>
+        <div className="flex gap-2 flex-1 justify-end">
+          <div className="relative flex-1 max-w-xs">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" placeholder="Search invoices..." value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold" />
+          </div>
+          <button onClick={() => openNewForm()} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
+            <Plus size={13} /> New Invoice
+          </button>
+        </div>
       </div>
 
-      {/* Form UI */}
+      {/* New / Edit Invoice Form */}
       {showForm && (
-        <div className="card p-6 border-2 border-gold/30">
-          <div className="flex justify-between mb-4">
-            <span className="font-bold">{form.invoiceNumber}</span>
-            <X className="cursor-pointer" onClick={() => setShowForm(false)} />
+        <div className="card p-6 animate-in" style={{ border: '2px solid rgba(201,168,76,0.3)' }}>
+          <div className="flex items-center justify-between mb-5">
+            <div className="font-medium text-navy text-[15px]">
+              {form.dbId ? `Edit — ${form.id}` : `New Invoice — ${form.id}`}
+            </div>
+            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+              <X size={16} />
+            </button>
           </div>
+
+          {/* Pick appointment (only for new invoices) */}
+          {!form.dbId && !form.aptId && (
+            <div className="mb-5 rounded-xl p-4" style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.2)' }}>
+              <div className="text-[12px] font-medium text-navy mb-3">
+                Pick an appointment (or fill manually below)
+              </div>
+              <div className="relative mb-3">
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input type="text" placeholder="Search patient..." value={aptSearch}
+                  onChange={e => setAptSearch(e.target.value)}
+                  className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] bg-white outline-none focus:border-gold" />
+              </div>
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {aptFiltered.slice(0, 20).map(a => (
+                  <button key={a.id}
+                    onClick={() => setForm(prev => ({
+                      ...prev,
+                      aptId:     String(a.id),
+                      mr_number: (a as any).mr_number || '',
+                      childName: a.childName,
+                      parentName: a.parentName,
+                      date:      a.appointmentDate,
+                      visitType: a.visitType,
+                      reason:    a.reason,
+                    }))}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white text-[12px] transition-colors flex items-center justify-between">
+                    <span className="font-medium text-navy">{a.childName}</span>
+                    <span className="text-gray-400">{formatUSDate(a.appointmentDate)} · {a.appointmentTime}</span>
+                  </button>
+                ))}
+                {aptFiltered.length === 0 && (
+                  <div className="text-[12px] text-gray-400 text-center py-2">No appointments found</div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
-            <input placeholder="Child Name" value={form.childName || ''} onChange={e => setForm({...form, childName: e.target.value})} className="border p-2 rounded" />
-            <input placeholder="Fee" type="number" value={form.feeAmount || ''} onChange={e => setForm({...form, feeAmount: Number(e.target.value)})} className="border p-2 rounded" />
-            <input placeholder="Paid" type="number" value={form.paid || ''} onChange={e => setForm({...form, paid: Number(e.target.value)})} className="border p-2 rounded" />
+            {[
+              { label: 'Patient Name', key: 'childName',  type: 'text' },
+              { label: 'Parent Name',  key: 'parentName', type: 'text' },
+              { label: 'Visit Date',   key: 'date',       type: 'date' },
+              { label: 'Visit Type',   key: 'visitType',  type: 'text' },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.label}</label>
+                <input type={f.type} value={(form as any)[f.key] || ''}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+              </div>
+            ))}
+
+            <div>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Consultation Fee (PKR)</label>
+              <input type="number" min="0" value={form.feeAmount || ''}
+                onChange={e => setForm(prev => ({ ...prev, feeAmount: Number(e.target.value) }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Discount (PKR)</label>
+              <input type="number" min="0" value={form.discount || ''}
+                onChange={e => setForm(prev => ({ ...prev, discount: Number(e.target.value) }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Amount Paid (PKR)</label>
+              <input type="number" min="0" value={form.paid || ''}
+                onChange={e => setForm(prev => ({ ...prev, paid: Number(e.target.value) }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Payment Method</label>
+              <select value={form.paymentMethod || 'Cash'}
+                onChange={e => setForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+                {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
           </div>
-          <button onClick={saveInvoice} className="btn-gold w-full mt-4 p-2 rounded">Save Invoice</button>
+
+          {/* Net summary preview */}
+          <div className="mt-4 rounded-xl p-4 grid grid-cols-3 gap-4 text-center"
+            style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}>
+            {[
+              { label: 'Net Amount',  value: `PKR ${((form.feeAmount || 0) - (form.discount || 0)).toLocaleString()}`,                                                    color: '#0a1628' },
+              { label: 'Paid',        value: `PKR ${(form.paid || 0).toLocaleString()}`,                                                                                  color: '#1a7f5e' },
+              { label: 'Balance Due', value: `PKR ${Math.max(0, (form.feeAmount || 0) - (form.discount || 0) - (form.paid || 0)).toLocaleString()}`,                      color: '#c53030' },
+            ].map(s => (
+              <div key={s.label}>
+                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
+                <div className="text-[18px] font-bold" style={{ color: s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4">
+            <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Notes</label>
+            <textarea rows={2} value={form.notes || ''}
+              onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="Any additional notes..."
+              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none" />
+          </div>
+
+          <div className="flex gap-2 mt-4 pt-4 border-t border-black/5">
+            <button onClick={saveInvoice} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
+              <Save size={13} /> Save Invoice
+            </button>
+            <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">
+              Cancel
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        <table className="data-table w-full">
-          <thead className="bg-gray-50 text-[11px] uppercase text-gray-400">
-            <tr>
-              <th className="p-3 text-left">Invoice #</th>
-              <th className="p-3 text-left">Patient</th>
-              <th className="p-3 text-left">Fee</th>
-              <th className="p-3 text-left">Status</th>
-              <th className="p-3 text-left">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(inv => (
-              <tr key={inv.id} className="border-t">
-                <td className="p-3 font-mono text-[11px]">{inv.invoiceNumber}</td>
-                <td className="p-3 text-[13px] font-medium">{inv.childName}</td>
-                <td className="p-3 text-[13px]">PKR {inv.feeAmount}</td>
-                <td className="p-3"><PayPill status={inv.paymentStatus} /></td>
-                <td className="p-3 flex gap-2">
-                   <button onClick={() => { setForm(inv); setShowForm(true); }} className="p-1 bg-gray-100 rounded"><FileText size={14}/></button>
-                   <button onClick={() => printInvoice(inv)} className="p-1 bg-gray-100 rounded"><Printer size={14}/></button>
-                   <button onClick={() => deleteInvoice(inv.id)} className="p-1 bg-gray-100 rounded"><X size={14}/></button>
-                </td>
+      {/* Invoices Table */}
+      <div className="card overflow-hidden animate-in">
+        <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
+          <div className="font-medium text-navy text-[14px]">Invoices</div>
+          <div className="text-[12px] text-gray-400">{filtered.length} records</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Invoice #</th>
+                <th>Patient</th>
+                <th>Date</th>
+                <th>Visit</th>
+                <th>Fee</th>
+                <th>Paid</th>
+                <th>Balance</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={10} className="text-center py-10 text-gray-400 text-[13px]">
+                    No invoices yet — click "New Invoice" to create one
+                  </td>
+                </tr>
+              )}
+              {filtered.map(inv => {
+                const net = inv.feeAmount - inv.discount;
+                const due = Math.max(0, net - inv.paid);
+                return (
+                  <tr key={inv.dbId ?? inv.id} className="hover:bg-amber-50/20 transition-colors">
+                    <td className="font-mono text-[11px] text-gray-500 font-medium">{inv.id}</td>
+                    <td>
+                      <div className="font-medium text-navy text-[13px]">{inv.childName}</div>
+                      <div className="text-[11px] text-gray-400">Parent: {inv.parentName}</div>
+                    </td>
+                    <td className="text-[12px] text-navy whitespace-nowrap">{formatUSDate(inv.date)}</td>
+                    <td className="text-[11px] text-gray-500">{inv.visitType || '—'}</td>
+                    <td className="text-[12px] font-medium text-navy">PKR {inv.feeAmount.toLocaleString()}</td>
+                    <td className="text-[12px] font-medium" style={{ color: '#1a7f5e' }}>
+                      PKR {inv.paid.toLocaleString()}
+                    </td>
+                    <td className="text-[12px] font-medium" style={{ color: due > 0 ? '#c53030' : '#1a7f5e' }}>
+                      {due > 0 ? `PKR ${due.toLocaleString()}` : '✓ Cleared'}
+                    </td>
+                    <td className="text-[11px] text-gray-500">{inv.paymentMethod}</td>
+                    <td><PayPill status={inv.paymentStatus} /></td>
+                    <td>
+                      <div className="flex gap-1">
+                        <button onClick={() => openEditForm(inv)}
+                          className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gold/10 transition-colors"
+                          title="Edit">
+                          <FileText size={12} className="text-gray-600" />
+                        </button>
+                        <button onClick={() => printInvoice(inv)}
+                          className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors"
+                          title="Print PDF">
+                          <Printer size={12} className="text-gray-600" />
+                        </button>
+                        <button onClick={() => deleteInvoice(inv)}
+                          className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-red-50 transition-colors"
+                          title="Delete">
+                          <X size={12} className="text-gray-500" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
