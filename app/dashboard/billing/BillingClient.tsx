@@ -4,56 +4,96 @@ import { supabase } from '@/lib/supabase';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
-import { Plus, Download, FileText, Search, X, Save, Printer } from 'lucide-react';
+import { Plus, FileText, Search, X, Save, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { InvoiceRecord } from '@/lib/store';
 
-type Invoice = InvoiceRecord & {
-  mr_number?: string;
+// ── Types ─────────────────────────────────────────────────────────────────────
+type Invoice = {
+  id: string;
+  appointmentId: string;
+  mr_number: string;
+  childName: string;
+  parentName: string;
+  date: string;
+  visitType: string;
+  reason: string;
+  feeAmount: number;
+  discount: number;
+  paid: number;
+  paymentMethod: string;
+  paymentStatus: 'Paid' | 'Partial' | 'Unpaid';
+  notes: string;
+  createdAt: string;
 };
 
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
-function genId() { return `INV-${Date.now().toString(36).toUpperCase()}`; }
+function genId() {
+  return `INV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+}
+
+// ── Map DB row → Invoice ──────────────────────────────────────────────────────
+function mapRow(r: any): Invoice {
+  return {
+    id:            r.id,
+    appointmentId: r.appointment_id || '',
+    mr_number:     r.mr_number || '',
+    childName:     r.child_name || '',
+    parentName:    r.parent_name || '',
+    date:          r.date || r.created_at?.split('T')[0] || '',
+    visitType:     r.visit_type || '',
+    reason:        r.reason || '',
+    feeAmount:     Number(r.consultation_fee) || 0,
+    discount:      Number(r.discount) || 0,
+    paid:          Number(r.amount_paid) || 0,
+    paymentMethod: r.payment_method || 'Cash',
+    paymentStatus: (r.payment_status || r.status || 'Unpaid') as Invoice['paymentStatus'],
+    notes:         r.notes || '',
+    createdAt:     r.created_at || new Date().toISOString(),
+  };
+}
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 function PayPill({ status }: { status: string }) {
   const cfg: Record<string, { bg: string; color: string }> = {
-    Paid:    { bg:'#e8f7f2', color:'#1a7f5e' },
-    Partial: { bg:'#fff9e6', color:'#b47a00' },
-    Unpaid:  { bg:'#fff0f0', color:'#c53030' },
+    Paid:    { bg: '#e8f7f2', color: '#1a7f5e' },
+    Partial: { bg: '#fff9e6', color: '#b47a00' },
+    Unpaid:  { bg: '#fff0f0', color: '#c53030' },
   };
   const c = cfg[status] || cfg.Unpaid;
   return (
-    <span className="pill" style={{ background:c.bg, color:c.color }}>{status}</span>
+    <span className="pill" style={{ background: c.bg, color: c.color }}>
+      {status}
+    </span>
   );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function BillingClient({ data }: { data: Appointment[] }) {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [search,     setSearch]     = useState('');
-  const [filterPay,  setFilterPay]  = useState('all');
-  const [showForm,   setShowForm]   = useState(false);
-  const [selected,   setSelected]   = useState<Invoice | null>(null);
-const [form, setForm] = useState<Partial<Invoice>>({});
-  const [aptSearch,  setAptSearch]  = useState('');
-  // Add this near your other useState hooks
-const [selectedPatient, setSelectedPatient] = useState<any>(null);
-const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [invoices,  setInvoices]  = useState<Invoice[]>([]);
+  const [search,    setSearch]    = useState('');
+  const [filterPay, setFilterPay] = useState('all');
+  const [showForm,  setShowForm]  = useState(false);
+  const [form,      setForm]      = useState<Partial<Invoice>>({});
+  const [aptSearch, setAptSearch] = useState('');
 
+  // ── Fetch + realtime ────────────────────────────────────────────────────────
   useEffect(() => {
     const fetchInvoices = async () => {
-      const { data } = await supabase
+      const { data: rows, error } = await supabase
         .from('billing')
         .select('*')
         .order('created_at', { ascending: false });
-      if (data) setInvoices(data);
+
+      if (error) {
+        console.error('Fetch error:', error);
+        return;
+      }
+      if (rows) setInvoices(rows.map(mapRow));
     };
 
     fetchInvoices();
 
-    // This listener catches changes from Supabase and updates your UI instantly
     const channel = supabase
       .channel('billing-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, () => {
@@ -64,38 +104,47 @@ const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Appointments not yet invoiced
+  // ── Uninvoiced appointments ─────────────────────────────────────────────────
   const uninvoiced = useMemo(() => {
     const invoicedIds = new Set(invoices.map(i => i.appointmentId));
-    return data.filter(a =>
-      a.childName &&
-      a.appointmentDate &&
-      !invoicedIds.has(a.id) &&
-      (a.status === 'Confirmed' || a.status === 'Rescheduled')
-    ).sort((a,b) => b.appointmentDate.localeCompare(a.appointmentDate));
+    return data
+      .filter(a =>
+        a.childName &&
+        a.appointmentDate &&
+        !invoicedIds.has(a.id) &&
+        (a.status === 'Confirmed' || a.status === 'Rescheduled')
+      )
+      .sort((a, b) => b.appointmentDate.localeCompare(a.appointmentDate));
   }, [data, invoices]);
 
+  // ── Filtered list ───────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let r = invoices;
     if (filterPay !== 'all') r = r.filter(i => i.paymentStatus === filterPay);
     if (search) {
       const q = search.toLowerCase();
-      r = r.filter(i => i.childName.toLowerCase().includes(q) || i.parentName.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
+      r = r.filter(
+        i =>
+          i.childName.toLowerCase().includes(q) ||
+          i.parentName.toLowerCase().includes(q) ||
+          i.id.toLowerCase().includes(q)
+      );
     }
-    return r.sort((a,b) => b.createdAt.localeCompare(a.createdAt));
+    return [...r].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }, [invoices, filterPay, search]);
 
-  // Summary stats
-  const totalRevenue  = invoices.reduce((s, i) => s + i.paid, 0);
-  const totalPending  = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
-  const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
-  const unpaidCount   = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
+  // ── Summary stats ───────────────────────────────────────────────────────────
+  const totalRevenue = invoices.reduce((s, i) => s + i.paid, 0);
+  const totalPending = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
+  const paidCount    = invoices.filter(i => i.paymentStatus === 'Paid').length;
+  const unpaidCount  = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
 
- const openNewForm = (apt?: Appointment) => {
+  // ── Open new form ───────────────────────────────────────────────────────────
+  const openNewForm = (apt?: Appointment) => {
     setForm({
       id:            genId(),
-      appointmentId: apt?.id || '',
-mr_number: (apt as any)?.mr_number || '',
+      appointmentId: apt?.id?.toString() || '',
+      mr_number:     (apt as any)?.mr_number || '',
       childName:     apt?.childName || '',
       parentName:    apt?.parentName || '',
       date:          apt?.appointmentDate || new Date().toISOString().split('T')[0],
@@ -111,72 +160,63 @@ mr_number: (apt as any)?.mr_number || '',
     });
     setAptSearch('');
     setShowForm(true);
-    setSelected(null);
   };
 
+  // ── Save invoice ────────────────────────────────────────────────────────────
   const saveInvoice = async () => {
-    // 1. Validation
-    if (!form.childName || !form.feeAmount) { 
-      toast.error('Patient name and fee are required'); 
-      return; 
+    if (!form.childName || !form.feeAmount) {
+      toast.error('Patient name and fee are required');
+      return;
     }
 
-    // 2. Calculate local status
-    const net = (form.feeAmount || 0) - (form.discount || 0);
-    const paid = form.paid || 0;
-    const status: Invoice['paymentStatus'] = paid >= net ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
+    const net    = (form.feeAmount || 0) - (form.discount || 0);
+    const paid   = form.paid || 0;
+    const status: Invoice['paymentStatus'] =
+      paid >= net ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
 
-    // 3. Push to Supabase
     try {
-      const { error } = await supabase
-        .from('billing')
-        .upsert([{
-          id: form.id, // Uses the generated INV-ID
-          appointment_id: form.appointmentId,
-          mr_number: form.mr_number || '', // Critical for patient-wise tracking
-          child_name: form.childName,
-          parent_name: form.parentName,
+      const { error } = await supabase.from('billing').upsert([
+        {
+          id:               form.id,
+          appointment_id:   form.appointmentId || null,
+          mr_number:        form.mr_number || '',
+          child_name:       form.childName,
+          parent_name:      form.parentName || '',
+          date:             form.date,
+          visit_type:       form.visitType || '',
+          reason:           form.reason || '',
           consultation_fee: form.feeAmount,
-          discount: form.discount,
-          amount_paid: form.paid,
-          payment_method: form.paymentMethod,
-          payment_status: status,
-          notes: form.notes,
-          created_at: form.createdAt || new Date().toISOString()
-        }]);
+          discount:         form.discount || 0,
+          amount_paid:      form.paid || 0,
+          payment_method:   form.paymentMethod || 'Cash',
+          payment_status:   status,
+          notes:            form.notes || '',
+          created_at:       form.createdAt || new Date().toISOString(),
+        },
+      ]);
 
       if (error) throw error;
 
-      // 4. Cleanup UI (Realtime listener will handle the table refresh)
       setShowForm(false);
-      setSelected(null);
-      toast.success(`Invoice ${form.id} synced to Supabase`);
-      
-    } catch (error: any) {
-      console.error('Supabase Error:', error);
-      toast.error('Failed to save to database: ' + error.message);
+      toast.success(`Invoice ${form.id} saved!`);
+    } catch (err: any) {
+      console.error('Supabase Error:', err);
+      toast.error('Failed to save: ' + err.message);
     }
   };
 
+  // ── Delete invoice ──────────────────────────────────────────────────────────
   const deleteInvoice = async (id: string) => {
     if (!confirm('Delete this invoice?')) return;
-    
-    const { error } = await supabase
-      .from('billing')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast.error('Delete failed: ' + error.message);
-    } else {
-      toast.success('Invoice removed from Database');
-    }
+    const { error } = await supabase.from('billing').delete().eq('id', id);
+    if (error) toast.error('Delete failed: ' + error.message);
+    else toast.success('Invoice deleted');
   };
 
-  // ── PDF Invoice ─────────────────────────────────────────────────────────────
+  // ── Print invoice (A4 full) ─────────────────────────────────────────────────
   const printInvoice = (inv: Invoice) => {
-    const net  = inv.feeAmount - inv.discount;
-    const due  = Math.max(0, net - inv.paid);
+    const net = inv.feeAmount - inv.discount;
+    const due = Math.max(0, net - inv.paid);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
     <title>Invoice ${inv.id}</title>
     <style>
@@ -196,8 +236,8 @@ mr_number: (apt as any)?.mr_number || '',
       .fee-table th{background:#f9f7f3;padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase}
       .fee-table td{padding:10px 12px;border-bottom:1px solid #f3f4f6;font-size:13px}
       .total-row td{font-weight:700;font-size:14px;background:#f9f7f3}
-      .due-row td{font-weight:700;font-size:16px;color:${due>0?'#c53030':'#1a7f5e'}}
-      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${inv.paymentStatus==='Paid'?'#e8f7f2':inv.paymentStatus==='Partial'?'#fff9e6':'#fff0f0'};color:${inv.paymentStatus==='Paid'?'#1a7f5e':inv.paymentStatus==='Partial'?'#b47a00':'#c53030'}}
+      .due-row td{font-weight:700;font-size:16px;color:${due > 0 ? '#c53030' : '#1a7f5e'}}
+      .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${inv.paymentStatus === 'Paid' ? '#e8f7f2' : inv.paymentStatus === 'Partial' ? '#fff9e6' : '#fff0f0'};color:${inv.paymentStatus === 'Paid' ? '#1a7f5e' : inv.paymentStatus === 'Partial' ? '#b47a00' : '#c53030'}}
       .footer{margin-top:40px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center}
     </style></head><body>
     <div class="header">
@@ -252,24 +292,32 @@ mr_number: (apt as any)?.mr_number || '',
   const aptFiltered = uninvoiced.filter(a => {
     if (!aptSearch) return true;
     const q = aptSearch.toLowerCase();
-    return a.childName.toLowerCase().includes(q) || a.parentName.toLowerCase().includes(q);
+    return (
+      a.childName.toLowerCase().includes(q) ||
+      a.parentName.toLowerCase().includes(q)
+    );
   });
 
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
 
-      {/* ── Summary Cards ──────────────────────────────────────────────────── */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label:'Total Revenue',  value:`PKR ${totalRevenue.toLocaleString()}`, color:'#1a7f5e', bg:'#e8f7f2' },
-          { label:'Pending Amount', value:`PKR ${totalPending.toLocaleString()}`, color:'#c53030', bg:'#fff0f0' },
-          { label:'Paid Invoices',  value:paidCount,                               color:'#1a7f5e', bg:'#f0fdf4' },
-          { label:'Unpaid Invoices',value:unpaidCount,                             color:'#c53030', bg:'#fef2f2' },
+          { label: 'Total Revenue',   value: `PKR ${totalRevenue.toLocaleString()}`, color: '#1a7f5e', bg: '#e8f7f2' },
+          { label: 'Pending Amount',  value: `PKR ${totalPending.toLocaleString()}`, color: '#c53030', bg: '#fff0f0' },
+          { label: 'Paid Invoices',   value: paidCount,                              color: '#1a7f5e', bg: '#f0fdf4' },
+          { label: 'Unpaid Invoices', value: unpaidCount,                            color: '#c53030', bg: '#fef2f2' },
         ].map(s => (
           <div key={s.label} className="card p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background:s.bg }}>
-              <span className="text-[18px] font-bold" style={{ color:s.color }}>{typeof s.value === 'number' ? s.value : '₨'}</span>
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: s.bg }}
+            >
+              <span className="text-[18px] font-bold" style={{ color: s.color }}>
+                {typeof s.value === 'number' ? s.value : '₨'}
+              </span>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
@@ -279,145 +327,209 @@ mr_number: (apt as any)?.mr_number || '',
         ))}
       </div>
 
-      {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex gap-2">
-          {['all','Paid','Partial','Unpaid'].map(f => (
-            <button key={f} onClick={() => setFilterPay(f)}
+          {['all', 'Paid', 'Partial', 'Unpaid'].map(f => (
+            <button
+              key={f}
+              onClick={() => setFilterPay(f)}
               className={`px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all ${
-                filterPay===f ? 'bg-navy text-white border-navy' : 'border-black/10 text-gray-500 hover:border-gold'
-              }`}>
+                filterPay === f
+                  ? 'bg-navy text-white border-navy'
+                  : 'border-black/10 text-gray-500 hover:border-gold'
+              }`}
+            >
               {f === 'all' ? 'All' : f}
             </button>
           ))}
         </div>
         <div className="flex gap-2 flex-1 justify-end">
           <div className="relative flex-1 max-w-xs">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-            <input type="text" placeholder="Search invoices..." value={search}
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search invoices..."
+              value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold" />
+              className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold"
+            />
           </div>
-          <button onClick={() => openNewForm()}
-            className="btn-gold text-[12px] py-2 px-4 gap-1.5">
-            <Plus size={13}/> New Invoice
+          <button onClick={() => openNewForm()} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
+            <Plus size={13} /> New Invoice
           </button>
         </div>
       </div>
 
-      {/* ── New Invoice Form ──────────────────────────────────────────────────── */}
+      {/* New / Edit Invoice Form */}
       {showForm && (
-        <div className="card p-6 animate-in" style={{ border:'2px solid rgba(201,168,76,0.3)' }}>
+        <div className="card p-6 animate-in" style={{ border: '2px solid rgba(201,168,76,0.3)' }}>
           <div className="flex items-center justify-between mb-5">
-            <div className="font-medium text-navy text-[15px]">
-              {form.id} — New Invoice
-            </div>
-            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600"><X size={16}/></button>
+            <div className="font-medium text-navy text-[15px]">{form.id} — Invoice</div>
+            <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+              <X size={16} />
+            </button>
           </div>
 
           {/* Pick appointment */}
           {!form.appointmentId && (
-            <div className="mb-5 rounded-xl p-4" style={{ background:'#f9f7f3', border:'1px solid rgba(201,168,76,0.2)' }}>
-              <div className="text-[12px] font-medium text-navy mb-3">Pick an appointment (or fill manually below)</div>
+            <div
+              className="mb-5 rounded-xl p-4"
+              style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.2)' }}
+            >
+              <div className="text-[12px] font-medium text-navy mb-3">
+                Pick an appointment (or fill manually below)
+              </div>
               <div className="relative mb-3">
-                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                <input type="text" placeholder="Search patient..." value={aptSearch}
+                <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search patient..."
+                  value={aptSearch}
                   onChange={e => setAptSearch(e.target.value)}
-                  className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] bg-white outline-none focus:border-gold" />
+                  className="w-full border border-black/10 rounded-lg pl-8 pr-3 py-2 text-[12px] bg-white outline-none focus:border-gold"
+                />
               </div>
               <div className="max-h-40 overflow-y-auto space-y-1">
-                {aptFiltered.slice(0,20).map(a => (
-                  <button key={a.id} onClick={() => setForm(prev => ({
-                    ...prev, appointmentId:a.id, childName:a.childName,
-                    parentName:a.parentName, date:a.appointmentDate,
-                    visitType:a.visitType, reason:a.reason,
-                  }))}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white text-[12px] transition-colors flex items-center justify-between">
+                {aptFiltered.slice(0, 20).map(a => (
+                  <button
+                    key={a.id}
+                    onClick={() =>
+                      setForm(prev => ({
+                        ...prev,
+                        appointmentId: a.id?.toString(),
+                        mr_number: (a as any).mr_number || '',
+                        childName: a.childName,
+                        parentName: a.parentName,
+                        date: a.appointmentDate,
+                        visitType: a.visitType,
+                        reason: a.reason,
+                      }))
+                    }
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-white text-[12px] transition-colors flex items-center justify-between"
+                  >
                     <span className="font-medium text-navy">{a.childName}</span>
-                    <span className="text-gray-400">{formatUSDate(a.appointmentDate)} · {a.appointmentTime}</span>
+                    <span className="text-gray-400">
+                      {formatUSDate(a.appointmentDate)} · {a.appointmentTime}
+                    </span>
                   </button>
                 ))}
-                {aptFiltered.length === 0 && <div className="text-[12px] text-gray-400 text-center py-2">No appointments found</div>}
+                {aptFiltered.length === 0 && (
+                  <div className="text-[12px] text-gray-400 text-center py-2">No appointments found</div>
+                )}
               </div>
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-4">
             {[
-              { label:'Patient Name', key:'childName',  type:'text' },
-              { label:'Parent Name',  key:'parentName', type:'text' },
-              { label:'Visit Date',   key:'date',       type:'date' },
-              { label:'Visit Type',   key:'visitType',  type:'text' },
+              { label: 'Patient Name', key: 'childName',  type: 'text' },
+              { label: 'Parent Name',  key: 'parentName', type: 'text' },
+              { label: 'Visit Date',   key: 'date',       type: 'date' },
+              { label: 'Visit Type',   key: 'visitType',  type: 'text' },
             ].map(f => (
               <div key={f.key}>
-                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.label}</label>
-                <input type={f.type} value={(form as Record<string,unknown>)[f.key] as string || ''}
-                  onChange={e => setForm(prev => ({...prev, [f.key]:e.target.value}))}
-                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                  {f.label}
+                </label>
+                <input
+                  type={f.type}
+                  value={(form as Record<string, unknown>)[f.key] as string || ''}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
+                />
               </div>
             ))}
 
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Consultation Fee (PKR)</label>
-              <input type="number" value={form.feeAmount || ''}
-                onChange={e => setForm(prev => ({...prev, feeAmount:Number(e.target.value)}))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                Consultation Fee (PKR)
+              </label>
+              <input
+                type="number"
+                value={form.feeAmount || ''}
+                onChange={e => setForm(prev => ({ ...prev, feeAmount: Number(e.target.value) }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
+              />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Discount (PKR)</label>
-              <input type="number" value={form.discount || ''}
-                onChange={e => setForm(prev => ({...prev, discount:Number(e.target.value)}))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                Discount (PKR)
+              </label>
+              <input
+                type="number"
+                value={form.discount || ''}
+                onChange={e => setForm(prev => ({ ...prev, discount: Number(e.target.value) }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
+              />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Amount Paid (PKR)</label>
-              <input type="number" value={form.paid || ''}
-                onChange={e => setForm(prev => ({...prev, paid:Number(e.target.value)}))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                Amount Paid (PKR)
+              </label>
+              <input
+                type="number"
+                value={form.paid || ''}
+                onChange={e => setForm(prev => ({ ...prev, paid: Number(e.target.value) }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
+              />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Payment Method</label>
-              <select value={form.paymentMethod || 'Cash'}
-                onChange={e => setForm(prev => ({...prev, paymentMethod:e.target.value}))}
-                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                Payment Method
+              </label>
+              <select
+                value={form.paymentMethod || 'Cash'}
+                onChange={e => setForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"
+              >
                 {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>
 
           {/* Net summary preview */}
-          <div className="mt-4 rounded-xl p-4 grid grid-cols-3 gap-4 text-center"
-            style={{ background:'#f9f7f3', border:'1px solid rgba(201,168,76,0.15)' }}>
+          <div
+            className="mt-4 rounded-xl p-4 grid grid-cols-3 gap-4 text-center"
+            style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}
+          >
             {[
-              { label:'Net Amount',  value:`PKR ${((form.feeAmount||0)-(form.discount||0)).toLocaleString()}`, color:'#0a1628' },
-              { label:'Paid',        value:`PKR ${(form.paid||0).toLocaleString()}`,                          color:'#1a7f5e' },
-              { label:'Balance Due', value:`PKR ${Math.max(0,(form.feeAmount||0)-(form.discount||0)-(form.paid||0)).toLocaleString()}`, color:'#c53030' },
+              { label: 'Net Amount',  value: `PKR ${((form.feeAmount || 0) - (form.discount || 0)).toLocaleString()}`,                                    color: '#0a1628' },
+              { label: 'Paid',        value: `PKR ${(form.paid || 0).toLocaleString()}`,                                                                    color: '#1a7f5e' },
+              { label: 'Balance Due', value: `PKR ${Math.max(0, (form.feeAmount || 0) - (form.discount || 0) - (form.paid || 0)).toLocaleString()}`,       color: '#c53030' },
             ].map(s => (
               <div key={s.label}>
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
-                <div className="text-[18px] font-bold" style={{ color:s.color }}>{s.value}</div>
+                <div className="text-[18px] font-bold" style={{ color: s.color }}>{s.value}</div>
               </div>
             ))}
           </div>
 
           <div className="mt-4">
-            <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Notes</label>
-            <textarea rows={2} value={form.notes || ''}
-              onChange={e => setForm(prev => ({...prev, notes:e.target.value}))}
+            <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+              Notes
+            </label>
+            <textarea
+              rows={2}
+              value={form.notes || ''}
+              onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Any additional notes..."
-              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none" />
+              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none"
+            />
           </div>
 
           <div className="flex gap-2 mt-4 pt-4 border-t border-black/5">
             <button onClick={saveInvoice} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
-              <Save size={13}/> Save Invoice
+              <Save size={13} /> Save Invoice
             </button>
-            <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">Cancel</button>
+            <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── Invoices Table ──────────────────────────────────────────────────── */}
+      {/* Invoices Table */}
       <div className="card overflow-hidden animate-in">
         <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
           <div className="font-medium text-navy text-[14px]">Invoices</div>
@@ -427,15 +539,25 @@ mr_number: (apt as any)?.mr_number || '',
           <table className="data-table">
             <thead>
               <tr>
-                <th>Invoice #</th><th>Patient</th><th>Date</th><th>Visit</th>
-                <th>Fee</th><th>Paid</th><th>Balance</th><th>Method</th><th>Status</th><th>Actions</th>
+                <th>Invoice #</th>
+                <th>Patient</th>
+                <th>Date</th>
+                <th>Visit</th>
+                <th>Fee</th>
+                <th>Paid</th>
+                <th>Balance</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={10} className="text-center py-10 text-gray-400 text-[13px]">
-                  No invoices yet — click "New Invoice" to create one
-                </td></tr>
+                <tr>
+                  <td colSpan={10} className="text-center py-10 text-gray-400 text-[13px]">
+                    No invoices yet — click "New Invoice" to create one
+                  </td>
+                </tr>
               )}
               {filtered.map(inv => {
                 const net = inv.feeAmount - inv.discount;
@@ -450,28 +572,36 @@ mr_number: (apt as any)?.mr_number || '',
                     <td className="text-[12px] text-navy whitespace-nowrap">{formatUSDate(inv.date)}</td>
                     <td className="text-[11px] text-gray-500">{inv.visitType || '—'}</td>
                     <td className="text-[12px] font-medium text-navy">PKR {inv.feeAmount.toLocaleString()}</td>
-                    <td className="text-[12px] font-medium" style={{ color:'#1a7f5e' }}>PKR {inv.paid.toLocaleString()}</td>
-                    <td className="text-[12px] font-medium" style={{ color: due>0?'#c53030':'#1a7f5e' }}>
+                    <td className="text-[12px] font-medium" style={{ color: '#1a7f5e' }}>
+                      PKR {inv.paid.toLocaleString()}
+                    </td>
+                    <td className="text-[12px] font-medium" style={{ color: due > 0 ? '#c53030' : '#1a7f5e' }}>
                       {due > 0 ? `PKR ${due.toLocaleString()}` : '✓ Cleared'}
                     </td>
                     <td className="text-[11px] text-gray-500">{inv.paymentMethod}</td>
                     <td><PayPill status={inv.paymentStatus} /></td>
                     <td>
                       <div className="flex gap-1">
-                        <button onClick={() => { setForm(inv); setShowForm(true); setSelected(null); }}
+                        <button
+                          onClick={() => { setForm(inv); setShowForm(true); }}
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gold/10 transition-colors"
-                          title="Edit">
-                          <FileText size={12} className="text-gray-600"/>
+                          title="Edit"
+                        >
+                          <FileText size={12} className="text-gray-600" />
                         </button>
-                        <button onClick={() => printInvoice(inv)}
+                        <button
+                          onClick={() => printInvoice(inv)}
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors"
-                          title="Print PDF">
-                          <Printer size={12} className="text-gray-600"/>
+                          title="Print PDF"
+                        >
+                          <Printer size={12} className="text-gray-600" />
                         </button>
-                        <button onClick={() => deleteInvoice(inv.id)}
+                        <button
+                          onClick={() => deleteInvoice(inv.id)}
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-red-50 transition-colors"
-                          title="Delete">
-                          <X size={12} className="text-gray-500"/>
+                          title="Delete"
+                        >
+                          <X size={12} className="text-gray-500" />
                         </button>
                       </div>
                     </td>
