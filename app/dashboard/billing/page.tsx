@@ -15,7 +15,7 @@ export default async function BillingPage() {
     <>
       <Topbar title="Billing" subtitle="Invoices, fee tracking and payment records" />
       <main className="flex-1 p-8">
-        <BillingClient initialData={billingRecords || []} />
+<BillingClient data={billingRecords || []} />
       </main>
     </>
   );
