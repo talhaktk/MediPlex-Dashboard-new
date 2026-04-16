@@ -36,6 +36,7 @@ export async function fetchAppointmentsFromDb(): Promise<Appointment[]> {
       attendanceStatus: row.attendance_status || '',
       checkInTime: row.check_in_time || '',
       inClinicTime: row.in_clinic_time || '',
+      mr_number: row.mr_number || '',
     }));
   } catch (err) {
     console.error('Database fetch failed:', err);
@@ -149,5 +150,93 @@ export function exportToCSV(data: Appointment[], filename = 'appointments.csv'):
     link.href = url;
     link.download = filename;
     link.click();
+  }// ── Generate next MR number ─────────────────────────────────────────────────
+export async function generateNextMRNumber(): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('mr_number')
+      .not('mr_number', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    let maxNum = 0;
+    for (const row of data || []) {
+      const raw = (row.mr_number || '').replace(/^A-?0*/i, '');
+      const n = parseInt(raw);
+      if (!isNaN(n) && n > maxNum) maxNum = n;
+    }
+    const next = maxNum + 1;
+    return `A${String(next).padStart(10, '0')}`;
+  } catch (err) {
+    console.error('MR generation failed:', err);
+    return `A${String(Date.now()).slice(-6).padStart(10, '0')}`;
   }
+}
+
+// ── Create appointment ──────────────────────────────────────────────────────
+export async function createAppointment(payload: {
+  child_name: string;
+  parent_name: string;
+  child_age: string;
+  whatsapp_number: string;
+  email_address: string;
+  appointment_date: string;
+  appointment_time: string;
+  reason_for_visit: string;
+  visit_type: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase.from('appointments').insert([{
+      ...payload,
+      appointment_status: 'Confirmed',
+      status: 'Confirmed',
+    }]);
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ── Soft delete appointment (set status = Cancelled) ───────────────────────
+export async function softDeleteAppointment(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ status: 'Cancelled', appointment_status: 'Cancelled' })
+      .eq('id', id);
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+// ── Upsert patient record linked by MR number ──────────────────────────────
+export async function upsertPatientByMR(payload: {
+  mr_number: string;
+  child_name: string;
+  parent_name: string;
+  child_age?: string;
+  whatsapp_number?: string;
+  email?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase.from('patients').upsert([{
+      mr_number:     payload.mr_number,
+      child_name:    payload.child_name,
+      parent_name:   payload.parent_name,
+      age:           payload.child_age || '',
+      whatsapp_number: payload.whatsapp_number || '',
+      email:         payload.email || '',
+      is_active:     true,
+    }], { onConflict: 'mr_number' });
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
 }

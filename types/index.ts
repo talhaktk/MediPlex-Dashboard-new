@@ -25,6 +25,7 @@ export interface Appointment {
   attendanceStatus?: AttendanceStatus | string;
   checkInTime?: string;
   inClinicTime?: string;
+  mr_number?: string;
   // Phase 2
   notes?: string;
   diagnosis?: string;

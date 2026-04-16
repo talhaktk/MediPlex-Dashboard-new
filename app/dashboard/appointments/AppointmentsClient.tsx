@@ -1,48 +1,111 @@
 'use client';
 
+import { supabase } from '@/lib/supabase';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
-import { filterAppointments, exportToCSV, formatUSDate } from '@/lib/sheets';
+import { filterAppointments, exportToCSV, formatUSDate, createAppointment, softDeleteAppointment } from '@/lib/sheets';
 import StatusPill from '@/components/ui/StatusPill';
 import AttendanceDropdown from '@/components/ui/AttendanceDropdown';
 import CheckInFlow from '@/components/ui/CheckInFlow';
-import { Search, Download, Filter, ChevronLeft, ChevronRight, X, CalendarCheck, UserCheck, Stethoscope, XCircle, FileText } from 'lucide-react';
+import {
+  Search, Download, Filter, ChevronLeft, ChevronRight,
+  X, CalendarCheck, UserCheck, Stethoscope, XCircle, FileText, Plus, Trash2
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getAttendanceAll, AttendanceRecord } from '@/lib/store';
 
-const STATUSES    = ['all','Confirmed','Cancelled','Rescheduled','Pending','No-Show','Completed'];
-const VISIT_TYPES = ['all','New','New Visit','Follow-up','Emergency','Telehealth'];
-const ATTENDANCE  = ['all','Not Set','Checked-In','In Clinic','Absent','No-Show'];
-const PER_PAGE = 12;
+const STATUSES    = ['all', 'Confirmed', 'Cancelled', 'Rescheduled', 'Pending', 'No-Show', 'Completed'];
+const VISIT_TYPES = ['all', 'New', 'New Visit', 'Follow-up', 'Emergency', 'Telehealth'];
+const ATTENDANCE  = ['all', 'Not Set', 'Checked-In', 'In Clinic', 'Absent', 'No-Show'];
+const PER_PAGE    = 12;
 
-export default function AppointmentsClient({ data }: { data: Appointment[] }) {
-  const [status,     setStatus]     = useState('all');
-  const [visitType,  setVisitType]  = useState('all');
-  const [attendance, setAttendance] = useState('all');
-  const [search,     setSearch]     = useState('');
-  const [dateFrom,   setDateFrom]   = useState('');
-  const [dateTo,     setDateTo]     = useState('');
-  const [page,       setPage]       = useState(1);
+// ── New appointment form defaults ──────────────────────────────────────────
+const EMPTY_FORM = {
+  child_name:       '',
+  parent_name:      '',
+  child_age:        '',
+  whatsapp_number:  '',
+  email_address:    '',
+  appointment_date: '',
+  appointment_time: '',
+  reason_for_visit: '',
+  visit_type:       'New Visit',
+};
+
+export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
+  const [data, setData] = useState<Appointment[]>(initialData);
+
+  // ── Filters ────────────────────────────────────────────────────────────────
+  const [status,      setStatus]      = useState('all');
+  const [visitType,   setVisitType]   = useState('all');
+  const [attendance,  setAttendance]  = useState('all');
+  const [search,      setSearch]      = useState('');
+  const [dateFrom,    setDateFrom]    = useState('');
+  const [dateTo,      setDateTo]      = useState('');
+  const [page,        setPage]        = useState(1);
   const [showFilters, setShowFilters] = useState(false);
-  const [selected,   setSelected]   = useState<string[]>([]);
+  const [selected,    setSelected]    = useState<string[]>([]);
 
-  const [sortAtt, setSortAtt] = useState<'asc'|'desc'|null>(null);
-  const [sortBy,  setSortBy]  = useState<'date'|'name'|null>(null);
-  const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc');
+  const [sortAtt, setSortAtt] = useState<'asc' | 'desc' | null>(null);
+  const [sortBy,  setSortBy]  = useState<'date' | 'name' | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-  // Use central store for attendance
+  // ── Store attendance ───────────────────────────────────────────────────────
   const [storeAtt, setStoreAtt] = useState<Record<string, AttendanceRecord>>({});
-  const [patientRecordApt, setPatientRecordApt] = useState<Appointment | null>(null);
-
   useEffect(() => { setStoreAtt(getAttendanceAll()); }, []);
-
-  // Refresh store attendance after check-in flow completes
   const refreshAttendance = () => setStoreAtt(getAttendanceAll());
 
-  const toggleSort = (col: 'date'|'name') => {
+  // ── Patient record / check-in modal ───────────────────────────────────────
+  const [patientRecordApt, setPatientRecordApt] = useState<Appointment | null>(null);
+
+  // ── Add appointment modal ──────────────────────────────────────────────────
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm,      setAddForm]      = useState({ ...EMPTY_FORM });
+  const [addLoading,   setAddLoading]   = useState(false);
+
+  // ── Realtime subscription ──────────────────────────────────────────────────
+  useEffect(() => {
+    const channel = supabase
+      .channel('appointments-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => {
+        fetchLatest();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const fetchLatest = async () => {
+    const { data: rows } = await supabase
+      .from('appointments')
+      .select('*')
+      .order('appointment_date', { ascending: false });
+    if (rows) {
+      setData(rows.map((row: any) => ({
+        id:               row.id.toString(),
+        timestamp:        row.created_at || '',
+        childName:        row.child_name || '',
+        parentName:       row.parent_name || '',
+        childAge:         row.child_age || '',
+        whatsapp:         row.whatsapp_number || '',
+        email:            row.email_address || '',
+        appointmentDate:  row.appointment_date || '',
+        appointmentTime:  row.appointment_time || '',
+        reason:           row.reason_for_visit || '',
+        visitType:        row.visit_type || 'New',
+        status:           row.status || row.appointment_status || 'Confirmed',
+        attendanceStatus: row.attendance_status || '',
+        checkInTime:      row.check_in_time || '',
+        inClinicTime:     row.in_clinic_time || '',
+        mr_number:        row.mr_number || '',
+      } as Appointment)));
+    }
+  };
+
+  // ── Sort helper ────────────────────────────────────────────────────────────
+  const toggleSort = (col: 'date' | 'name') => {
     if (sortBy === col) {
       if (sortDir === 'asc') setSortDir('desc');
-      else { setSortBy(null); }
+      else setSortBy(null);
     } else {
       setSortBy(col); setSortDir('asc'); setSortAtt(null);
     }
@@ -54,6 +117,7 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
     inClinicTime: a.inClinicTime || '',
   };
 
+  // ── Filtered + sorted list ─────────────────────────────────────────────────
   const filtered = useMemo(() => {
     let result = filterAppointments(data, { status, visitType, search, dateFrom, dateTo });
     if (attendance !== 'all') {
@@ -67,30 +131,22 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
           if (!m) return 0;
           let h = parseInt(m[1]);
           const min = parseInt(m[2]);
-          const pm = m[3].toUpperCase() === 'PM';
-          if (pm && h !== 12) h += 12;
-          if (!pm && h === 12) h = 0;
+          if (m[3].toUpperCase() === 'PM' && h !== 12) h += 12;
+          if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
           return h * 60 + min;
         };
-        const dateA = a.appointmentDate || '';
-        const dateB = b.appointmentDate || '';
-        if (dateA !== dateB) {
-          return sortDir === 'asc'
-            ? dateA.localeCompare(dateB)
-            : dateB.localeCompare(dateA);
-        }
+        const dA = a.appointmentDate || '', dB = b.appointmentDate || '';
+        if (dA !== dB) return sortDir === 'asc' ? dA.localeCompare(dB) : dB.localeCompare(dA);
         const diff = toMins(a.appointmentTime) - toMins(b.appointmentTime);
         return sortDir === 'asc' ? diff : -diff;
       });
     } else if (sortBy === 'name') {
       result = [...result].sort((a, b) =>
-        sortDir === 'asc'
-          ? a.childName.localeCompare(b.childName)
-          : b.childName.localeCompare(a.childName)
+        sortDir === 'asc' ? a.childName.localeCompare(b.childName) : b.childName.localeCompare(a.childName)
       );
     }
     if (sortAtt) {
-      const order = ['Not Set','Checked-In','In Clinic','Absent','No-Show'];
+      const order = ['Not Set', 'Checked-In', 'In Clinic', 'Absent', 'No-Show'];
       result = [...result].sort((a, b) => {
         const ai = order.indexOf(getAttendance(a).attendanceStatus || 'Not Set');
         const bi = order.indexOf(getAttendance(b).attendanceStatus || 'Not Set');
@@ -98,29 +154,30 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
       });
     }
     return result;
-  }, [data, status, visitType, search, dateFrom, dateTo, attendance, sortAtt, sortBy, sortDir]);
+  }, [data, status, visitType, search, dateFrom, dateTo, attendance, sortAtt, sortBy, sortDir, storeAtt]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
-  const slice = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const slice      = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  // ── Today's summary stats ──────────────────────────────────────────────────
-  const today = new Date().toISOString().split('T')[0];
+  // ── Today summary ──────────────────────────────────────────────────────────
+  const today     = new Date().toISOString().split('T')[0];
   const todayData = data.filter(a =>
     a.appointmentDate === today &&
-    (a.status === 'Confirmed' || a.status === 'Rescheduled' || a.status === 'Pending')
+    ['Confirmed', 'Rescheduled', 'Pending'].includes(a.status)
   );
-  
   const totalToday  = todayData.length;
   const checkedIn   = todayData.filter(a => getAttendance(a).attendanceStatus === 'Checked-In').length;
   const inClinic    = todayData.filter(a => getAttendance(a).attendanceStatus === 'In Clinic').length;
-  const absentToday = todayData.filter(a => ['Absent','No-Show'].includes(getAttendance(a).attendanceStatus)).length;
+  const absentToday = todayData.filter(a => ['Absent', 'No-Show'].includes(getAttendance(a).attendanceStatus)).length;
 
+  // ── Export ─────────────────────────────────────────────────────────────────
   const handleExport = () => {
     const toExport = selected.length > 0 ? filtered.filter(a => selected.includes(a.id)) : filtered;
-    exportToCSV(toExport, `mediplex_appointments_${new Date().toISOString().split('T')[0]}.csv`);
+    exportToCSV(toExport, `mediplex_appointments_${today}.csv`);
     toast.success(`Exported ${toExport.length} records`);
   };
 
+  // ── Clear filters ──────────────────────────────────────────────────────────
   const clearFilters = () => {
     setStatus('all'); setVisitType('all'); setAttendance('all');
     setSearch(''); setDateFrom(''); setDateTo(''); setPage(1);
@@ -128,12 +185,44 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
 
   const hasFilters = status !== 'all' || visitType !== 'all' || attendance !== 'all' || search || dateFrom || dateTo;
 
+  // ── Add appointment ────────────────────────────────────────────────────────
+  const handleAddAppointment = async () => {
+    if (!addForm.child_name.trim())       { toast.error('Child name is required');        return; }
+    if (!addForm.parent_name.trim())      { toast.error('Parent name is required');       return; }
+    if (!addForm.appointment_date)        { toast.error('Appointment date is required');  return; }
+    if (!addForm.appointment_time.trim()) { toast.error('Appointment time is required');  return; }
+
+    setAddLoading(true);
+    const result = await createAppointment(addForm);
+    setAddLoading(false);
+
+    if (result.success) {
+      toast.success('Appointment added successfully');
+      setShowAddModal(false);
+      setAddForm({ ...EMPTY_FORM });
+      await fetchLatest();
+    } else {
+      toast.error('Failed to add: ' + result.error);
+    }
+  };
+
+  // ── Soft delete ────────────────────────────────────────────────────────────
+  const handleDelete = async (apt: Appointment) => {
+    if (!confirm(`Cancel appointment for ${apt.childName} on ${formatUSDate(apt.appointmentDate)}?`)) return;
+    const result = await softDeleteAppointment(apt.id);
+    if (result.success) {
+      toast.success('Appointment cancelled');
+      await fetchLatest();
+    } else {
+      toast.error('Failed: ' + result.error);
+    }
+  };
+
   return (
     <div className="space-y-5">
 
-      {/* ── Today's summary cards ──────────────────────────────────────────── */}
+      {/* ── Summary cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-
         <div className="card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#f0fdf4' }}>
             <CalendarCheck size={16} style={{ color: '#16a34a' }} />
@@ -144,7 +233,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
             <div className="text-[10px] text-gray-400 mt-0.5">Confirmed + Rescheduled</div>
           </div>
         </div>
-
         <div className="card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dbeafe' }}>
             <UserCheck size={16} style={{ color: '#1d4ed8' }} />
@@ -155,7 +243,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
             <div className="text-[10px] text-gray-400 mt-0.5">Waiting room</div>
           </div>
         </div>
-
         <div className="card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#dcfce7' }}>
             <Stethoscope size={16} style={{ color: '#166534' }} />
@@ -166,7 +253,6 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
             <div className="text-[10px] text-gray-400 mt-0.5">With doctor now</div>
           </div>
         </div>
-
         <div className="card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fee2e2' }}>
             <XCircle size={16} style={{ color: '#dc2626' }} />
@@ -177,10 +263,9 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
             <div className="text-[10px] text-gray-400 mt-0.5">Did not arrive</div>
           </div>
         </div>
-
       </div>
 
-      {/* ── Toolbar ──────────────────────────────────────────────────────────── */}
+      {/* ── Toolbar ── */}
       <div className="flex items-center justify-between">
         <div className="text-[13px] text-gray-500">
           Showing <span className="font-medium text-navy">{filtered.length}</span> of{' '}
@@ -195,20 +280,23 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
           <button onClick={() => setShowFilters(!showFilters)} className="btn-outline text-[12px] py-2 px-3 gap-1.5">
             <Filter size={13} /> Filters
           </button>
-          <button onClick={handleExport} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
+          <button onClick={handleExport} className="btn-outline text-[12px] py-2 px-3 gap-1.5">
             <Download size={13} /> Export CSV
+          </button>
+          <button onClick={() => setShowAddModal(true)} className="btn-gold text-[12px] py-2 px-4 gap-1.5">
+            <Plus size={13} /> New Appointment
           </button>
         </div>
       </div>
 
-      {/* ── Filters ──────────────────────────────────────────────────────────── */}
+      {/* ── Filters panel ── */}
       {showFilters && (
         <div className="card p-5 animate-in">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
-              { label:'Status',     value:status,     set:setStatus,     opts:STATUSES,    allLabel:'All Statuses' },
-              { label:'Visit Type', value:visitType,  set:setVisitType,  opts:VISIT_TYPES, allLabel:'All Types' },
-              { label:'Attendance', value:attendance, set:setAttendance, opts:ATTENDANCE,  allLabel:'All Attendance' },
+              { label: 'Status',     value: status,     set: setStatus,     opts: STATUSES,    allLabel: 'All Statuses'   },
+              { label: 'Visit Type', value: visitType,  set: setVisitType,  opts: VISIT_TYPES, allLabel: 'All Types'      },
+              { label: 'Attendance', value: attendance, set: setAttendance, opts: ATTENDANCE,  allLabel: 'All Attendance' },
             ].map(({ label, value: val, set, opts, allLabel }) => (
               <div key={label}>
                 <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{label}</label>
@@ -232,14 +320,14 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
         </div>
       )}
 
-      {/* ── Search ───────────────────────────────────────────────────────────── */}
+      {/* ── Search ── */}
       <div className="relative">
         <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input type="text" placeholder="Search by patient name, parent, or reason for visit..."
           value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="search-input" />
       </div>
 
-      {/* ── Table ────────────────────────────────────────────────────────────── */}
+      {/* ── Table ── */}
       <div className="card animate-in">
         <div className="overflow-visible">
           <table className="data-table">
@@ -251,31 +339,34 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                     checked={selected.length === filtered.length && filtered.length > 0} />
                 </th>
                 <th>#</th>
-                <th style={{ cursor:'pointer', userSelect:'none' }} onClick={() => toggleSort('name')}>
-                  Patient {sortBy==='name' ? (sortDir==='asc'?'↑':'↓') : '↕'}
+                <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('name')}>
+                  Patient {sortBy === 'name' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
                 </th>
+                <th>MR#</th>
                 <th>Age</th>
                 <th>Contact</th>
-                <th style={{ cursor:'pointer', userSelect:'none' }} onClick={() => toggleSort('date')}>
-                  Appointment {sortBy==='date' ? (sortDir==='asc'?'↑':'↓') : '↕'}
+                <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>
+                  Appointment {sortBy === 'date' ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
                 </th>
                 <th>Time</th>
                 <th>Reason</th>
                 <th>Visit</th>
                 <th>Status</th>
-                <th style={{ minWidth: 130, cursor:'pointer', userSelect:'none' }}
+                <th style={{ minWidth: 130, cursor: 'pointer', userSelect: 'none' }}
                   onClick={() => setSortAtt(s => s === 'asc' ? 'desc' : s === 'desc' ? null : 'asc')}>
                   Attendance {sortAtt === 'asc' ? '↑' : sortAtt === 'desc' ? '↓' : '↕'}
                 </th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {slice.length === 0 && (
-                <tr><td colSpan={11} className="text-center py-12 text-gray-400 text-[13px]">No appointments match your filters</td></tr>
+                <tr><td colSpan={13} className="text-center py-12 text-gray-400 text-[13px]">No appointments match your filters</td></tr>
               )}
               {slice.map((a, i) => {
                 const dataRowIndex = data.findIndex(d => d.id === a.id) + 1;
                 const att = getAttendance(a);
+                const mr  = (a as any).mr_number;
                 return (
                   <tr key={a.id} className={selected.includes(a.id) ? 'bg-amber-50/40' : ''}>
                     <td>
@@ -300,6 +391,17 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                       </div>
                     </td>
 
+                    {/* MR# */}
+                    <td>
+                      {mr ? (
+                        <span className="font-mono text-[11px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
+                          {mr}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-gray-300">—</span>
+                      )}
+                    </td>
+
                     <td className="text-[12px] text-gray-600">{a.childAge ? `${a.childAge} yr` : '—'}</td>
 
                     {/* Contact */}
@@ -320,15 +422,14 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                       <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-medium">{a.visitType || '—'}</span>
                     </td>
 
-                    {/* Status — shows rescheduled info inline */}
+                    {/* Status */}
                     <td>
                       <StatusPill status={a.status} />
                       {a.status === 'Rescheduled' && (
                         <div className="mt-1 space-y-0.5">
                           {a.originalDate && (
                             <div className="text-[10px] text-gray-400">
-                              Was: {formatUSDate(a.originalDate)}
-                              {a.appointmentTime ? ` · ${a.appointmentTime}` : ''}
+                              Was: {formatUSDate(a.originalDate)}{a.appointmentTime ? ` · ${a.appointmentTime}` : ''}
                             </div>
                           )}
                           {a.reschedulingReason && (
@@ -340,20 +441,27 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
                       )}
                     </td>
 
-                    {/* Attendance dropdown — triggers invoice+vitals flow on check-in */}
+                    {/* Attendance */}
                     <td>
                       <div className="flex items-center gap-1.5">
-                        <AttendanceDropdown
-                          appointment={a}
-                          rowIndex={dataRowIndex}
-                        />
-                        <button
-                          onClick={() => setPatientRecordApt(a)}
-                          title="Open patient record"
+                        <AttendanceDropdown appointment={a} rowIndex={dataRowIndex} />
+                        <button onClick={() => setPatientRecordApt(a)} title="Open patient record"
                           className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-amber-50 transition-colors flex-shrink-0">
-                          <FileText size={12} className="text-gray-500"/>
+                          <FileText size={12} className="text-gray-500" />
                         </button>
                       </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td>
+                      <button
+                        onClick={() => handleDelete(a)}
+                        title="Cancel appointment"
+                        disabled={a.status === 'Cancelled'}
+                        className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 disabled:opacity-30"
+                      >
+                        <Trash2 size={12} className="text-red-500" />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -386,16 +494,133 @@ export default function AppointmentsClient({ data }: { data: Appointment[] }) {
           </div>
         </div>
       </div>
-      
-      {/* Patient Record Quick Modal */}
+
+      {/* ── Patient Record Modal ── */}
       {patientRecordApt && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl">
             <CheckInFlow
               appointment={patientRecordApt}
-              onComplete={() => { setPatientRecordApt(null); refreshAttendance(); }}
+              onComplete={() => { setPatientRecordApt(null); refreshAttendance(); fetchLatest(); }}
               onCancel={() => setPatientRecordApt(null)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Appointment Modal ── */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="card w-full max-w-lg max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+
+            {/* Modal header */}
+            <div className="flex items-center justify-between p-5 border-b border-black/5 flex-shrink-0">
+              <div>
+                <div className="font-semibold text-navy text-[16px]">New Appointment</div>
+                <div className="text-[12px] text-gray-400">Fill in the details to book an appointment</div>
+              </div>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+              {/* Patient info */}
+              <div>
+                <div className="text-[11px] text-gray-400 uppercase tracking-widest font-medium mb-2">Patient Information</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Child Name *</label>
+                    <input type="text" placeholder="Full name"
+                      value={addForm.child_name}
+                      onChange={e => setAddForm(p => ({ ...p, child_name: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Parent / Guardian Name *</label>
+                    <input type="text" placeholder="Parent name"
+                      value={addForm.parent_name}
+                      onChange={e => setAddForm(p => ({ ...p, parent_name: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Age (years)</label>
+                    <input type="text" placeholder="e.g. 5"
+                      value={addForm.child_age}
+                      onChange={e => setAddForm(p => ({ ...p, child_age: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">WhatsApp</label>
+                    <input type="text" placeholder="+92..."
+                      value={addForm.whatsapp_number}
+                      onChange={e => setAddForm(p => ({ ...p, whatsapp_number: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Email</label>
+                    <input type="email" placeholder="optional"
+                      value={addForm.email_address}
+                      onChange={e => setAddForm(p => ({ ...p, email_address: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Appointment details */}
+              <div>
+                <div className="text-[11px] text-gray-400 uppercase tracking-widest font-medium mb-2">Appointment Details</div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Date *</label>
+                    <input type="date"
+                      value={addForm.appointment_date}
+                      onChange={e => setAddForm(p => ({ ...p, appointment_date: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Time *</label>
+                    <input type="time"
+                      value={addForm.appointment_time}
+                      onChange={e => setAddForm(p => ({ ...p, appointment_time: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Reason for Visit</label>
+                    <input type="text" placeholder="e.g. Fever, Follow-up, Vaccination"
+                      value={addForm.reason_for_visit}
+                      onChange={e => setAddForm(p => ({ ...p, reason_for_visit: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Visit Type</label>
+                    <select value={addForm.visit_type}
+                      onChange={e => setAddForm(p => ({ ...p, visit_type: e.target.value }))}
+                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+                      {['New Visit', 'Follow-up', 'Emergency', 'Telehealth'].map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal footer */}
+            <div className="flex gap-2 p-5 border-t border-black/5 flex-shrink-0">
+              <button
+                onClick={handleAddAppointment}
+                disabled={addLoading}
+                className="btn-gold gap-1.5 text-[13px] py-2.5 px-5 flex-1"
+              >
+                {addLoading ? 'Saving...' : <><Plus size={14} /> Book Appointment</>}
+              </button>
+              <button onClick={() => setShowAddModal(false)} className="btn-outline text-[12px] py-2 px-4">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
