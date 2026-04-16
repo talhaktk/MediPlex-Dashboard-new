@@ -123,7 +123,6 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
       const { error } = await supabase.from('billing').upsert([{
         invoice_number:   record.id,
         mr_number:        (a as any).mr_number || '',
-        appointment_id:   a.id,
         child_name:       record.childName,
         parent_name:      record.parentName,
         date:             record.date,

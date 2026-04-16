@@ -150,7 +150,11 @@ export function exportToCSV(data: Appointment[], filename = 'appointments.csv'):
     link.href = url;
     link.download = filename;
     link.click();
-  }// ── Generate next MR number ─────────────────────────────────────────────────
+  }
+}
+
+// ── Generate next MR number ─────────────────────────────────────────────────
+export async function generateNextMRNumber
 export async function generateNextMRNumber(): Promise<string> {
   try {
     const { data, error } = await supabase
