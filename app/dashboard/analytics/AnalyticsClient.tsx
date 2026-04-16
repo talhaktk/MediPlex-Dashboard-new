@@ -1,18 +1,5 @@
 'use client';
 
-// Add these interface definitions at the top of AnalyticsClient.tsx 
-// (or import them if they are defined elsewhere)
-interface AnalyticsProps {
-  data: Appointment[];
-  stats: any;    // You can replace 'any' with your specific types later
-  monthly: any[];
-  reasons: any[];
-  ages: any[];
-}
-
-export default function PatientsClient({ data, stats, monthly, reasons, ages }: AnalyticsProps) {
-  // ... rest of your code
-
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
@@ -84,8 +71,20 @@ function emptyHealth(): HealthRecord {
   return { bloodGroup:'', allergies:'', conditions:'', notes:'', weights:[], heights:[], vitals:[] };
 }
 
-export default function PatientsClient({ data }: { data: Appointment[] }) {
-  const [search,         setSearch]         = useState('');
+export default function PatientsClient({ 
+  data, 
+  stats, 
+  monthly, 
+  reasons, 
+  ages 
+}: { 
+  data: Appointment[], 
+  stats: any, 
+  monthly: any[], 
+  reasons: any[], 
+  ages: any[] 
+}) 
+{  const [search,         setSearch]         = useState('');
   const [selected,       setSelected]       = useState<PatientRecord | null>(null);
   const [health,         setHealthState]    = useState<HealthRecord>(emptyHealth());
   const [activeTab,      setActiveTab]      = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'>('visits');
@@ -168,7 +167,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
 
   const multiVisit = patients.filter(p => p.totalVisits > 1).length;
   const avgVisits  = patients.length ? (data.length / patients.length).toFixed(1) : '0';
-
+const safeAges = ages || [];
+  const safeReasons = reasons || [];
   const tabs = [
     { key:'visits',        label:'Visits' },
     { key:'health',        label:'Health' },
