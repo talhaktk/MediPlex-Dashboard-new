@@ -1,5 +1,7 @@
 'use client';
 
+// At the top, add supabase import
+import { supabase } from '@/lib/supabase';
 import { useState } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
@@ -66,13 +68,45 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
     (inv.paid||0) >= net ? 'Paid' : (inv.paid||0) > 0 ? 'Partial' : 'Unpaid';
 
   // ── Save invoice and go to vitals ──────────────────────────────────────────
-  const handleSaveInvoice = () => {
-    if (!inv.feeAmount) { toast.error('Please enter a fee amount'); return; }
-    const record: InvoiceRecord = { ...inv as InvoiceRecord, paymentStatus: payStatus };
-    saveInvoice(record);
-    toast.success(`Invoice ${record.id} saved`);
-    setStep('vitals');
-  };
+  const handleSaveInvoice = async () => {
+  if (!inv.feeAmount) { toast.error('Please enter a fee amount'); return; }
+  
+  const record: InvoiceRecord = { ...inv as InvoiceRecord, paymentStatus: payStatus };
+  
+  // 1. Save to localStorage (keeps existing flow working)
+  saveInvoice(record);
+
+  // 2. Also save to Supabase so Billing tab sees it
+  try {
+    const { error } = await supabase.from('billing').upsert([{
+      invoice_number:   record.id,
+      mr_number:        (a as any).mr_number || '',
+      child_name:       record.childName,
+      parent_name:      record.parentName,
+      date:             record.date,
+      visit_type:       record.visitType  || '',
+      reason:           record.reason     || '',
+      consultation_fee: record.feeAmount,
+      discount:         record.discount   || 0,
+      amount_paid:      record.paid       || 0,
+      payment_method:   record.paymentMethod || 'Cash',
+      payment_status:   payStatus,
+      notes:            record.notes      || '',
+    }], { onConflict: 'invoice_number' });
+
+    if (error) {
+      console.error('Supabase billing error:', error);
+      toast.error('Invoice saved locally but failed to sync: ' + error.message);
+    } else {
+      toast.success(`Invoice ${record.id} saved`);
+    }
+  } catch (err: any) {
+    console.error('Supabase billing error:', err);
+    toast.error('Invoice saved locally but failed to sync: ' + err.message);
+  }
+
+  setStep('vitals');
+};
 
   // ── Skip invoice (warn) ────────────────────────────────────────────────────
   const handleSkipInvoice = () => {
