@@ -157,10 +157,10 @@ export function exportToCSV(data: Appointment[], filename = 'appointments.csv'):
 export async function generateNextMRNumber(): Promise<string> {
   try {
     const { data, error } = await supabase
-      .from('patients')
+      .from('appointments')
       .select('mr_number')
       .not('mr_number', 'is', null)
-      .order('created_at', { ascending: false });
+      .neq('mr_number', '');
 
     if (error) throw error;
 
@@ -170,8 +170,7 @@ export async function generateNextMRNumber(): Promise<string> {
       const n = parseInt(raw);
       if (!isNaN(n) && n > maxNum) maxNum = n;
     }
-    const next = maxNum + 1;
-    return `A${String(next).padStart(10, '0')}`;
+    return `A${String(maxNum + 1).padStart(10, '0')}`;
   } catch (err) {
     console.error('MR generation failed:', err);
     return `A${String(Date.now()).slice(-6).padStart(10, '0')}`;

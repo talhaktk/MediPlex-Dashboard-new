@@ -1,5 +1,6 @@
 'use client';
 
+import { supabase } from '@/lib/supabase';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
@@ -118,11 +119,16 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const latestVitals = selected ? getLatestVitals(selected.key) : null;
 
   // Patient billing from central store
-  const patientInvoices = useMemo(() => {
-    if (!selected) return [];
-    return getInvoices().filter(i => i.childName.toLowerCase().trim() === selected.key);
-  }, [selected]);
+  const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
 
+useEffect(() => {
+  if (!selected) return;
+  supabase
+    .from('billing')
+    .select('*')
+    .eq('mr_number', selected.visits[0]?.mr_number || '')
+    .then(({ data }) => setPatientInvoices(data || []));
+}, [selected]);
   // Patient prescriptions from central store
   const patientRx = useMemo(() => {
     if (!selected) return [];
