@@ -242,4 +242,3 @@ export async function upsertPatientByMR(payload: {
     return { success: false, error: err.message };
   }
 }
-}
