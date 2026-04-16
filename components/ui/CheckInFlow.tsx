@@ -432,10 +432,4 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
     </div>
   );
 
-  function normalizeMR(raw: string): string {
-    const cleaned = raw.trim().replace(/^A-?0*/i, '');
-    const n = parseInt(cleaned);
-    if (isNaN(n)) return raw.trim().toUpperCase();
-    return `A${String(n).padStart(10, '0')}`;
-  }
 }
