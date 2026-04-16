@@ -1,5 +1,18 @@
 'use client';
 
+// Add these interface definitions at the top of AnalyticsClient.tsx 
+// (or import them if they are defined elsewhere)
+interface AnalyticsProps {
+  data: Appointment[];
+  stats: any;    // You can replace 'any' with your specific types later
+  monthly: any[];
+  reasons: any[];
+  ages: any[];
+}
+
+export default function PatientsClient({ data, stats, monthly, reasons, ages }: AnalyticsProps) {
+  // ... rest of your code
+
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
