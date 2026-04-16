@@ -3,16 +3,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment, MonthlyStats, ReasonStat, AgeStat, DashboardStats } from '@/types';
 import { filterAppointments, computeMonthlyStats, exportToCSV, formatUSDate } from '@/lib/sheets';
+import { supabase } from '@/lib/supabase';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, PieChart, Pie, Cell, AreaChart, Area, Legend,
 } from 'recharts';
 import { Download, FileText, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
-import {
-  getInvoices, getMonthlyBilling, getTotalRevenue, getTotalPending,
-  InvoiceRecord, MonthlyBilling
-} from '@/lib/store';
 
 const GOLD  = '#c9a84c';
 const GREEN = '#1a7f5e';
@@ -51,19 +48,48 @@ function monthKey(label: string) {
   return `${yr}-${MONTH_MAP[mon] || '01'}`;
 }
 
-interface Props {
-  data: Appointment[];
-  stats: DashboardStats;
-  monthly: MonthlyStats[];
-  reasons: ReasonStat[];
-  ages: AgeStat[];
+// ── DB row → normalised invoice ───────────────────────────────────────────────
+function mapDbInvoice(r: any) {
+  return {
+    id:            r.invoice_number || String(r.id),
+    mr_number:     r.mr_number     || '',
+    childName:     r.child_name    || '',
+    parentName:    r.parent_name   || '',
+    date:          r.date          || r.created_at?.split('T')[0] || '',
+    visitType:     r.visit_type    || '',
+    reason:        r.reason        || '',
+    feeAmount:     Number(r.consultation_fee) || 0,
+    discount:      Number(r.discount)         || 0,
+    paid:          Number(r.amount_paid)      || 0,
+    paymentMethod: r.payment_method || 'Cash',
+    paymentStatus: (r.payment_status || 'Unpaid') as 'Paid'|'Partial'|'Unpaid',
+    notes:         r.notes    || '',
+    createdAt:     r.created_at || new Date().toISOString(),
+  };
 }
 
-export default function AnalyticsClient({ data, stats, monthly, reasons, ages }: Props) {
+interface Props {
+  data:        Appointment[];
+  stats:       DashboardStats;
+  // accept both naming conventions from page.tsx
+  monthly?:    MonthlyStats[];
+  monthlyStats?: MonthlyStats[];
+  reasons?:    ReasonStat[];
+  reasonStats?:  ReasonStat[];
+  ages?:       AgeStat[];
+  ageStats?:     AgeStat[];
+}
+
+export default function AnalyticsClient({ data, stats, ...rest }: Props) {
+  // Normalise prop names — page may send monthlyStats or monthly
+  const monthly: MonthlyStats[] = rest.monthly      || rest.monthlyStats || [];
+  const reasons: ReasonStat[]   = rest.reasons      || rest.reasonStats  || [];
+  const ages:    AgeStat[]      = rest.ages          || rest.ageStats     || [];
+
   const [rangeFrom,    setRangeFrom]    = useState('');
   const [rangeTo,      setRangeTo]      = useState('');
   const [activePreset, setActivePreset] = useState('all');
-const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'trends'|'billing'>('overview');
+  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'>('overview');
   const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
 
   const applyPreset = (key: string) => {
@@ -71,32 +97,59 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
     setRangeFrom(from); setRangeTo(to); setActivePreset(key);
   };
 
-  // ── Billing data from central store ───────────────────────────────────────
-  const [invoices,       setInvoices]       = useState<InvoiceRecord[]>([]);
-  const [monthlyBilling, setMonthlyBilling] = useState<MonthlyBilling[]>([]);
+  // ── Billing from Supabase ─────────────────────────────────────────────────
+  const [invoices, setInvoices] = useState<ReturnType<typeof mapDbInvoice>[]>([]);
 
   useEffect(() => {
-    setInvoices(getInvoices());
-    setMonthlyBilling(getMonthlyBilling());
+    const fetchBilling = async () => {
+      const { data: rows, error } = await supabase
+        .from('billing')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && rows) setInvoices(rows.map(mapDbInvoice));
+    };
+    fetchBilling();
+
+    const channel = supabase
+      .channel('analytics-billing')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, fetchBilling)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const totalRevenue  = getTotalRevenue();
-  const totalPending  = getTotalPending();
+  // ── Billing stats ─────────────────────────────────────────────────────────
+  const filteredInvoices = useMemo(() => invoices.filter(inv => {
+    if (rangeFrom && inv.date < rangeFrom) return false;
+    if (rangeTo   && inv.date > rangeTo)   return false;
+    return true;
+  }), [invoices, rangeFrom, rangeTo]);
+
+  const totalRevenue  = invoices.reduce((s,i) => s + i.paid, 0);
+  const totalPending  = invoices.reduce((s,i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
   const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
   const unpaidCount   = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
-
-  // Filter billing by date range
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter(inv => {
-      if (rangeFrom && inv.date < rangeFrom) return false;
-      if (rangeTo   && inv.date > rangeTo)   return false;
-      return true;
-    });
-  }, [invoices, rangeFrom, rangeTo]);
-
   const filteredRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
   const filteredPending = filteredInvoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
 
+  // Monthly billing breakdown from Supabase invoices
+  const monthlyBilling = useMemo(() => {
+    const map: Record<string, { month:string; invoices:number; revenue:number; paid:number; unpaid:number; partial:number }> = {};
+    invoices.forEach(inv => {
+      if (!inv.date) return;
+      const d = new Date(inv.date);
+      if (isNaN(d.getTime())) return;
+      const label = d.toLocaleString('en-US', { month:'short', year:'numeric' });
+      if (!map[label]) map[label] = { month:label, invoices:0, revenue:0, paid:0, unpaid:0, partial:0 };
+      map[label].invoices++;
+      map[label].revenue += inv.paid;
+      if (inv.paymentStatus === 'Paid')    map[label].paid++;
+      else if (inv.paymentStatus === 'Unpaid')  map[label].unpaid++;
+      else if (inv.paymentStatus === 'Partial') map[label].partial++;
+    });
+    return Object.values(map).sort((a,b) => a.month.localeCompare(b.month));
+  }, [invoices]);
+
+  // ── Appointment filters ───────────────────────────────────────────────────
   const rangeFiltered  = useMemo(() => filterAppointments(data, { dateFrom: rangeFrom, dateTo: rangeTo }), [data, rangeFrom, rangeTo]);
   const rangeMonthly   = useMemo(() => computeMonthlyStats(rangeFiltered), [rangeFiltered]);
   const displayMonthly = rangeMonthly.length ? rangeMonthly : monthly;
@@ -110,7 +163,7 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
     });
   }, [drillMonth, rangeFiltered]);
 
-  // ── Core stats ──────────────────────────────────────────────────────────────
+  // ── Core appointment stats ────────────────────────────────────────────────
   const rs = useMemo(() => {
     const confirmed   = rangeFiltered.filter(a => a.status === 'Confirmed').length;
     const cancelled   = rangeFiltered.filter(a => a.status === 'Cancelled').length;
@@ -119,12 +172,7 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
     const followUp    = rangeFiltered.filter(a => normVT(a.visitType) === 'Follow-up').length;
     const inClinic    = rangeFiltered.filter(a => a.attendanceStatus === 'In Clinic').length;
     const absent      = rangeFiltered.filter(a => a.attendanceStatus === 'Absent' || a.attendanceStatus === 'No-Show').length;
-    return {
-      total: rangeFiltered.length,
-      confirmed, cancelled, rescheduled,
-      newVisit, followUp,
-      inClinic, absent,
-    };
+    return { total:rangeFiltered.length, confirmed, cancelled, rescheduled, newVisit, followUp, inClinic, absent };
   }, [rangeFiltered]);
 
   const dowData = useMemo(() => {
@@ -135,7 +183,7 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
       const d = new Date(a.appointmentDate);
       if (!isNaN(d.getTime())) counts[d.getDay()]++;
     });
-    return days.map((d, i) => ({ day: d, count: counts[i] }));
+    return days.map((d,i) => ({ day:d, count:counts[i] }));
   }, [rangeFiltered]);
 
   const rateData = displayMonthly.map(m => ({
@@ -143,185 +191,101 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
     rate:  m.total ? Math.round(m.confirmed / m.total * 100) : 0,
   }));
 
-  // ── Exports ─────────────────────────────────────────────────────────────────
+  // ── Exports ───────────────────────────────────────────────────────────────
   const handleExportCSV = () => {
     exportToCSV(rangeFiltered, `mediplex_${new Date().toISOString().split('T')[0]}.csv`);
     toast.success(`Exported ${rs.total} records`);
   };
 
-  const handleDrillCSV = () => {
-    exportToCSV(drillData, 'month_detail.csv');
-    toast.success('CSV exported');
-  };
-
   const exportPDF = () => {
-    const period = rangeFrom && rangeTo
-      ? `${rangeFrom} to ${rangeTo}`
-      : rangeFrom || rangeTo || 'All Time';
-
-    const monthRows = displayMonthly.map(m => {
-      const cr = m.total ? Math.round(m.confirmed/m.total*100) : 0;
-      return `<tr>
-        <td>${m.month}</td>
-        <td>${m.total}</td>
-        <td style="color:#1a7f5e;font-weight:600">${m.confirmed}</td>
-        <td style="color:#c53030;font-weight:600">${m.cancelled}</td>
-        <td style="color:#b47a00;font-weight:600">${m.rescheduled}</td>
-        <td>${cr}%</td>
-      </tr>`;
-    }).join('');
-
+    const period = rangeFrom && rangeTo ? `${rangeFrom} to ${rangeTo}` : 'All Time';
     const pct = (n: number) => rs.total ? Math.round(n/rs.total*100) : 0;
+    const monthRows = displayMonthly.map(m => `<tr>
+      <td>${m.month}</td><td>${m.total}</td>
+      <td style="color:#1a7f5e">${m.confirmed}</td>
+      <td style="color:#c53030">${m.cancelled}</td>
+      <td style="color:#b47a00">${m.rescheduled}</td>
+      <td>${m.total ? Math.round(m.confirmed/m.total*100) : 0}%</td>
+    </tr>`).join('');
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>MediPlex Analytics Report</title>
-    <style>
-      *{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:Arial,sans-serif;color:#0a1628;padding:32px;font-size:13px;line-height:1.5}
-      h1{font-size:20px;font-weight:700;margin-bottom:2px}
-      .meta{color:#6b7280;font-size:11px;margin-bottom:28px}
-      h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:24px 0 10px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
-      .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
-      .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px}
-      .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:8px}
-      .card{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px}
-      .val{font-size:26px;font-weight:700;line-height:1}
-      .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-top:4px}
-      .sub{font-size:11px;color:#9ca3af;margin-top:2px}
-      table{width:100%;border-collapse:collapse;margin-top:4px}
-      th{background:#0a1628;color:#fff;padding:7px 12px;text-align:left;font-size:11px;font-weight:600}
-      td{padding:6px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}
-      tr:nth-child(even) td{background:#f9fafb}
-      .bar{height:6px;border-radius:3px;margin-top:4px}
-      .footer{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:10px;text-align:center}
-      @media print{body{padding:16px}}
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Analytics Report</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;padding:32px;font-size:13px}
+    h1{font-size:20px;font-weight:700;margin-bottom:2px}.meta{color:#6b7280;font-size:11px;margin-bottom:28px}
+    h2{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin:24px 0 10px;border-bottom:1px solid #e5e7eb;padding-bottom:6px}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:8px}
+    .card{border:1px solid #e5e7eb;border-radius:8px;padding:12px 16px}
+    .val{font-size:26px;font-weight:700;line-height:1}.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-top:4px}
+    table{width:100%;border-collapse:collapse;margin-top:4px}
+    th{background:#0a1628;color:#fff;padding:7px 12px;text-align:left;font-size:11px}
+    td{padding:6px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}
+    .footer{margin-top:28px;font-size:10px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:10px;text-align:center}
     </style></head><body>
-
     <h1>MediPlex Pediatric Clinic — Analytics Report</h1>
-    <div class="meta">Period: <strong>${period}</strong> &nbsp;·&nbsp; Generated: ${new Date().toLocaleString()} &nbsp;·&nbsp; Confidential</div>
-
-    <!-- Section A: Appointment Status -->
+    <div class="meta">Period: <strong>${period}</strong> · Generated: ${new Date().toLocaleString()}</div>
     <h2>A — Appointment Status</h2>
     <div class="grid4">
-      <div class="card"><div class="val">${rs.total}</div><div class="lbl">Total Appointments</div><div class="sub">All records</div></div>
-      <div class="card"><div class="val" style="color:#1a7f5e">${rs.confirmed}</div><div class="lbl">Confirmed</div><div class="sub">${pct(rs.confirmed)}% of total</div></div>
-      <div class="card"><div class="val" style="color:#c53030">${rs.cancelled}</div><div class="lbl">Cancelled</div><div class="sub">${pct(rs.cancelled)}% of total</div></div>
-      <div class="card"><div class="val" style="color:#b47a00">${rs.rescheduled}</div><div class="lbl">Rescheduled</div><div class="sub">${pct(rs.rescheduled)}% of total</div></div>
+      <div class="card"><div class="val">${rs.total}</div><div class="lbl">Total</div></div>
+      <div class="card"><div class="val" style="color:#1a7f5e">${rs.confirmed}</div><div class="lbl">Confirmed</div></div>
+      <div class="card"><div class="val" style="color:#c53030">${rs.cancelled}</div><div class="lbl">Cancelled</div></div>
+      <div class="card"><div class="val" style="color:#b47a00">${rs.rescheduled}</div><div class="lbl">Rescheduled</div></div>
     </div>
-
-    <!-- Section B: Visit Type -->
-    <h2>B — Visit Type Breakdown</h2>
-    <div class="grid2">
-      <div class="card" style="border-color:#1a7f5e44">
-        <div class="val" style="color:#1a7f5e">${rs.newVisit}</div>
-        <div class="lbl">New Visits</div>
-        <div class="sub">${pct(rs.newVisit)}% of total appointments</div>
-        <div class="bar" style="background:#1a7f5e;width:${pct(rs.newVisit)}%"></div>
-      </div>
-      <div class="card" style="border-color:#2b6cb044">
-        <div class="val" style="color:#2b6cb0">${rs.followUp}</div>
-        <div class="lbl">Follow-up Visits</div>
-        <div class="sub">${pct(rs.followUp)}% of total appointments</div>
-        <div class="bar" style="background:#2b6cb0;width:${pct(rs.followUp)}%"></div>
-      </div>
-    </div>
-
-    <!-- Section C: Attendance -->
-    <h2>C — Clinic Attendance</h2>
-    <div class="grid3">
-      <div class="card" style="border-color:#16653344">
-        <div class="val" style="color:#166534">${rs.inClinic}</div>
-        <div class="lbl">In Clinic</div>
-        <div class="sub">Seen by doctor</div>
-      </div>
-      <div class="card" style="border-color:#c2410c44">
-        <div class="val" style="color:#c2410c">${rs.absent}</div>
-        <div class="lbl">Absent / No-Show</div>
-        <div class="sub">Did not arrive</div>
-      </div>
-      <div class="card">
-        <div class="val" style="color:#0369a1">${rs.total - rs.inClinic - rs.absent}</div>
-        <div class="lbl">Awaiting / Not Set</div>
-        <div class="sub">No attendance recorded</div>
-      </div>
-    </div>
-
-    <!-- Section D: Monthly Breakdown -->
-    <h2>D — Monthly Breakdown</h2>
-    <table>
-      <thead><tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Confirm %</th></tr></thead>
-      <tbody>${monthRows}</tbody>
-    </table>
-
-    <!-- Section E: Billing Summary -->
-    <h2>E — Billing Summary</h2>
-    <div class="grid4" style="margin-bottom:16px">
+    <h2>B — Monthly Breakdown</h2>
+    <table><thead><tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>Rate</th></tr></thead>
+    <tbody>${monthRows}</tbody></table>
+    <h2>C — Billing Summary</h2>
+    <div class="grid4">
       <div class="card"><div class="val" style="color:#1a7f5e">PKR ${totalRevenue.toLocaleString()}</div><div class="lbl">Total Revenue</div></div>
-      <div class="card"><div class="val" style="color:#c53030">PKR ${totalPending.toLocaleString()}</div><div class="lbl">Total Pending</div></div>
+      <div class="card"><div class="val" style="color:#c53030">PKR ${totalPending.toLocaleString()}</div><div class="lbl">Pending</div></div>
       <div class="card"><div class="val" style="color:#1a7f5e">${paidCount}</div><div class="lbl">Paid Invoices</div></div>
       <div class="card"><div class="val" style="color:#c53030">${unpaidCount}</div><div class="lbl">Unpaid Invoices</div></div>
     </div>
-    ${monthlyBilling.length > 0 ? `
-    <table>
-      <thead><tr><th>Month</th><th>Invoices</th><th>Revenue Collected</th><th>Paid</th><th>Unpaid</th></tr></thead>
-      <tbody>${monthlyBilling.map(m => `<tr><td>${m.month}</td><td>${m.invoices}</td><td>PKR ${m.revenue.toLocaleString()}</td><td>${m.paid}</td><td>${m.unpaid}</td></tr>`).join('')}</tbody>
-    </table>` : '<p style="color:#6b7280;font-size:12px">No billing records yet</p>'}
-
-    <div class="footer">MediPlex Pediatric Clinic &nbsp;·&nbsp; This report is confidential &nbsp;·&nbsp; ${new Date().toLocaleDateString()}</div>
+    <div class="footer">MediPlex Pediatric Clinic · Confidential · ${new Date().toLocaleDateString()}</div>
     </body></html>`;
-
-    const w = window.open('', '_blank');
-    if (!w) { toast.error('Allow popups to export PDF'); return; }
-    w.document.write(html);
-    w.document.close();
+    const w = window.open('','_blank');
+    if (!w) { toast.error('Allow popups'); return; }
+    w.document.write(html); w.document.close();
     setTimeout(() => w.print(), 600);
-    toast.success('PDF ready — Print → Save as PDF');
   };
 
   const tabs = ['overview','monthly','patients','trends','billing'] as const;
   const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing' };
 
+  // Safe guards for potentially empty arrays
+  const safeReasons = reasons || [];
+  const safeAges    = ages    || [];
+
   return (
     <div className="space-y-5">
 
-      {/* ── Period Selector ─────────────────────────────────────────────────── */}
+      {/* Period Selector */}
       <div className="card p-5">
         <div className="flex flex-wrap gap-2 mb-4">
           {PRESETS.map(p => (
             <button key={p.key} onClick={() => applyPreset(p.key)}
               className={`px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all border ${
-                activePreset === p.key
-                  ? 'bg-navy text-white border-navy'
-                  : 'border-black/10 text-gray-500 hover:border-gold hover:text-navy'
-              }`}>
-              {p.label}
-            </button>
+                activePreset === p.key ? 'bg-navy text-white border-navy' : 'border-black/10 text-gray-500 hover:border-gold hover:text-navy'
+              }`}>{p.label}</button>
           ))}
         </div>
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">From</label>
-            <input type="date" value={rangeFrom}
-              onChange={e => { setRangeFrom(e.target.value); setActivePreset(''); }}
+            <input type="date" value={rangeFrom} onChange={e => { setRangeFrom(e.target.value); setActivePreset(''); }}
               className="border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
           </div>
           <div>
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">To</label>
-            <input type="date" value={rangeTo}
-              onChange={e => { setRangeTo(e.target.value); setActivePreset(''); }}
+            <input type="date" value={rangeTo} onChange={e => { setRangeTo(e.target.value); setActivePreset(''); }}
               className="border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
           </div>
           <div className="flex-1" />
-          <button onClick={handleExportCSV} className="btn-outline gap-1.5 text-[12px] py-2 px-4">
-            <Download size={13} /> Export CSV
-          </button>
-          <button onClick={exportPDF} className="btn-gold gap-1.5 text-[12px] py-2 px-4">
-            <FileText size={13} /> Export PDF
-          </button>
+          <button onClick={handleExportCSV} className="btn-outline gap-1.5 text-[12px] py-2 px-4"><Download size={13} /> Export CSV</button>
+          <button onClick={exportPDF} className="btn-gold gap-1.5 text-[12px] py-2 px-4"><FileText size={13} /> Export PDF</button>
         </div>
 
-        {/* ── KPI Summary Bar ── */}
+        {/* KPI Summary Bar */}
         <div className="mt-5 pt-5 border-t border-black/5">
+
           {/* Row 1: Appointment Status */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Appointment Status</div>
           <div className="grid grid-cols-4 gap-3 mb-4">
@@ -337,12 +301,13 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
               </div>
             ))}
           </div>
+
           {/* Row 2: Visit Type */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Visit Type</div>
           <div className="grid grid-cols-2 gap-3 mb-4">
             {[
-              { label:'New Visits',  val:rs.newVisit, color:GREEN },
-              { label:'Follow-ups',  val:rs.followUp, color:BLUE },
+              { label:'New Visits', val:rs.newVisit, color:GREEN },
+              { label:'Follow-ups', val:rs.followUp, color:BLUE },
             ].map(s => (
               <div key={s.label} className="text-center">
                 <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
@@ -350,13 +315,14 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
               </div>
             ))}
           </div>
+
           {/* Row 3: Attendance */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Clinic Attendance</div>
-          <div className="grid grid-cols-3 sm:grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-3 gap-3 mb-4">
             {[
-              { label:'In Clinic',        val:rs.inClinic,                          color:'#166534' },
-              { label:'Absent / No-Show', val:rs.absent,                            color:RED },
-              { label:'Awaiting',         val:rs.total - rs.inClinic - rs.absent,   color:'#6b7280' },
+              { label:'In Clinic',        val:rs.inClinic,                        color:'#166534' },
+              { label:'Absent / No-Show', val:rs.absent,                          color:RED },
+              { label:'Awaiting',         val:rs.total - rs.inClinic - rs.absent, color:'#6b7280' },
             ].map(s => (
               <div key={s.label} className="text-center">
                 <div className="font-semibold text-[22px] leading-none" style={{ color:s.color }}>{s.val}</div>
@@ -364,14 +330,15 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
               </div>
             ))}
           </div>
-          {/* Row 4: Billing */}
+
+          {/* Row 4: Billing — from Supabase */}
           <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Billing</div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label:'Revenue (Period)',  val:`PKR ${filteredRevenue.toLocaleString()}`,  color:'#1a7f5e' },
-              { label:'Pending (Period)',  val:`PKR ${filteredPending.toLocaleString()}`,  color:RED },
-              { label:'Paid Invoices',     val:filteredInvoices.filter(i=>i.paymentStatus==='Paid').length,   color:'#1a7f5e' },
-              { label:'Unpaid Invoices',   val:filteredInvoices.filter(i=>i.paymentStatus==='Unpaid').length, color:RED },
+              { label:'Revenue (Period)',  val:`PKR ${filteredRevenue.toLocaleString()}`,                             color:'#1a7f5e' },
+              { label:'Pending (Period)',  val:`PKR ${filteredPending.toLocaleString()}`,                             color:RED },
+              { label:'Paid Invoices',     val:filteredInvoices.filter(i=>i.paymentStatus==='Paid').length,           color:'#1a7f5e' },
+              { label:'Unpaid Invoices',   val:filteredInvoices.filter(i=>i.paymentStatus==='Unpaid').length,         color:RED },
             ].map(s => (
               <div key={s.label} className="text-center">
                 <div className="font-semibold text-[18px] leading-none" style={{ color:s.color }}>{s.val}</div>
@@ -382,17 +349,17 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
         </div>
       </div>
 
-      {/* ── Tabs ─────────────────────────────────────────────────────────────── */}
+      {/* Tabs */}
       <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
         {tabs.map(t => (
           <button key={t} onClick={() => { setActiveTab(t); setDrillMonth(null); }}
-            className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${activeTab===t ? 'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
+            className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${activeTab===t?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
             {tabLabels[t]}
           </button>
         ))}
       </div>
 
-      {/* ── OVERVIEW ─────────────────────────────────────────────────────────── */}
+      {/* ── OVERVIEW ── */}
       {activeTab === 'overview' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -401,13 +368,12 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
               <div className="p-5" style={{ height:260 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={displayMonthly}>
-                    <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={25} />
-                    <Tooltip {...TT} />
-                    <Legend wrapperStyle={{ fontSize:11 }} />
-                    <Bar dataKey="confirmed"   name="Confirmed"   stackId="a" fill={GREEN} />
-                    <Bar dataKey="cancelled"   name="Cancelled"   stackId="a" fill={RED} />
-                    <Bar dataKey="rescheduled" name="Rescheduled" stackId="a" fill={AMBER} radius={[3,3,0,0]} />
+                    <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={25}/>
+                    <Tooltip {...TT}/><Legend wrapperStyle={{ fontSize:11 }}/>
+                    <Bar dataKey="confirmed"   name="Confirmed"   stackId="a" fill={GREEN}/>
+                    <Bar dataKey="cancelled"   name="Cancelled"   stackId="a" fill={RED}/>
+                    <Bar dataKey="rescheduled" name="Rescheduled" stackId="a" fill={AMBER} radius={[3,3,0,0]}/>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -417,11 +383,11 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
               <div className="p-5" style={{ height:260 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={rateData}>
-                    <CartesianGrid stroke="rgba(0,0,0,0.04)" />
-                    <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                    <YAxis domain={[0,100]} tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={30} unit="%" />
-                    <Tooltip {...TT} formatter={(v:unknown) => [`${v}%`, 'Rate']} />
-                    <Line type="monotone" dataKey="rate" stroke={GOLD} strokeWidth={2} dot={{ fill:GOLD, r:4 }} />
+                    <CartesianGrid stroke="rgba(0,0,0,0.04)"/>
+                    <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                    <YAxis domain={[0,100]} tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={30} unit="%"/>
+                    <Tooltip {...TT} formatter={(v:unknown) => [`${v}%`, 'Rate']}/>
+                    <Line type="monotone" dataKey="rate" stroke={GOLD} strokeWidth={2} dot={{ fill:GOLD, r:4 }}/>
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -429,7 +395,6 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Visit type split */}
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">New Visit vs Follow-up</div>
               <div className="p-5">
@@ -448,40 +413,26 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
                   ))}
                 </div>
                 <div className="flex rounded-full overflow-hidden h-3">
-                  <div style={{ width:`${rs.total ? Math.round(rs.newVisit/rs.total*100) : 50}%`, background:GREEN }} />
-                  <div style={{ flex:1, background:BLUE }} />
-                </div>
-                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                  <span>New Visit</span><span>Follow-up</span>
+                  <div style={{ width:`${rs.total?Math.round(rs.newVisit/rs.total*100):50}%`, background:GREEN }}/>
+                  <div style={{ flex:1, background:BLUE }}/>
                 </div>
               </div>
             </div>
 
-            {/* Attendance split */}
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Clinic Attendance</div>
               <div className="p-5">
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { label:'In Clinic',  val:rs.inClinic, color:'#166534', bg:'#dcfce7' },
-                    { label:'Absent',     val:rs.absent,   color:RED,       bg:'#fee2e2' },
-                    { label:'Awaiting',   val:rs.total - rs.inClinic - rs.absent, color:'#6b7280', bg:'#f3f4f6' },
+                    { label:'In Clinic', val:rs.inClinic, color:'#166534', bg:'#dcfce7' },
+                    { label:'Absent',    val:rs.absent,   color:RED,       bg:'#fee2e2' },
+                    { label:'Awaiting',  val:rs.total - rs.inClinic - rs.absent, color:'#6b7280', bg:'#f3f4f6' },
                   ].map(v => (
                     <div key={v.label} className="rounded-xl p-3 text-center" style={{ background:v.bg }}>
                       <div className="text-[28px] font-semibold leading-none" style={{ color:v.color }}>{v.val}</div>
                       <div className="text-[10px] mt-1" style={{ color:v.color }}>{v.label}</div>
                     </div>
                   ))}
-                </div>
-                <div className="flex rounded-full overflow-hidden h-3">
-                  <div style={{ width:`${rs.total ? Math.round(rs.inClinic/rs.total*100) : 0}%`, background:'#166534' }} />
-                  <div style={{ width:`${rs.total ? Math.round(rs.absent/rs.total*100) : 0}%`, background:RED }} />
-                  <div style={{ flex:1, background:'#e5e7eb' }} />
-                </div>
-                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                  <span style={{ color:'#166534' }}>● In Clinic</span>
-                  <span style={{ color:RED }}>● Absent</span>
-                  <span>● Awaiting</span>
                 </div>
               </div>
             </div>
@@ -492,12 +443,12 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
             <div className="p-5" style={{ height:200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dowData} barSize={40}>
-                  <XAxis dataKey="day" tick={{ fontSize:12, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={20} />
-                  <Tooltip {...TT} />
+                  <XAxis dataKey="day" tick={{ fontSize:12, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={20}/>
+                  <Tooltip {...TT}/>
                   <Bar dataKey="count" name="Appointments" radius={[4,4,0,0]}>
-                    {dowData.map((e, i) => (
-                      <Cell key={i} fill={e.count === Math.max(...dowData.map(d => d.count)) ? GOLD : '#e8e4da'} />
+                    {dowData.map((e,i) => (
+                      <Cell key={i} fill={e.count === Math.max(...dowData.map(d=>d.count)) ? GOLD : '#e8e4da'}/>
                     ))}
                   </Bar>
                 </BarChart>
@@ -507,27 +458,24 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
         </div>
       )}
 
-      {/* ── MONTHLY RECORDS ───────────────────────────────────────────────────── */}
+      {/* ── MONTHLY RECORDS ── */}
       {activeTab === 'monthly' && (
         <div className="space-y-5">
           {drillMonth ? (
             <div className="space-y-4 animate-in">
               <button onClick={() => setDrillMonth(null)}
                 className="flex items-center gap-2 text-[13px] text-gray-500 hover:text-navy transition-colors">
-                <ChevronLeft size={15} /> Back to all months
+                <ChevronLeft size={15}/> Back to all months
               </button>
               <div className="card overflow-hidden">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
                   <div className="font-medium text-navy text-[14px]">Detail — {drillData.length} appointments</div>
-                  <button onClick={handleDrillCSV} className="btn-outline text-[11px] py-1.5 px-3 gap-1">
-                    <Download size={11} /> CSV
-                  </button>
+                  <button onClick={() => { exportToCSV(drillData,'month_detail.csv'); toast.success('CSV exported'); }}
+                    className="btn-outline text-[11px] py-1.5 px-3 gap-1"><Download size={11}/> CSV</button>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="data-table">
-                    <thead>
-                      <tr><th>Patient</th><th>Parent</th><th>Age</th><th>Date</th><th>Time</th><th>Reason</th><th>Visit</th><th>Status</th><th>Attendance</th></tr>
-                    </thead>
+                    <thead><tr><th>Patient</th><th>Parent</th><th>Age</th><th>Date</th><th>Time</th><th>Reason</th><th>Visit</th><th>Status</th></tr></thead>
                     <tbody>
                       {drillData.map(a => (
                         <tr key={a.id}>
@@ -543,8 +491,7 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
                               {normVT(a.visitType)}
                             </span>
                           </td>
-                          <td><span className={`pill pill-${a.status?.toLowerCase().replace(/[\s-]/g,'')}`}>{a.status}</span></td>
-                          <td className="text-[11px] text-gray-500">{a.attendanceStatus || '—'}</td>
+                          <td><span className={`pill pill-${(a.status||'').toLowerCase().replace(/[\s-]/g,'')}`}>{a.status}</span></td>
                         </tr>
                       ))}
                     </tbody>
@@ -557,54 +504,30 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
               <div className="card overflow-hidden animate-in">
                 <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
                   <div className="font-medium text-navy text-[14px]">Monthly Summary</div>
-                  <div className="text-[12px] text-gray-400">Click any row to see patient details</div>
+                  <div className="text-[12px] text-gray-400">Click any row to drill down</div>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="data-table">
-                    <thead>
-                      <tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>In Clinic</th><th>Absent / No-Show</th></tr>
-                    </thead>
+                    <thead><tr><th>Month</th><th>Total</th><th>Confirmed</th><th>Cancelled</th><th>Rescheduled</th><th>In Clinic</th><th>Absent</th></tr></thead>
                     <tbody>
                       {displayMonthly.map(m => {
                         const mk = monthKey(m.month);
-                        const monthData = rangeFiltered.filter(a => {
+                        const md = rangeFiltered.filter(a => {
                           const d = new Date(a.appointmentDate);
                           return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk;
                         });
-                        const mInClinic = monthData.filter(a => (a.attendanceStatus || '') === 'In Clinic').length;
-                        const mAbsent   = monthData.filter(a => ['Absent','No-Show'].includes(a.attendanceStatus || '')).length;
-                        const mxInClinic = Math.max(1, ...displayMonthly.map(x => {
-                          const xmk = monthKey(x.month);
-                          return rangeFiltered.filter(a => {
-                            const d = new Date(a.appointmentDate);
-                            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === xmk
-                              && (a.attendanceStatus || '') === 'In Clinic';
-                          }).length;
-                        }));
+                        const mInClinic = md.filter(a => (a.attendanceStatus||'') === 'In Clinic').length;
+                        const mAbsent   = md.filter(a => ['Absent','No-Show'].includes(a.attendanceStatus||'')).length;
                         return (
-                          <tr key={m.month} onClick={() => setDrillMonth(monthKey(m.month))}
+                          <tr key={m.month} onClick={() => setDrillMonth(mk)}
                             className="cursor-pointer hover:bg-amber-50/30 transition-colors">
                             <td className="font-medium text-navy">{m.month}</td>
                             <td><span className="font-semibold text-navy">{m.total}</span></td>
                             <td><span className="text-emerald-700 font-medium">{m.confirmed}</span></td>
                             <td><span className="text-red-600 font-medium">{m.cancelled}</span></td>
                             <td><span className="text-amber-600 font-medium">{m.rescheduled}</span></td>
-                            <td>
-                              <div className="flex items-center gap-2">
-                                <div className="w-14 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                  <div className="h-full rounded-full bg-emerald-500" style={{ width:`${Math.round(mInClinic/mxInClinic*100)}%` }} />
-                                </div>
-                                <span className="text-[11px] text-emerald-700 font-medium">{mInClinic}</span>
-                              </div>
-                            </td>
-                            <td>
-                              <div className="flex items-center gap-2">
-                                <div className="w-14 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                                  <div className="h-full rounded-full bg-red-400" style={{ width:`${m.total ? Math.round(mAbsent/m.total*100) : 0}%` }} />
-                                </div>
-                                <span className="text-[11px] text-red-600 font-medium">{mAbsent}</span>
-                              </div>
-                            </td>
+                            <td><span className="text-emerald-700 font-medium">{mInClinic}</span></td>
+                            <td><span className="text-red-600 font-medium">{mAbsent}</span></td>
                           </tr>
                         );
                       })}
@@ -617,14 +540,13 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
                 <div className="p-5" style={{ height:280 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={displayMonthly.map(m => ({ month:m.month, Confirmed:m.confirmed, Cancelled:m.cancelled, Rescheduled:m.rescheduled }))}>
-                      <CartesianGrid stroke="rgba(0,0,0,0.04)" />
-                      <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={25} />
-                      <Tooltip {...TT} />
-                      <Legend wrapperStyle={{ fontSize:11 }} />
-                      <Area type="monotone" dataKey="Confirmed"   stackId="1" stroke={GREEN} fill="#e8f7f2" strokeWidth={1.5} />
-                      <Area type="monotone" dataKey="Cancelled"   stackId="1" stroke={RED}   fill="#fff0f0" strokeWidth={1.5} />
-                      <Area type="monotone" dataKey="Rescheduled" stackId="1" stroke={AMBER} fill="#fff9e6" strokeWidth={1.5} />
+                      <CartesianGrid stroke="rgba(0,0,0,0.04)"/>
+                      <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={25}/>
+                      <Tooltip {...TT}/><Legend wrapperStyle={{ fontSize:11 }}/>
+                      <Area type="monotone" dataKey="Confirmed"   stackId="1" stroke={GREEN} fill="#e8f7f2" strokeWidth={1.5}/>
+                      <Area type="monotone" dataKey="Cancelled"   stackId="1" stroke={RED}   fill="#fff0f0" strokeWidth={1.5}/>
+                      <Area type="monotone" dataKey="Rescheduled" stackId="1" stroke={AMBER} fill="#fff9e6" strokeWidth={1.5}/>
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -634,104 +556,81 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
         </div>
       )}
 
-      {/* ── DEMOGRAPHICS ─────────────────────────────────────────────────────── */}
+      {/* ── DEMOGRAPHICS ── */}
       {activeTab === 'patients' && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Age Distribution</div>
               <div className="p-5" style={{ height:260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ages} layout="vertical" barSize={22}>
-                    <XAxis type="number" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="bucket" tick={{ fontSize:11, fill:'#4a5568' }} axisLine={false} tickLine={false} width={80} />
-                    <Tooltip {...TT} />
-                    <Bar dataKey="count" name="Patients" radius={[0,3,3,0]}>
-                      {ages.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {safeAges.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={safeAges} layout="vertical" barSize={22}>
+                      <XAxis type="number" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                      <YAxis type="category" dataKey="bucket" tick={{ fontSize:11, fill:'#4a5568' }} axisLine={false} tickLine={false} width={80}/>
+                      <Tooltip {...TT}/>
+                      <Bar dataKey="count" name="Patients" radius={[0,3,3,0]}>
+                        {safeAges.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-[13px]">No age data available</div>
+                )}
               </div>
             </div>
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Top Reasons for Visit</div>
               <div className="p-5" style={{ height:260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={reasons} cx="50%" cy="50%" outerRadius={95} dataKey="count" nameKey="reason" paddingAngle={2}>
-                      {reasons.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip {...TT} />
-                  </PieChart>
-                </ResponsiveContainer>
+                {safeReasons.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={safeReasons} cx="50%" cy="50%" outerRadius={95} dataKey="count" nameKey="reason" paddingAngle={2}>
+                        {safeReasons.map((_,i) => <Cell key={i} fill={COLORS[i%COLORS.length]}/>)}
+                      </Pie>
+                      <Tooltip {...TT}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-[13px]">No reason data available</div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="card animate-in">
-            <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Visit Type Breakdown</div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-6 max-w-md mx-auto">
-                {[
-                  { label:'New Visit', val:rs.newVisit, color:GREEN, bg:'#e8f7f2', desc:'First-time or new concern' },
-                  { label:'Follow-up', val:rs.followUp, color:BLUE,  bg:'#ebf4ff', desc:'Return visits' },
-                ].map(v => (
-                  <div key={v.label} className="rounded-xl p-6 text-center" style={{ background:v.bg }}>
-                    <div className="text-[42px] font-bold leading-none mb-2" style={{ color:v.color }}>{v.val}</div>
-                    <div className="text-[13px] font-semibold mb-1" style={{ color:v.color }}>{v.label}</div>
-                    <div className="text-[11px] text-gray-400 mb-3">{v.desc}</div>
-                    <div className="text-[18px] font-semibold" style={{ color:v.color }}>
-                      {rs.total ? Math.round(v.val/rs.total*100) : 0}%
+          {safeReasons.length > 0 && (
+            <div className="card animate-in">
+              <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Visit Reasons Ranked</div>
+              <div className="p-5 space-y-3">
+                {safeReasons.map((r,i) => (
+                  <div key={r.reason} className="flex items-center gap-3">
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                      style={{ background:`${COLORS[i%COLORS.length]}18`, color:COLORS[i%COLORS.length] }}>{i+1}</div>
+                    <div className="flex-1">
+                      <div className="flex justify-between text-[12px] font-medium text-navy mb-1">
+                        <span>{r.reason}</span><span>{r.count}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width:`${Math.round(r.count/safeReasons[0].count*100)}%`, background:COLORS[i%COLORS.length] }}/>
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="mt-5 flex rounded-full overflow-hidden h-4 max-w-md mx-auto">
-                <div style={{ width:`${rs.total?Math.round(rs.newVisit/rs.total*100):50}%`, background:GREEN, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <span className="text-white text-[10px] font-semibold">{rs.total?Math.round(rs.newVisit/rs.total*100):0}%</span>
-                </div>
-                <div style={{ flex:1, background:BLUE, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <span className="text-white text-[10px] font-semibold">{rs.total?Math.round(rs.followUp/rs.total*100):0}%</span>
-                </div>
-              </div>
-              <div className="flex justify-between text-[11px] mt-1.5 max-w-md mx-auto px-1">
-                <span style={{ color:GREEN }}>● New Visit</span>
-                <span style={{ color:BLUE }}>● Follow-up</span>
-              </div>
             </div>
-          </div>
-
-          <div className="card animate-in">
-            <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Visit Reasons Ranked</div>
-            <div className="p-5 space-y-3">
-              {reasons.map((r, i) => (
-                <div key={r.reason} className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                    style={{ background:`${COLORS[i%COLORS.length]}18`, color:COLORS[i%COLORS.length] }}>{i+1}</div>
-                  <div className="flex-1">
-                    <div className="flex justify-between text-[12px] font-medium text-navy mb-1">
-                      <span>{r.reason}</span><span>{r.count}</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width:`${Math.round(r.count/reasons[0].count*100)}%`, background:COLORS[i%COLORS.length] }} />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* ── TRENDS ───────────────────────────────────────────────────────────── */}
+      {/* ── TRENDS ── */}
       {activeTab === 'trends' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {[
-              { label:'Avg / Month',       val: monthly.length ? Math.round(data.length/monthly.length) : 0,   color:GOLD },
-              { label:'Peak Month',        val: [...monthly].sort((a,b)=>b.total-a.total)[0]?.month || '—',    color:GREEN },
+              { label:'Avg / Month',       val: monthly.length ? Math.round(data.length/monthly.length) : 0,                                              color:GOLD },
+              { label:'Peak Month',        val: [...monthly].sort((a,b)=>b.total-a.total)[0]?.month || '—',                                               color:GREEN },
               { label:'Best Confirm Rate', val: monthly.length ? `${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%` : '—', color:BLUE },
-              { label:'Total Patients',    val: new Set(data.map(a=>a.childName.toLowerCase())).size,          color:'#7c3aed' },
+              { label:'Total Patients',    val: new Set(data.map(a=>a.childName?.toLowerCase()).filter(Boolean)).size,                                     color:'#7c3aed' },
             ].map(s => (
               <div key={s.label} className="kpi-card animate-in">
                 <div className="text-[10px] tracking-widest uppercase text-gray-400 font-medium mb-2">{s.label}</div>
@@ -744,14 +643,13 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
             <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Cumulative Growth</div>
             <div className="p-5" style={{ height:280 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={(() => { let cum=0; return displayMonthly.map(m=>({ month:m.month, total:m.total, cumulative:(cum+=m.total) })); })()}>
-                  <CartesianGrid stroke="rgba(0,0,0,0.04)" />
-                  <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={30} />
-                  <Tooltip {...TT} />
-                  <Legend wrapperStyle={{ fontSize:11 }} />
-                  <Area type="monotone" dataKey="cumulative" name="Cumulative Total" stroke={GOLD} fill="rgba(201,168,76,0.1)"  strokeWidth={2} />
-                  <Area type="monotone" dataKey="total"      name="Monthly New"      stroke={BLUE} fill="rgba(43,108,176,0.08)" strokeWidth={1.5} />
+                <AreaChart data={(() => { let cum=0; return displayMonthly.map(m => ({ month:m.month, total:m.total, cumulative:(cum+=m.total) })); })()}>
+                  <CartesianGrid stroke="rgba(0,0,0,0.04)"/>
+                  <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={30}/>
+                  <Tooltip {...TT}/><Legend wrapperStyle={{ fontSize:11 }}/>
+                  <Area type="monotone" dataKey="cumulative" name="Cumulative Total" stroke={GOLD} fill="rgba(201,168,76,0.1)" strokeWidth={2}/>
+                  <Area type="monotone" dataKey="total"      name="Monthly New"      stroke={BLUE} fill="rgba(43,108,176,0.08)" strokeWidth={1.5}/>
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -767,18 +665,13 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
                     const d = new Date(a.appointmentDate);
                     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === mk;
                   });
-                  return {
-                    month:       m.month,
-                    'New Visit': md.filter(a => normVT(a.visitType)==='New Visit').length,
-                    'Follow-up': md.filter(a => normVT(a.visitType)==='Follow-up').length,
-                  };
+                  return { month:m.month, 'New Visit':md.filter(a=>normVT(a.visitType)==='New Visit').length, 'Follow-up':md.filter(a=>normVT(a.visitType)==='Follow-up').length };
                 })}>
-                  <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={25} />
-                  <Tooltip {...TT} />
-                  <Legend wrapperStyle={{ fontSize:11 }} />
-                  <Bar dataKey="New Visit" fill={GREEN} radius={[2,2,0,0]} />
-                  <Bar dataKey="Follow-up" fill={BLUE}  radius={[2,2,0,0]} />
+                  <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={25}/>
+                  <Tooltip {...TT}/><Legend wrapperStyle={{ fontSize:11 }}/>
+                  <Bar dataKey="New Visit" fill={GREEN} radius={[2,2,0,0]}/>
+                  <Bar dataKey="Follow-up" fill={BLUE}  radius={[2,2,0,0]}/>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -786,17 +679,15 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
         </div>
       )}
 
-      {/* ── BILLING ──────────────────────────────────────────────────────────── */}
+      {/* ── BILLING TAB ── */}
       {activeTab === 'billing' && (
         <div className="space-y-5">
-
-          {/* Billing summary cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label:'Total Revenue',    val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2' },
-              { label:'Total Pending',    val:`PKR ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0' },
-              { label:'Paid Invoices',    val:paidCount,                               color:'#1a7f5e', bg:'#f0fdf4' },
-              { label:'Unpaid Invoices',  val:unpaidCount,                             color:RED,       bg:'#fef2f2' },
+              { label:'Total Revenue',   val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2' },
+              { label:'Total Pending',   val:`PKR ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0' },
+              { label:'Paid Invoices',   val:paidCount,                               color:'#1a7f5e', bg:'#f0fdf4' },
+              { label:'Unpaid Invoices', val:unpaidCount,                             color:RED,       bg:'#fef2f2' },
             ].map(s => (
               <div key={s.label} className="card p-4">
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
@@ -805,7 +696,6 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
             ))}
           </div>
 
-          {/* Monthly billing chart */}
           {monthlyBilling.length > 0 && (
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Revenue</div>
@@ -814,8 +704,8 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
                   <BarChart data={monthlyBilling}>
                     <XAxis dataKey="month" tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fontSize:10, fill:'#8a9bb0' }} axisLine={false} tickLine={false} width={60}
-                      tickFormatter={(v: number) => `${(v/1000).toFixed(0)}k`}/>
-                    <Tooltip {...TT} formatter={(v: unknown) => [`PKR ${Number(v).toLocaleString()}`, 'Revenue']}/>
+                      tickFormatter={(v:number) => `${(v/1000).toFixed(0)}k`}/>
+                    <Tooltip {...TT} formatter={(v:unknown) => [`PKR ${Number(v).toLocaleString()}`, 'Revenue']}/>
                     <Legend wrapperStyle={{ fontSize:11 }}/>
                     <Bar dataKey="revenue" name="Revenue Collected" fill={GOLD} radius={[3,3,0,0]}/>
                   </BarChart>
@@ -824,15 +714,12 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
             </div>
           )}
 
-          {/* Monthly billing table */}
           {monthlyBilling.length > 0 && (
             <div className="card overflow-hidden animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Billing Breakdown</div>
               <div className="overflow-x-auto">
                 <table className="data-table">
-                  <thead>
-                    <tr><th>Month</th><th>Invoices</th><th>Revenue</th><th>Paid</th><th>Unpaid</th><th>Partial</th></tr>
-                  </thead>
+                  <thead><tr><th>Month</th><th>Invoices</th><th>Revenue</th><th>Paid</th><th>Unpaid</th><th>Partial</th></tr></thead>
                   <tbody>
                     {monthlyBilling.map(m => (
                       <tr key={m.month}>
@@ -850,7 +737,6 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
             </div>
           )}
 
-          {/* All invoices list */}
           <div className="card overflow-hidden animate-in">
             <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
               <div className="font-medium text-navy text-[14px]">All Invoices</div>
@@ -858,9 +744,7 @@ const [activeTab, setActiveTab] = useState<'overview'|'monthly'|'patients'|'tren
             </div>
             <div className="overflow-x-auto">
               <table className="data-table">
-                <thead>
-                  <tr><th>Invoice #</th><th>Patient</th><th>Date</th><th>Fee</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
-                </thead>
+                <thead><tr><th>Invoice #</th><th>Patient</th><th>Date</th><th>Fee</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
                 <tbody>
                   {filteredInvoices.length === 0 && (
                     <tr><td colSpan={7} className="text-center py-8 text-gray-400 text-[13px]">No invoices in this period</td></tr>
