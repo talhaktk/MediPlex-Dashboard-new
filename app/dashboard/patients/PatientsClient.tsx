@@ -1,23 +1,24 @@
 'use client';
 
-import { supabase } from '@/lib/supabase';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
+import { supabase } from '@/lib/supabase';
 import {
   Search, X, Phone, Mail, Calendar, User, Heart,
-  AlertTriangle, TrendingUp, FileText, Plus, Save, Activity
+  Activity, FileText, Plus, Save
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   getHealth, setHealth, addVitals, getLatestVitals,
-  getPrescriptionsByPatient, getInvoices,
+  getPrescriptionsByPatient,
   patientKey, HealthRecord, VitalSigns
 } from '@/lib/store';
 import StatusPill from '@/components/ui/StatusPill';
 
 interface PatientRecord {
   key:         string;
+  mrNumber:    string;
   name:        string;
   parentName:  string;
   age:         string;
@@ -39,14 +40,29 @@ function buildPatients(data: Appointment[]): PatientRecord[] {
       const k = a.childName.toLowerCase().trim();
       if (!k) return;
       if (!map.has(k)) {
-        map.set(k, { key:k, name:a.childName, parentName:a.parentName, age:a.childAge,
-          whatsapp:a.whatsapp, email:a.email, visits:[], lastVisit:a.appointmentDate,
-          totalVisits:0, status:a.status });
+        map.set(k, {
+          key: k,
+          mrNumber:   (a as any).mr_number || '',
+          name:       a.childName,
+          parentName: a.parentName,
+          age:        a.childAge,
+          whatsapp:   a.whatsapp,
+          email:      a.email,
+          visits:     [],
+          lastVisit:  a.appointmentDate,
+          totalVisits:0,
+          status:     a.status,
+        });
       }
       const p = map.get(k)!;
       p.visits.push(a);
       p.totalVisits++;
-      if (a.appointmentDate > p.lastVisit) { p.lastVisit = a.appointmentDate; p.status = a.status; }
+      // Keep most recent MR# if updated later
+      if ((a as any).mr_number) p.mrNumber = (a as any).mr_number;
+      if (a.appointmentDate > p.lastVisit) {
+        p.lastVisit = a.appointmentDate;
+        p.status    = a.status;
+      }
     });
   return Array.from(map.values()).sort((a,b) => b.lastVisit.localeCompare(a.lastVisit));
 }
@@ -56,29 +72,48 @@ function emptyHealth(): HealthRecord {
 }
 
 export default function PatientsClient({ data }: { data: Appointment[] }) {
-  const [search,    setSearch]    = useState('');
-  const [selected,  setSelected]  = useState<PatientRecord | null>(null);
-  const [health,    setHealthState]    = useState<HealthRecord>(emptyHealth());
-  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'>('visits');
-  const [editHealth, setEditHealth] = useState(false);
-  const [draft,     setDraft]     = useState<HealthRecord>(emptyHealth());
-  const [newV,      setNewV]      = useState({ date:new Date().toISOString().split('T')[0], kg:'', cm:'' });
-  const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({
+  const [search,         setSearch]         = useState('');
+  const [selected,       setSelected]       = useState<PatientRecord | null>(null);
+  const [health,         setHealthState]    = useState<HealthRecord>(emptyHealth());
+  const [activeTab,      setActiveTab]      = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'>('visits');
+  const [editHealth,     setEditHealth]     = useState(false);
+  const [draft,          setDraft]          = useState<HealthRecord>(emptyHealth());
+  const [newVitals,      setNewVitals]      = useState<Partial<VitalSigns>>({
     weight:'', height:'', bp:'', pulse:'', temperature:'',
     recordedAt: new Date().toISOString().split('T')[0]
   });
   const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
+  const [loadingBilling,  setLoadingBilling]  = useState(false);
 
   const patients = useMemo(() => buildPatients(data), [data]);
+
+  // ── Search: name, parent, phone, MR# ─────────────────────────────────────
   const filtered = useMemo(() => {
     if (!search) return patients;
     const q = search.toLowerCase();
     return patients.filter(p =>
-      p.name.toLowerCase().includes(q) ||
+      p.name.toLowerCase().includes(q)       ||
       p.parentName.toLowerCase().includes(q) ||
-      (p.whatsapp||'').includes(q)
+      (p.whatsapp||'').includes(q)           ||
+      (p.mrNumber||'').toLowerCase().includes(q)
     );
   }, [patients, search]);
+
+  // ── Fetch billing from Supabase when patient selected ────────────────────
+  useEffect(() => {
+    if (!selected) { setPatientInvoices([]); return; }
+    setLoadingBilling(true);
+
+    const query = selected.mrNumber
+      ? supabase.from('billing').select('*').eq('mr_number', selected.mrNumber)
+      : supabase.from('billing').select('*').ilike('child_name', selected.name);
+
+    query.order('created_at', { ascending: false }).then(({ data: rows, error }) => {
+      if (!error && rows) setPatientInvoices(rows);
+      setLoadingBilling(false);
+    });
+  }, [selected]);
 
   const openPatient = (p: PatientRecord) => {
     const h = getHealth(p.key);
@@ -115,25 +150,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     toast.success('Vitals recorded');
   };
 
-  // Latest vitals from store (recorded during check-in or manually)
   const latestVitals = selected ? getLatestVitals(selected.key) : null;
-
-  // Patient billing from central store
-  const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
-
-useEffect(() => {
-  if (!selected) return;
-  supabase
-    .from('billing')
-    .select('*')
-    .eq('mr_number', selected.visits[0]?.mr_number || '')
-    .then(({ data }) => setPatientInvoices(data || []));
-}, [selected]);
-  // Patient prescriptions from central store
-  const patientRx = useMemo(() => {
-    if (!selected) return [];
-    return getPrescriptionsByPatient(selected.key);
-  }, [selected]);
+  const patientRx    = useMemo(() => selected ? getPrescriptionsByPatient(selected.key) : [], [selected]);
 
   const multiVisit = patients.filter(p => p.totalVisits > 1).length;
   const avgVisits  = patients.length ? (data.length / patients.length).toFixed(1) : '0';
@@ -164,20 +182,21 @@ useEffect(() => {
         ))}
       </div>
 
-      {/* Search */}
+      {/* Search — name, parent, phone, MR# */}
       <div className="relative">
         <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"/>
-        <input type="text" placeholder="Search by child name, parent, or phone..."
-          value={search} onChange={e => setSearch(e.target.value)} className="search-input"/>
+        <input type="text"
+          placeholder="Search by child name, parent, phone, or MR#..."
+          value={search} onChange={e => setSearch(e.target.value)}
+          className="search-input"/>
       </div>
 
       {/* Patient grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filtered.map((p, i) => {
-          const h          = getHealth(p.key);
-          const hasHealth  = h.bloodGroup || h.allergies || h.conditions;
-          const latestV    = getLatestVitals(p.key);
-          const invoiceCount = getInvoices().filter(inv => inv.childName.toLowerCase().trim() === p.key).length;
+          const h         = getHealth(p.key);
+          const hasHealth = h.bloodGroup || h.allergies || h.conditions;
+          const latestV   = getLatestVitals(p.key);
           return (
             <div key={p.key} onClick={() => openPatient(p)}
               className="card p-4 cursor-pointer hover:shadow-md transition-all animate-in"
@@ -190,11 +209,16 @@ useEffect(() => {
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-navy text-[14px] truncate">{p.name}</div>
                   <div className="text-[11px] text-gray-400 truncate">Parent: {p.parentName}</div>
+                  {p.mrNumber && (
+                    <div className="text-[10px] font-mono text-amber-600 mt-0.5">{p.mrNumber}</div>
+                  )}
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  {hasHealth && <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background:'#fee2e2' }}><Heart size={9} style={{ color:'#dc2626' }}/></div>}
-                  {invoiceCount > 0 && <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background:'#fef9e7' }}><span style={{ fontSize:8, color:'#b45309' }}>₨</span></div>}
-                </div>
+                {hasHealth && (
+                  <div className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background:'#fee2e2' }}>
+                    <Heart size={9} style={{ color:'#dc2626' }}/>
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5 text-[12px] text-gray-500">
                 {p.age && <div className="flex items-center gap-1.5"><User size={11} className="text-gray-400"/>Age {p.age}</div>}
@@ -219,7 +243,7 @@ useEffect(() => {
         })}
       </div>
 
-      {/* ── Patient Detail Modal ───────────────────────────────────────────── */}
+      {/* Patient Detail Modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ background:'rgba(10,22,40,0.65)' }} onClick={() => setSelected(null)}>
@@ -234,7 +258,12 @@ useEffect(() => {
                 </div>
                 <div>
                   <div className="font-display font-semibold text-navy text-[18px]">{selected.name}</div>
-                  <div className="text-[12px] text-gray-400">Parent: {selected.parentName} · {selected.age ? `Age ${selected.age}` : '—'}</div>
+                  <div className="text-[12px] text-gray-400">
+                    Parent: {selected.parentName} · {selected.age ? `Age ${selected.age}` : '—'}
+                  </div>
+                  {selected.mrNumber && (
+                    <div className="text-[11px] font-mono text-amber-600 mt-0.5">MR# {selected.mrNumber}</div>
+                  )}
                 </div>
               </div>
               <button onClick={() => setSelected(null)}
@@ -243,7 +272,7 @@ useEffect(() => {
               </button>
             </div>
 
-            {/* Contact + latest vitals strip */}
+            {/* Contact strip */}
             <div className="px-5 py-3 bg-gray-50 border-b border-black/5 flex-shrink-0">
               <div className="flex flex-wrap gap-4 text-[12px] text-gray-600 mb-2">
                 {selected.whatsapp && selected.whatsapp !== '—' && (
@@ -259,8 +288,8 @@ useEffect(() => {
                   {[
                     { label:'Weight', val:latestVitals.weight ? `${latestVitals.weight} kg` : null },
                     { label:'Height', val:latestVitals.height ? `${latestVitals.height} cm` : null },
-                    { label:'BP',     val:latestVitals.bp     || null },
-                    { label:'Pulse',  val:latestVitals.pulse  ? `${latestVitals.pulse} bpm` : null },
+                    { label:'BP',     val:latestVitals.bp || null },
+                    { label:'Pulse',  val:latestVitals.pulse ? `${latestVitals.pulse} bpm` : null },
                     { label:'Temp',   val:latestVitals.temperature ? `${latestVitals.temperature}°C` : null },
                   ].filter(v => v.val).map(v => (
                     <span key={v.label} className="px-2 py-0.5 rounded-full"
@@ -298,7 +327,6 @@ useEffect(() => {
                           <div className="text-[12px] text-gray-500 mt-0.5">
                             {v.appointmentTime}{v.visitType?` · ${v.visitType}`:''}{v.reason?` · ${v.reason}`:''}
                           </div>
-                          {v.reschedulingReason && <div className="text-[11px] text-amber-600 mt-1">↻ {v.reschedulingReason}</div>}
                           {v.attendanceStatus && v.attendanceStatus !== 'Not Set' && (
                             <div className="text-[11px] text-gray-400 mt-0.5">Attendance: {v.attendanceStatus}</div>
                           )}
@@ -330,9 +358,9 @@ useEffect(() => {
                         </div>
                       </div>
                       {[
-                        { label:'Allergies', val:health.allergies, bg:'#fff7ed', border:'#fed7aa', color:'#ea580c' },
+                        { label:'Allergies',          val:health.allergies,  bg:'#fff7ed', border:'#fed7aa', color:'#ea580c' },
                         { label:'Medical Conditions', val:health.conditions, bg:'#f0fdf4', border:'#bbf7d0', color:'#16a34a' },
-                        { label:'Doctor Notes', val:health.notes, bg:'#f8f8f8', border:'#e5e7eb', color:'#374151' },
+                        { label:'Doctor Notes',       val:health.notes,      bg:'#f8f8f8', border:'#e5e7eb', color:'#374151' },
                       ].map(f => (
                         <div key={f.label} className="rounded-xl p-4" style={{ background:f.bg, border:`1px solid ${f.border}` }}>
                           <div className="text-[11px] uppercase tracking-widest font-medium mb-2" style={{ color:f.color }}>{f.label}</div>
@@ -388,12 +416,12 @@ useEffect(() => {
                     <div className="rounded-xl p-4" style={{ background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.25)' }}>
                       <div className="grid grid-cols-3 gap-3 mb-3">
                         {[
-                          { label:'Date',         key:'recordedAt',  type:'date',   placeholder:'' },
-                          { label:'Weight (kg)',   key:'weight',      type:'number', placeholder:'18.5' },
-                          { label:'Height (cm)',   key:'height',      type:'number', placeholder:'105' },
-                          { label:'BP',           key:'bp',          type:'text',   placeholder:'110/70' },
-                          { label:'Pulse (bpm)',   key:'pulse',       type:'number', placeholder:'88' },
-                          { label:'Temp (°C)',     key:'temperature', type:'number', placeholder:'37.2' },
+                          { label:'Date',       key:'recordedAt',  type:'date',   placeholder:'' },
+                          { label:'Weight (kg)',key:'weight',      type:'number', placeholder:'18.5' },
+                          { label:'Height (cm)',key:'height',      type:'number', placeholder:'105' },
+                          { label:'BP',         key:'bp',          type:'text',   placeholder:'110/70' },
+                          { label:'Pulse (bpm)',key:'pulse',       type:'number', placeholder:'88' },
+                          { label:'Temp (°C)',  key:'temperature', type:'number', placeholder:'37.2' },
                         ].map(f => (
                           <div key={f.key}>
                             <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">{f.label}</label>
@@ -410,7 +438,6 @@ useEffect(() => {
                     </div>
                   )}
 
-                  {/* Vitals history */}
                   {health.vitals && health.vitals.length > 0 && (
                     <div>
                       <div className="text-[11px] uppercase tracking-widest text-gray-400 font-medium mb-2">Vitals History</div>
@@ -430,39 +457,26 @@ useEffect(() => {
                     </div>
                   )}
 
-                  {/* Weight chart */}
-                  {health.weights && health.weights.length > 0 && (
-                    <div>
-                      <div className="text-[11px] uppercase tracking-widest text-gray-400 font-medium mb-2">Weight History</div>
-                      <div className="space-y-1.5">
-                        {health.weights.map((w, i) => (
-                          <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50">
-                            <span className="text-[12px] text-gray-500">{formatUSDate(w.date)}</span>
-                            <span className="text-[14px] font-semibold text-navy">{w.kg} kg</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {health.vitals?.length === 0 && health.weights?.length === 0 && (
+                  {(!health.vitals || health.vitals.length === 0) && (
                     <div className="text-center py-8 text-gray-400 text-[13px]">No vitals recorded yet</div>
                   )}
                 </div>
               )}
 
-              {/* BILLING */}
+              {/* BILLING — from Supabase */}
               {activeTab === 'billing' && (
                 <div className="p-5 space-y-3">
-                  {patientInvoices.length === 0 ? (
+                  {loadingBilling ? (
+                    <div className="text-center py-8 text-gray-400 text-[13px]">Loading...</div>
+                  ) : patientInvoices.length === 0 ? (
                     <div className="text-center py-8 text-gray-400 text-[13px]">No invoices for this patient</div>
                   ) : (
                     <>
                       <div className="grid grid-cols-3 gap-3 mb-4">
                         {[
-                          { label:'Total Revenue', val:`PKR ${patientInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}`, color:'#1a7f5e' },
-                          { label:'Total Billed',  val:`PKR ${patientInvoices.reduce((s,i)=>s+i.feeAmount,0).toLocaleString()}`, color:'#0a1628' },
-                          { label:'Invoices',      val:patientInvoices.length, color:'#c9a84c' },
+                          { label:'Total Paid',   val:`PKR ${patientInvoices.reduce((s,i)=>s+(Number(i.amount_paid)||0),0).toLocaleString()}`, color:'#1a7f5e' },
+                          { label:'Total Billed', val:`PKR ${patientInvoices.reduce((s,i)=>s+(Number(i.consultation_fee)||0),0).toLocaleString()}`, color:'#0a1628' },
+                          { label:'Invoices',     val:patientInvoices.length, color:'#c9a84c' },
                         ].map(s => (
                           <div key={s.label} className="rounded-xl p-3 text-center" style={{ background:'#f9f7f3' }}>
                             <div className="text-[18px] font-bold" style={{ color:s.color }}>{s.val}</div>
@@ -471,17 +485,23 @@ useEffect(() => {
                         ))}
                       </div>
                       {patientInvoices.map(inv => {
-                        const due = Math.max(0, inv.feeAmount - inv.discount - inv.paid);
+                        const fee  = Number(inv.consultation_fee) || 0;
+                        const disc = Number(inv.discount) || 0;
+                        const paid = Number(inv.amount_paid) || 0;
+                        const due  = Math.max(0, fee - disc - paid);
+                        const status = inv.payment_status || 'Unpaid';
                         return (
                           <div key={inv.id} className="rounded-xl p-3 flex items-center justify-between"
                             style={{ background:'#f9f7f3', border:'1px solid rgba(201,168,76,0.12)' }}>
                             <div>
-                              <div className="text-[12px] font-mono text-gray-400">{inv.id}</div>
-                              <div className="text-[13px] font-medium text-navy">{formatUSDate(inv.date)} · {inv.visitType||'—'}</div>
-                              <div className="text-[11px] text-gray-500">PKR {inv.feeAmount.toLocaleString()} · Paid: {inv.paid.toLocaleString()} · Due: {due.toLocaleString()}</div>
+                              <div className="text-[12px] font-mono text-gray-400">{inv.invoice_number || `INV-${inv.id}`}</div>
+                              <div className="text-[13px] font-medium text-navy">{formatUSDate(inv.date)} · {inv.visit_type||'—'}</div>
+                              <div className="text-[11px] text-gray-500">
+                                PKR {fee.toLocaleString()} · Paid: {paid.toLocaleString()} · Due: {due.toLocaleString()}
+                              </div>
                             </div>
-                            <span className={`pill ${inv.paymentStatus==='Paid'?'pill-confirmed':inv.paymentStatus==='Partial'?'pill-rescheduled':'pill-cancelled'}`}>
-                              {inv.paymentStatus}
+                            <span className={`pill ${status==='Paid'?'pill-confirmed':status==='Partial'?'pill-rescheduled':'pill-cancelled'}`}>
+                              {status}
                             </span>
                           </div>
                         );

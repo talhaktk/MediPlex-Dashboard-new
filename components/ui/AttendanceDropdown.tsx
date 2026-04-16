@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Appointment } from '@/types';
 import toast from 'react-hot-toast';
 import { getAttendance, setAttendance } from '@/lib/store';
+import { supabase } from '@/lib/supabase';
 import CheckInFlow from './CheckInFlow';
 
 interface Props {
@@ -25,7 +26,6 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
   const [showCheckIn,  setShowCheckIn]  = useState(false);
   const [pendingValue, setPendingValue] = useState('');
 
-  // Sync when appointment changes
   useEffect(() => { setRec(getAttendance(appointment.id)); }, [appointment.id]);
 
   const current = OPTIONS.find(o => o.value === rec.attendanceStatus) ?? OPTIONS[0];
@@ -33,20 +33,16 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
 
   const handleChange = (newVal: string) => {
     if (newVal === rec.attendanceStatus) return;
-
-    // Check-In requires invoice flow
     if (newVal === 'Checked-In') {
       setPendingValue(newVal);
       setShowCheckIn(true);
       return;
     }
-
     applyChange(newVal);
   };
 
   const applyChange = async (newVal: string) => {
     setLoading(true);
-    const prev = { ...rec };
 
     const updated = {
       attendanceStatus: newVal,
@@ -57,22 +53,21 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
     setRec(updated);
     setAttendance(appointment.id, updated);
 
-    // Sync to Google Sheet via Apps Script
+    // ── Sync to Supabase ──────────────────────────────────────────────────
     try {
-      const scriptUrl = (window as Window & { APPS_SCRIPT_URL?: string }).APPS_SCRIPT_URL ||
-        process.env.NEXT_PUBLIC_APPS_SCRIPT_URL;
+      const { error } = await supabase
+        .from('appointments')
+        .update({
+          attendance_status: updated.attendanceStatus,
+          check_in_time:     updated.checkInTime  || null,
+          in_clinic_time:    updated.inClinicTime || null,
+        })
+        .eq('id', appointment.id);
 
-      if (scriptUrl) {
-        await fetch(scriptUrl, {
-          method:   'POST',
-          redirect: 'follow',
-          headers:  { 'Content-Type':'text/plain' },
-          body:     JSON.stringify({ rowIndex, ...updated }),
-        });
-      }
+      if (error) throw error;
       toast.success(`Marked as ${newVal}`);
-    } catch {
-      toast.success(`Marked as ${newVal} (local)`);
+    } catch (err: any) {
+      toast.success(`Marked as ${newVal} (local only — DB sync failed: ${err.message})`);
     } finally {
       setLoading(false);
     }
@@ -91,7 +86,6 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
   const handleCheckInCancel = () => {
     setShowCheckIn(false);
     setPendingValue('');
-    // revert — stay at current value
   };
 
   return (
