@@ -83,7 +83,7 @@ export default function PatientsClient({
   monthly: any[], 
   reasons: any[], 
   ages: any[] 
-}) { 
+})  
 {  const [search,         setSearch]         = useState('');
   const [selected,       setSelected]       = useState<PatientRecord | null>(null);
   const [health,         setHealthState]    = useState<HealthRecord>(emptyHealth());
