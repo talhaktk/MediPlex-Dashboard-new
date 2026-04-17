@@ -252,8 +252,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     w.document.close();
     setTimeout(() => w.print(), 600);
   };
+const html = [
+      // ... your other HTML lines above ...
       '<div class="footer">MediPlex Pediatric Clinic - Confidential - ' + new Date().toLocaleDateString() + '</div>',
       '</body></html>',
+    ].join('');
+  '</body></html>',
     ].join('');
     const w = window.open('', '_blank');
     if (!w) { toast.error('Allow popups'); return; }
