@@ -1,6 +1,7 @@
 export type AppointmentStatus = 'Confirmed' | 'Cancelled' | 'Rescheduled';
 export type AttendanceStatus  = 'Not Set' | 'Checked-In' | 'In Clinic' | 'Absent' | 'No-Show';
 export type VisitType         = 'New Visit' | 'Follow-up';
+export type Gender            = 'Male' | 'Female' | 'Other' | '';
 
 export interface Appointment {
   id: string;
@@ -8,6 +9,7 @@ export interface Appointment {
   childName: string;
   parentName: string;
   childAge: string;
+  gender?: Gender | string;
   whatsapp: string;
   email: string;
   appointmentDate: string;
@@ -21,56 +23,26 @@ export interface Appointment {
   followUpVisit?: string;
   reschedulingReason?: string;
   originalDate?: string;
-  // Phase 1
   attendanceStatus?: AttendanceStatus | string;
   checkInTime?: string;
   inClinicTime?: string;
   mr_number?: string;
-  // Phase 2
   notes?: string;
   diagnosis?: string;
-  // Phase 3
   feePaid?: string;
   feeAmount?: string;
   paymentMethod?: string;
 }
 
 export interface MonthlyStats {
-  month: string;
-  total: number;
-  confirmed: number;
-  cancelled: number;
-  rescheduled: number;
+  month: string; total: number; confirmed: number; cancelled: number; rescheduled: number;
 }
-
 export interface ReasonStat  { reason: string; count: number; }
 export interface AgeStat      { bucket: string; count: number; }
-
 export interface DashboardStats {
-  total: number;
-  confirmed: number;
-  cancelled: number;
-  rescheduled: number;
-  todayCount: number;
-  upcomingCount: number;
-  confirmationRate: number;
-  cancellationRate: number;
+  total: number; confirmed: number; cancelled: number; rescheduled: number;
+  todayCount: number; upcomingCount: number; confirmationRate: number; cancellationRate: number;
 }
-
 export type UserRole = 'admin' | 'doctor' | 'receptionist' | 'viewer';
-
-export interface AppUser {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  avatar?: string;
-}
-
-export interface FilterState {
-  status: string;
-  visitType: string;
-  dateFrom: string;
-  dateTo: string;
-  search: string;
-}
+export interface AppUser { id: string; name: string; email: string; role: UserRole; avatar?: string; }
+export interface FilterState { status: string; visitType: string; dateFrom: string; dateTo: string; search: string; }

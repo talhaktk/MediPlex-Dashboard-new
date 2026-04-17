@@ -3,8 +3,7 @@
 import { supabase } from '@/lib/supabase';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
-import { filterAppointments, exportToCSV, formatUSDate, createAppointment, softDeleteAppointment } from '@/lib/sheets';
-import StatusPill from '@/components/ui/StatusPill';
+import { filterAppointments, exportToCSV, formatUSDate, createAppointmentFull, softDeleteAppointment } from '@/lib/sheets';import StatusPill from '@/components/ui/StatusPill';
 import AttendanceDropdown from '@/components/ui/AttendanceDropdown';
 import CheckInFlow from '@/components/ui/CheckInFlow';
 import {
@@ -24,6 +23,8 @@ const EMPTY_FORM = {
   child_name:       '',
   parent_name:      '',
   child_age:        '',
+  gender:            '',
+   mr_number:         '',
   whatsapp_number:  '',
   email_address:    '',
   appointment_date: '',
@@ -53,6 +54,13 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
   // ── Store attendance ───────────────────────────────────────────────────────
   const [storeAtt, setStoreAtt] = useState<Record<string, AttendanceRecord>>({});
   useEffect(() => { setStoreAtt(getAttendanceAll()); }, []);
+  useEffect(() => {
+  const raw = localStorage.getItem('mediplex_apt_prefill');
+  if (raw) {
+    try { setAddForm(prev => ({ ...prev, ...JSON.parse(raw) })); setShowAddModal(true); } catch {}
+    localStorage.removeItem('mediplex_apt_prefill');
+  }
+}, []);
   const refreshAttendance = () => setStoreAtt(getAttendanceAll());
 
   // ── Patient record / check-in modal ───────────────────────────────────────
@@ -193,7 +201,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
     if (!addForm.appointment_time.trim()) { toast.error('Appointment time is required');  return; }
 
     setAddLoading(true);
-    const result = await createAppointment(addForm);
+const result = await createAppointmentFull(addForm);
     setAddLoading(false);
 
     if (result.success) {
@@ -566,6 +574,22 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
                       onChange={e => setAddForm(p => ({ ...p, email_address: e.target.value }))}
                       className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
                   </div>
+                  <div>
+  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Gender</label>
+  <select value={addForm.gender} onChange={e => setAddForm(p => ({ ...p, gender: e.target.value }))}
+    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+    <option value="">Select gender...</option>
+    <option value="Male">Male</option>
+    <option value="Female">Female</option>
+    <option value="Other">Other</option>
+  </select>
+</div>
+{addForm.mr_number && (
+  <div className="col-span-2 rounded-lg px-3 py-2 text-[12px] font-mono"
+    style={{ background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.25)', color:'#a07a2a' }}>
+    Returning patient · MR# {addForm.mr_number}
+  </div>
+)}
                 </div>
               </div>
 

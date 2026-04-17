@@ -270,3 +270,155 @@ export async function updateAttendanceInDb(
     return { success: false, error: err.message };
   }
 }
+
+// ── Sync health record to Supabase patients table ───────────────────────────
+export async function syncHealthToDb(
+  mrNumber: string,
+  childName: string,
+  health: { bloodGroup?: string; allergies?: string; conditions?: string; notes?: string; vitals?: any[] }
+): Promise<void> {
+  try {
+    const updatePayload: Record<string, any> = {
+      blood_group: health.bloodGroup || null,
+      allergies:   health.allergies  || null,
+      conditions:  health.conditions || null,
+      notes:       health.notes      || null,
+      vitals_json: health.vitals     || null,
+    };
+    if (mrNumber) {
+      await supabase.from('patients').update(updatePayload).eq('mr_number', mrNumber);
+    } else if (childName) {
+      await supabase.from('patients').update(updatePayload).ilike('child_name', childName);
+    }
+  } catch (err) {
+    console.warn('Health sync failed:', err);
+  }
+}
+
+// ── Sync vitals to patient_vitals table ─────────────────────────────────────
+export async function syncVitalsToDb(
+  mrNumber: string,
+  childName: string,
+  vitals: { weight?: string; height?: string; bp?: string; pulse?: string; temperature?: string; recordedAt?: string }
+): Promise<void> {
+  try {
+    await supabase.from('patient_vitals').insert([{
+      mr_number:   mrNumber   || null,
+      child_name:  childName,
+      weight:      vitals.weight      || '',
+      height:      vitals.height      || '',
+      bp:          vitals.bp          || '',
+      pulse:       vitals.pulse       || '',
+      temperature: vitals.temperature || '',
+      recorded_at: vitals.recordedAt  || new Date().toISOString().split('T')[0],
+    }]);
+  } catch (err) {
+    console.warn('Vitals sync failed:', err);
+  }
+}
+
+// ── Sync prescription to prescriptions table ─────────────────────────────────
+export async function syncPrescriptionToDb(rx: {
+  id: string; mr_number?: string; child_name: string; parent_name?: string;
+  child_age?: string; date?: string; diagnosis?: string; medicines?: any[];
+  advice?: string; follow_up?: string;
+}): Promise<void> {
+  try {
+    await supabase.from('prescriptions').upsert([{
+      id:          rx.id,
+      mr_number:   rx.mr_number   || null,
+      child_name:  rx.child_name,
+      parent_name: rx.parent_name || '',
+      child_age:   rx.child_age   || '',
+      date:        rx.date        || '',
+      diagnosis:   rx.diagnosis   || '',
+      medicines:   rx.medicines   || [],
+      advice:      rx.advice      || '',
+      follow_up:   rx.follow_up   || '',
+    }], { onConflict: 'id' });
+  } catch (err) {
+    console.warn('Prescription sync failed:', err);
+  }
+}
+
+// ── Sync scribe output to scribe_outputs table ───────────────────────────────
+export async function syncScribeToDb(output: {
+  mr_number?: string; child_name: string; parent_name?: string;
+  mode: string; output: string; generated_at?: string;
+}): Promise<void> {
+  try {
+    await supabase.from('scribe_outputs').insert([{
+      mr_number:    output.mr_number    || null,
+      child_name:   output.child_name,
+      parent_name:  output.parent_name  || '',
+      mode:         output.mode,
+      output:       output.output,
+      generated_at: output.generated_at || new Date().toISOString(),
+    }]);
+  } catch (err) {
+    console.warn('Scribe sync failed:', err);
+  }
+}
+
+// ── Update createAppointment to support gender + mr_number for returning patients ──
+export async function createAppointmentFull(payload: {
+  child_name: string; parent_name: string; child_age: string;
+  whatsapp_number: string; email_address: string;
+  appointment_date: string; appointment_time: string;
+  reason_for_visit: string; visit_type: string;
+  gender?: string; mr_number?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const insertPayload: Record<string, any> = {
+      child_name:       payload.child_name,
+      parent_name:      payload.parent_name,
+      child_age:        payload.child_age,
+      whatsapp_number:  payload.whatsapp_number,
+      email_address:    payload.email_address,
+      appointment_date: payload.appointment_date,
+      appointment_time: payload.appointment_time,
+      reason_for_visit: payload.reason_for_visit,
+      visit_type:       payload.visit_type,
+      appointment_status: 'Confirmed',
+      status: 'Confirmed',
+    };
+    if (payload.gender)    insertPayload.gender    = payload.gender;
+    if (payload.mr_number) insertPayload.mr_number = payload.mr_number;
+
+    const { error } = await supabase.from('appointments').insert([insertPayload]);
+    if (error) throw error;
+
+    // Auto-sync patient (upsert by name)
+    const { data: existing } = await supabase
+      .from('patients')
+      .select('id, mr_number')
+      .ilike('child_name', payload.child_name)
+      .maybeSingle();
+
+    if (existing?.id) {
+      // Update existing patient with new data
+      await supabase.from('patients').update({
+        parent_name:     payload.parent_name,
+        age:             payload.child_age || '',
+        whatsapp_number: payload.whatsapp_number || '',
+        email:           payload.email_address || '',
+        gender:          payload.gender || '',
+        ...(payload.mr_number ? { mr_number: payload.mr_number } : {}),
+      }).eq('id', existing.id);
+    } else {
+      await supabase.from('patients').insert([{
+        child_name:      payload.child_name,
+        parent_name:     payload.parent_name,
+        age:             payload.child_age || '',
+        whatsapp_number: payload.whatsapp_number || '',
+        email:           payload.email_address || '',
+        gender:          payload.gender || '',
+        mr_number:       payload.mr_number || null,
+        is_active:       true,
+      }]);
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
