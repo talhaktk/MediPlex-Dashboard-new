@@ -11,11 +11,11 @@ import {
 import { Download, FileText, ChevronLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const GOLD  = '#c9a84c';
-const GREEN = '#1a7f5e';
-const RED   = '#c53030';
-const AMBER = '#b47a00';
-const BLUE  = '#2b6cb0';
+const GOLD   = '#c9a84c';
+const GREEN  = '#1a7f5e';
+const RED    = '#c53030';
+const AMBER  = '#b47a00';
+const BLUE   = '#2b6cb0';
 const PURPLE = '#6d28d9';
 const COLORS = [GREEN, RED, AMBER, BLUE, '#7c3aed', '#0369a1'];
 const TT = { contentStyle: { background:'#0a1628', border:'1px solid rgba(201,168,76,0.3)', borderRadius:8, color:'#faf8f4', fontSize:12 } };
@@ -111,14 +111,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  // ── Billing stats — ALL come from Supabase, combined ──────────────────────
   const filteredInvoices = useMemo(() => invoices.filter(inv => {
     if (rangeFrom && inv.date < rangeFrom) return false;
     if (rangeTo   && inv.date > rangeTo)   return false;
     return true;
   }), [invoices, rangeFrom, rangeTo]);
 
-  // Combined totals
   const totalRevenue = invoices.reduce((s,i) => s + i.paid, 0);
   const totalPending = invoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
   const paidCount    = invoices.filter(i => i.paymentStatus==='Paid').length;
@@ -127,13 +125,11 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const filteredRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
   const filteredPending = filteredInvoices.reduce((s,i) => s + Math.max(0,i.feeAmount-i.discount-i.paid), 0);
 
-  // Sub-breakdowns
   const consultInvoices   = invoices.filter(i => i.recordType !== 'procedure');
   const procedureInvoices = invoices.filter(i => i.recordType === 'procedure');
   const filteredConsult   = filteredInvoices.filter(i => i.recordType !== 'procedure');
   const filteredProcedure = filteredInvoices.filter(i => i.recordType === 'procedure');
 
-  // Monthly billing (combined, with sub-cols)
   const monthlyBilling = useMemo(() => {
     const map: Record<string,{
       month:string; invoices:number; revenue:number; paid:number; unpaid:number; partial:number;
@@ -147,7 +143,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       if (!map[label]) map[label] = { month:label, invoices:0, revenue:0, paid:0, unpaid:0, partial:0, consultRevenue:0, procedureRevenue:0, consultCount:0, procedureCount:0 };
       map[label].invoices++;
       map[label].revenue += inv.paid;
-      if (inv.paymentStatus==='Paid')    map[label].paid++;
+      if (inv.paymentStatus==='Paid')         map[label].paid++;
       else if (inv.paymentStatus==='Unpaid')  map[label].unpaid++;
       else if (inv.paymentStatus==='Partial') map[label].partial++;
       if (inv.recordType==='procedure') { map[label].procedureRevenue+=inv.paid; map[label].procedureCount++; }
@@ -194,7 +190,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   const rateData = displayMonthly.map(m => ({ month:m.month, rate: m.total?Math.round(m.confirmed/m.total*100):0 }));
 
-  const handleExportCSV = () => { exportToCSV(rangeFiltered,`mediplex_${new Date().toISOString().split('T')[0]}.csv`); toast.success(`Exported ${rs.total} records`); };
+  const handleExportCSV = () => {
+    exportToCSV(rangeFiltered, `mediplex_${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success(`Exported ${rs.total} records`);
+  };
 
   const exportPDF = () => {
     const period = rangeFrom && rangeTo ? `${rangeFrom} to ${rangeTo}` : 'All Time';
@@ -252,19 +251,6 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     w.document.close();
     setTimeout(() => w.print(), 600);
   };
-// Ensure the function/logic starts correctly
-  const html = [
-      
-      '<div class="footer">MediPlex Pediatric Clinic - Confidential - ' + new Date().toLocaleDateString() + '</div>',
-      '</body></html>',
-    ].join('');
- 
-    const w = window.open('', '_blank');
-    if (!w) { toast.error('Allow popups'); return; }
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => w.print(), 600);
-  };
 
   const tabs = ['overview','monthly','patients','trends','billing'] as const;
   const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing' };
@@ -306,7 +292,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           <div>
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Appointment Status</div>
             <div className="grid grid-cols-4 gap-3">
-              {[{label:'Total',val:rs.total,color:'#0a1628'},{label:'Confirmed',val:rs.confirmed,color:GREEN},{label:'Cancelled',val:rs.cancelled,color:RED},{label:'Rescheduled',val:rs.rescheduled,color:AMBER}].map(s=>(
+              {[
+                {label:'Total',val:rs.total,color:'#0a1628'},
+                {label:'Confirmed',val:rs.confirmed,color:GREEN},
+                {label:'Cancelled',val:rs.cancelled,color:RED},
+                {label:'Rescheduled',val:rs.rescheduled,color:AMBER},
+              ].map(s=>(
                 <div key={s.label} className="text-center">
                   <div className="font-semibold text-[22px] leading-none" style={{color:s.color}}>{s.val}</div>
                   <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
@@ -318,7 +309,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           <div>
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Visit Type</div>
             <div className="grid grid-cols-2 gap-3">
-              {[{label:'New Visits',val:rs.newVisit,color:GREEN},{label:'Follow-ups',val:rs.followUp,color:BLUE}].map(s=>(
+              {[
+                {label:'New Visits',val:rs.newVisit,color:GREEN},
+                {label:'Follow-ups',val:rs.followUp,color:BLUE},
+              ].map(s=>(
                 <div key={s.label} className="text-center">
                   <div className="font-semibold text-[22px] leading-none" style={{color:s.color}}>{s.val}</div>
                   <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
@@ -330,7 +324,11 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           <div>
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Clinic Attendance</div>
             <div className="grid grid-cols-3 gap-3">
-              {[{label:'In Clinic',val:rs.inClinic,color:'#166534'},{label:'Absent / No-Show',val:rs.absent,color:RED},{label:'Awaiting',val:rs.total-rs.inClinic-rs.absent,color:'#6b7280'}].map(s=>(
+              {[
+                {label:'In Clinic',val:rs.inClinic,color:'#166534'},
+                {label:'Absent / No-Show',val:rs.absent,color:RED},
+                {label:'Awaiting',val:rs.total-rs.inClinic-rs.absent,color:'#6b7280'},
+              ].map(s=>(
                 <div key={s.label} className="text-center">
                   <div className="font-semibold text-[22px] leading-none" style={{color:s.color}}>{s.val}</div>
                   <div className="text-[10px] text-gray-400 mt-1">{s.label}</div>
@@ -339,7 +337,6 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
           </div>
 
-          {/* Billing — combined total + sub-breakdown */}
           <div>
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Billing</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
@@ -355,21 +352,16 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                 </div>
               ))}
             </div>
-            {/* Sub-heading: Consultations vs Procedures */}
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-black/5">
-              <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{background:'#e0f2fe',border:'1px solid rgba(3,105,161,0.15)'}}>
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:'#0369a1'}}>Consultations</div>
-                  <div className="text-[15px] font-bold" style={{color:'#0369a1'}}>PKR {filteredConsult.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
-                  <div className="text-[10px] text-blue-600">{filteredConsult.length} invoices</div>
-                </div>
+              <div className="rounded-xl px-4 py-3" style={{background:'#e0f2fe',border:'1px solid rgba(3,105,161,0.15)'}}>
+                <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:'#0369a1'}}>Consultations</div>
+                <div className="text-[15px] font-bold" style={{color:'#0369a1'}}>PKR {filteredConsult.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+                <div className="text-[10px] text-blue-600">{filteredConsult.length} invoices</div>
               </div>
-              <div className="rounded-xl px-4 py-3 flex items-center justify-between" style={{background:'#ede9fe',border:'1px solid rgba(109,40,217,0.15)'}}>
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:PURPLE}}>Procedures</div>
-                  <div className="text-[15px] font-bold" style={{color:PURPLE}}>PKR {filteredProcedure.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
-                  <div className="text-[10px] text-purple-600">{filteredProcedure.length} invoices</div>
-                </div>
+              <div className="rounded-xl px-4 py-3" style={{background:'#ede9fe',border:'1px solid rgba(109,40,217,0.15)'}}>
+                <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:PURPLE}}>Procedures</div>
+                <div className="text-[15px] font-bold" style={{color:PURPLE}}>PKR {filteredProcedure.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+                <div className="text-[10px] text-purple-600">{filteredProcedure.length} invoices</div>
               </div>
             </div>
           </div>
@@ -426,7 +418,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">New Visit vs Follow-up</div>
               <div className="p-5">
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  {[{label:'New Visit',val:rs.newVisit,color:GREEN,bg:'#e8f7f2'},{label:'Follow-up',val:rs.followUp,color:BLUE,bg:'#ebf4ff'}].map(v=>(
+                  {[
+                    {label:'New Visit',val:rs.newVisit,color:GREEN,bg:'#e8f7f2'},
+                    {label:'Follow-up',val:rs.followUp,color:BLUE,bg:'#ebf4ff'},
+                  ].map(v=>(
                     <div key={v.label} className="rounded-xl p-4 text-center" style={{background:v.bg}}>
                       <div className="text-[32px] font-semibold leading-none" style={{color:v.color}}>{v.val}</div>
                       <div className="text-[11px] text-gray-500 mt-1">{v.label}</div>
@@ -444,7 +439,11 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Clinic Attendance</div>
               <div className="p-5">
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  {[{label:'In Clinic',val:rs.inClinic,color:'#166534',bg:'#dcfce7'},{label:'Absent',val:rs.absent,color:RED,bg:'#fee2e2'},{label:'Awaiting',val:rs.total-rs.inClinic-rs.absent,color:'#6b7280',bg:'#f3f4f6'}].map(v=>(
+                  {[
+                    {label:'In Clinic',val:rs.inClinic,color:'#166534',bg:'#dcfce7'},
+                    {label:'Absent',val:rs.absent,color:RED,bg:'#fee2e2'},
+                    {label:'Awaiting',val:rs.total-rs.inClinic-rs.absent,color:'#6b7280',bg:'#f3f4f6'},
+                  ].map(v=>(
                     <div key={v.label} className="rounded-xl p-3 text-center" style={{background:v.bg}}>
                       <div className="text-[28px] font-semibold leading-none" style={{color:v.color}}>{v.val}</div>
                       <div className="text-[10px] mt-1" style={{color:v.color}}>{v.label}</div>
@@ -543,8 +542,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                 <div className="p-5" style={{height:280}}>
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={displayMonthly.map(m=>({month:m.month,Confirmed:m.confirmed,Cancelled:m.cancelled,Rescheduled:m.rescheduled}))}>
-                      <CartesianGrid stroke="rgba(0,0,0,0.04)"/><XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
-                      <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={25}/><Tooltip {...TT}/><Legend wrapperStyle={{fontSize:11}}/>
+                      <CartesianGrid stroke="rgba(0,0,0,0.04)"/>
+                      <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={25}/>
+                      <Tooltip {...TT}/><Legend wrapperStyle={{fontSize:11}}/>
                       <Area type="monotone" dataKey="Confirmed"   stackId="1" stroke={GREEN} fill="#e8f7f2" strokeWidth={1.5}/>
                       <Area type="monotone" dataKey="Cancelled"   stackId="1" stroke={RED}   fill="#fff0f0" strokeWidth={1.5}/>
                       <Area type="monotone" dataKey="Rescheduled" stackId="1" stroke={AMBER} fill="#fff9e6" strokeWidth={1.5}/>
@@ -619,10 +620,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
             {[
-              {label:'Avg / Month',       val:monthly.length?Math.round(data.length/monthly.length):0,                                             color:GOLD},
-              {label:'Peak Month',        val:[...monthly].sort((a,b)=>b.total-a.total)[0]?.month||'—',                                            color:GREEN},
-              {label:'Best Confirm Rate', val:monthly.length?`${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%`:'—', color:BLUE},
-              {label:'Total Patients',    val:new Set(data.map(a=>a.childName?.toLowerCase()).filter(Boolean)).size,                                color:'#7c3aed'},
+              {label:'Avg / Month',       val:monthly.length?Math.round(data.length/monthly.length):0,                                              color:GOLD},
+              {label:'Peak Month',        val:[...monthly].sort((a,b)=>b.total-a.total)[0]?.month||'—',                                             color:GREEN},
+              {label:'Best Confirm Rate', val:monthly.length?`${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%`:'—',  color:BLUE},
+              {label:'Total Patients',    val:new Set(data.map(a=>a.childName?.toLowerCase()).filter(Boolean)).size,                                 color:'#7c3aed'},
             ].map(s=>(
               <div key={s.label} className="kpi-card animate-in">
                 <div className="text-[10px] tracking-widest uppercase text-gray-400 font-medium mb-2">{s.label}</div>
@@ -634,9 +635,11 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Cumulative Growth</div>
             <div className="p-5" style={{height:280}}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={()=>{let c=0;return displayMonthly.map(m=>({month:m.month,total:m.total,cumulative:(c+=m.total)}));}()}>
-                  <CartesianGrid stroke="rgba(0,0,0,0.04)"/><XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
-                  <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={30}/><Tooltip {...TT}/><Legend wrapperStyle={{fontSize:11}}/>
+                <AreaChart data={(() => { let c=0; return displayMonthly.map(m=>({month:m.month,total:m.total,cumulative:(c+=m.total)})); })()}>
+                  <CartesianGrid stroke="rgba(0,0,0,0.04)"/>
+                  <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={30}/>
+                  <Tooltip {...TT}/><Legend wrapperStyle={{fontSize:11}}/>
                   <Area type="monotone" dataKey="cumulative" name="Cumulative Total" stroke={GOLD} fill="rgba(201,168,76,0.1)" strokeWidth={2}/>
                   <Area type="monotone" dataKey="total"      name="Monthly New"      stroke={BLUE} fill="rgba(43,108,176,0.08)" strokeWidth={1.5}/>
                 </AreaChart>
@@ -647,11 +650,16 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">New Visit vs Follow-up by Month</div>
             <div className="p-5" style={{height:260}}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={displayMonthly.map(m=>{const mk=monthKey(m.month);const md=rangeFiltered.filter(a=>{const d=new Date(a.appointmentDate);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===mk;});return{month:m.month,'New Visit':md.filter(a=>normVT(a.visitType)==='New Visit').length,'Follow-up':md.filter(a=>normVT(a.visitType)==='Follow-up').length};})}>
+                <BarChart data={displayMonthly.map(m=>{
+                  const mk=monthKey(m.month);
+                  const md=rangeFiltered.filter(a=>{const d=new Date(a.appointmentDate);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===mk;});
+                  return {month:m.month,'New Visit':md.filter(a=>normVT(a.visitType)==='New Visit').length,'Follow-up':md.filter(a=>normVT(a.visitType)==='Follow-up').length};
+                })}>
                   <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
                   <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={25}/>
                   <Tooltip {...TT}/><Legend wrapperStyle={{fontSize:11}}/>
-                  <Bar dataKey="New Visit" fill={GREEN} radius={[2,2,0,0]}/><Bar dataKey="Follow-up" fill={BLUE} radius={[2,2,0,0]}/>
+                  <Bar dataKey="New Visit" fill={GREEN} radius={[2,2,0,0]}/>
+                  <Bar dataKey="Follow-up" fill={BLUE}  radius={[2,2,0,0]}/>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -662,14 +670,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       {/* ── BILLING TAB ── */}
       {activeTab==='billing' && (
         <div className="space-y-5">
-
-          {/* Combined summary cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {label:'Total Revenue',   val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e',bg:'#e8f7f2'},
-              {label:'Total Pending',   val:`PKR ${totalPending.toLocaleString()}`,  color:RED,bg:'#fff0f0'},
-              {label:'Paid Invoices',   val:paidCount,  color:'#1a7f5e',bg:'#f0fdf4'},
-              {label:'Unpaid Invoices', val:unpaidCount,color:RED,bg:'#fef2f2'},
+              {label:'Total Revenue',   val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2'},
+              {label:'Total Pending',   val:`PKR ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0'},
+              {label:'Paid Invoices',   val:paidCount,   color:'#1a7f5e', bg:'#f0fdf4'},
+              {label:'Unpaid Invoices', val:unpaidCount, color:RED,       bg:'#fef2f2'},
             ].map(s=>(
               <div key={s.label} className="card p-4">
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
@@ -678,21 +684,19 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             ))}
           </div>
 
-          {/* Sub-breakdown: Consultations vs Procedures */}
           <div className="grid grid-cols-2 gap-4">
             <div className="card p-4" style={{border:'1px solid rgba(3,105,161,0.2)'}}>
               <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{color:'#0369a1'}}>Consultations</div>
               <div className="text-[22px] font-bold" style={{color:'#0369a1'}}>PKR {consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
-              <div className="text-[11px] text-gray-400 mt-1">{consultInvoices.length} invoices &nbsp;·&nbsp; {consultInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
+              <div className="text-[11px] text-gray-400 mt-1">{consultInvoices.length} invoices · {consultInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
             </div>
             <div className="card p-4" style={{border:'1px solid rgba(109,40,217,0.2)'}}>
               <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{color:PURPLE}}>Procedures</div>
               <div className="text-[22px] font-bold" style={{color:PURPLE}}>PKR {procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
-              <div className="text-[11px] text-gray-400 mt-1">{procedureInvoices.length} invoices &nbsp;·&nbsp; {procedureInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
+              <div className="text-[11px] text-gray-400 mt-1">{procedureInvoices.length} invoices · {procedureInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
             </div>
           </div>
 
-          {/* Monthly revenue chart — stacked consult + procedure */}
           {monthlyBilling.length>0&&(
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Revenue — Consultations + Procedures</div>
@@ -711,7 +715,6 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
           )}
 
-          {/* Monthly breakdown table */}
           {monthlyBilling.length>0&&(
             <div className="card overflow-hidden animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Billing Breakdown</div>
@@ -743,7 +746,6 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
           )}
 
-          {/* All invoices list */}
           <div className="card overflow-hidden animate-in">
             <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
               <div className="font-medium text-navy text-[14px]">All Records</div>
@@ -751,9 +753,13 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
             <div className="overflow-x-auto">
               <table className="data-table">
-                <thead><tr><th>Invoice #</th><th>Type</th><th>Patient</th><th>Date</th><th>Fee</th><th>Paid</th><th>Balance</th><th>Status</th></tr></thead>
+                <thead>
+                  <tr><th>Invoice #</th><th>Type</th><th>Patient</th><th>Date</th><th>Fee</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
+                </thead>
                 <tbody>
-                  {filteredInvoices.length===0&&<tr><td colSpan={8} className="text-center py-8 text-gray-400 text-[13px]">No invoices in this period</td></tr>}
+                  {filteredInvoices.length===0&&(
+                    <tr><td colSpan={8} className="text-center py-8 text-gray-400 text-[13px]">No invoices in this period</td></tr>
+                  )}
                   {filteredInvoices.map(inv=>{
                     const due=Math.max(0,inv.feeAmount-inv.discount-inv.paid);
                     return(
