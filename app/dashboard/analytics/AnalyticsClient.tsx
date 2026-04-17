@@ -252,6 +252,15 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     w.document.close();
     setTimeout(() => w.print(), 600);
   };
+      '<div class="footer">MediPlex Pediatric Clinic - Confidential - ' + new Date().toLocaleDateString() + '</div>',
+      '</body></html>',
+    ].join('');
+    const w = window.open('', '_blank');
+    if (!w) { toast.error('Allow popups'); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 600);
+  };
 
   const tabs = ['overview','monthly','patients','trends','billing'] as const;
   const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing' };
