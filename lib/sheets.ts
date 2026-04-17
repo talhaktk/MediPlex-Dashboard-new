@@ -241,3 +241,79 @@ export async function upsertPatientByMR(payload: {
     return { success: false, error: err.message };
   }
 }
+// ADD THESE to the bottom of your lib/sheets.ts file
+
+const _sb = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+// Called whenever an appointment is created or checked in — syncs patient to patients table
+export async function upsertPatientFromAppointment(apt: {
+  child_name: string; parent_name: string; child_age?: string;
+  whatsapp_number?: string; email_address?: string; mr_number?: string;
+}) {
+  if (!apt.child_name?.trim()) return;
+  try {
+    const payload: Record<string, any> = {
+      child_name:      apt.child_name.trim(),
+      parent_name:     apt.parent_name?.trim() || null,
+      age:             apt.child_age            || null,
+      whatsapp_number: apt.whatsapp_number      || null,
+      email:           apt.email_address        || null,
+      updated_at:      new Date().toISOString(),
+    };
+    if (apt.mr_number) payload.mr_number = apt.mr_number;
+
+    if (apt.mr_number) {
+      await _sb.from('patients').upsert(payload, { onConflict: 'mr_number' });
+    } else {
+      const { data: existing } = await _sb.from('patients')
+        .select('id').ilike('child_name', apt.child_name.trim()).maybeSingle();
+      if (existing?.id) {
+        await _sb.from('patients').update(payload).eq('id', existing.id);
+      } else {
+        await _sb.from('patients').insert(payload);
+      }
+    }
+  } catch (e) { console.error('upsertPatient error:', e); }
+}
+
+// Create appointment in Supabase + auto-upsert patient
+export async function createAppointment(form: Record<string, string>) {
+  try {
+    const { data, error } = await _sb.from('appointments').insert({
+      child_name:       form.child_name,
+      parent_name:      form.parent_name,
+      child_age:        form.child_age        || null,
+      whatsapp_number:  form.whatsapp_number  || null,
+      email_address:    form.email_address    || null,
+      appointment_date: form.appointment_date,
+      appointment_time: form.appointment_time,
+      reason_for_visit: form.reason_for_visit || null,
+      visit_type:       form.visit_type       || 'New Visit',
+      status:           'Confirmed',
+    }).select().single();
+
+    if (error) return { success: false, error: error.message };
+
+    // Auto-sync to patients table
+    await upsertPatientFromAppointment(form);
+
+    return { success: true, data };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+// Soft delete — sets status to Cancelled
+export async function softDeleteAppointment(id: string) {
+  try {
+    const { error } = await _sb.from('appointments')
+      .update({ status: 'Cancelled' }).eq('id', id);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
