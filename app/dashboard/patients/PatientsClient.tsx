@@ -54,7 +54,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
-  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'>('visits');
+  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'>('visits');
   const [editHealth, setEditHealth] = useState(false);
   const [draft, setDraft] = useState<HealthRecord>(emptyHealth());
   const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt: new Date().toISOString().split('T')[0] });
@@ -65,6 +65,11 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [aptVitals, setAptVitals] = useState<any[]>([]);
   const [scribeOutputs, setScribeOutputs] = useState<any[]>([]);
   const [dbRx, setDbRx] = useState<any[]>([]);
+  const [procedures, setProcedures] = useState<any[]>([]);
+  const [selectedScribe, setSelectedScribe] = useState<any|null>(null);
+  const [showProcedureForm, setShowProcedureForm] = useState(false);
+  const [procedureForm, setProcedureForm] = useState({ procedure_name:'', procedure_type:'', notes:'', additional_notes:'', performed_by:'', date: new Date().toISOString().split('T')[0] });
+  const [savingProcedure, setSavingProcedure] = useState(false);
 
   const patients = useMemo(() => buildPatients(data), [data]);
   const filtered = useMemo(() => {
@@ -75,7 +80,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
 
   // ── Load all data from Supabase when patient selected ───────────────────
   useEffect(() => {
-    if (!selected) { setPatientInvoices([]); setDbVitals([]); setAptVitals([]); setScribeOutputs([]); setDbRx([]); return; }
+    if (!selected) { setPatientInvoices([]); setDbVitals([]); setAptVitals([]); setScribeOutputs([]); setDbRx([]); setProcedures([]); return; }
     setLoadingBilling(true);
 
     // Billing
@@ -97,6 +102,12 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     aq.order('appointment_date', { ascending: false }).then(({ data: rows }) => {
       if (rows) setAptVitals(rows.filter(r => r.visit_weight || r.visit_bp || r.visit_height || r.visit_pulse || r.visit_temperature));
     });
+
+    // Procedures
+    const pq = selected.mrNumber
+      ? supabase.from('procedures').select('*').eq('mr_number', selected.mrNumber)
+      : supabase.from('procedures').select('*').ilike('child_name', selected.name);
+    pq.order('date', { ascending: false }).then(({ data: rows }) => { if (rows) setProcedures(rows); });
 
     // AI Scribe outputs
     const sq = selected.mrNumber
@@ -201,6 +212,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     { key:'billing',       label:`Billing (${patientInvoices.length})` },
     { key:'prescriptions', label:`Rx (${allRx.length})` },
     { key:'scribe',        label:`AI Notes (${scribeOutputs.length})` },
+    { key:'procedures',    label:`Procedures (${procedures.length})` },
   ] as const;
 
   return (
@@ -493,27 +505,140 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                   ) : scribeOutputs.map((s, i) => {
                     const color = SCRIBE_COLORS[s.mode] || '#6b7280';
                     const modeLabel = s.mode === 'soap' ? 'SOAP Note' : s.mode === 'prescription' ? 'Prescription' : s.mode === 'discharge' ? 'Discharge Summary' : s.mode === 'referral' ? 'Referral Letter' : s.mode;
+                    const lines = (s.output||'').split('\n');
+                    const preview = lines.slice(0,4).join('\n');
                     return (
-                      <div key={s.id||i} className="rounded-xl overflow-hidden" style={{border:`1px solid ${color}33`}}>
+                      <div key={s.id||i} className="rounded-xl overflow-hidden cursor-pointer hover:shadow-md transition-all" style={{border:`1px solid ${color}33`}} onClick={() => setSelectedScribe(s)}>
                         <div className="flex items-center justify-between px-4 py-2.5" style={{background:`${color}11`}}>
                           <div className="flex items-center gap-2">
                             <Bot size={13} style={{color}}/>
                             <span className="text-[12px] font-semibold" style={{color}}>{modeLabel}</span>
                           </div>
-                          <span className="text-[11px] text-gray-400">{s.generated_at ? new Date(s.generated_at).toLocaleDateString() : formatUSDate(s.created_at?.slice(0,10)||'')}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-gray-400">{s.generated_at ? new Date(s.generated_at).toLocaleDateString() : formatUSDate(s.created_at?.slice(0,10)||'')}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:`${color}22`,color}}>View →</span>
+                          </div>
                         </div>
-                        <div className="px-4 py-3 max-h-48 overflow-y-auto">
-                          {(s.output||'').split('\n').slice(0,12).map((line: string, j: number) => {
-                            if (line.startsWith('**') && line.endsWith('**')) return <div key={j} className="text-[11px] font-bold mt-2 mb-0.5" style={{color}}>{line.replace(/\*\*/g,'')}</div>;
-                            return <div key={j} className="text-[12px] text-gray-600">{line}</div>;
+                        <div className="px-4 py-3">
+                          {preview.split('\n').map((line: string, j: number) => {
+                            if (line.startsWith('**') && line.endsWith('**')) return <div key={j} className="text-[11px] font-bold mt-1" style={{color}}>{line.replace(/\*\*/g,'')}</div>;
+                            return <div key={j} className="text-[12px] text-gray-500 truncate">{line}</div>;
                           })}
-                          {(s.output||'').split('\n').length > 12 && <div className="text-[11px] text-gray-400 mt-1">... {(s.output||'').split('\n').length - 12} more lines</div>}
+                          {lines.length > 4 && <div className="text-[11px] mt-1 font-medium" style={{color}}>+ {lines.length - 4} more lines — click to view full</div>}
                         </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+
+              {/* PROCEDURES */}
+              {activeTab==='procedures' && (
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-[13px] font-medium text-navy">Procedures Performed</div>
+                    <button onClick={() => { setProcedureForm({ procedure_name:'', procedure_type:'', notes:'', additional_notes:'', performed_by:'', date: new Date().toISOString().split('T')[0] }); setShowProcedureForm(true); }}
+                      className="btn-gold text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Add Procedure</button>
+                  </div>
+
+                  {showProcedureForm && (
+                    <div className="rounded-xl p-4 space-y-3" style={{background:'rgba(201,168,76,0.06)',border:'1px solid rgba(201,168,76,0.25)'}}>
+                      <div className="text-[12px] font-medium text-navy mb-2">New Procedure</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        {[{label:'Procedure Name',key:'procedure_name',placeholder:'e.g. Nebulisation, IV Cannula'},{label:'Procedure Type',key:'procedure_type',placeholder:'e.g. Therapeutic, Diagnostic'},{label:'Performed By',key:'performed_by',placeholder:'e.g. Dr. Talha'},{label:'Date',key:'date',type:'date'}].map(f=>(
+                          <div key={f.key}>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">{f.label}</label>
+                            <input type={(f as any).type||'text'} placeholder={(f as any).placeholder||''} value={(procedureForm as any)[f.key]||''}
+                              onChange={e => setProcedureForm(p => ({...p,[f.key]:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        ))}
+                        <div className="col-span-2">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Clinical Notes</label>
+                          <textarea rows={2} placeholder="Procedure notes..." value={procedureForm.notes} onChange={e=>setProcedureForm(p=>({...p,notes:e.target.value}))} className="w-full border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold resize-none"/>
+                        </div>
+                        <div className="col-span-2">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Additional Notes</label>
+                          <textarea rows={2} placeholder="Additional notes..." value={procedureForm.additional_notes} onChange={e=>setProcedureForm(p=>({...p,additional_notes:e.target.value}))} className="w-full border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold resize-none"/>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button disabled={savingProcedure||!procedureForm.procedure_name} onClick={async () => {
+                          if (!selected || !procedureForm.procedure_name) return;
+                          setSavingProcedure(true);
+                          const id = `PROC-${Date.now().toString(36).toUpperCase()}`;
+                          try {
+                            const apt = selected.visits.find(v => v.appointmentDate === procedureForm.date);
+                            await supabase.from('procedures').insert([{
+                              id, mr_number: selected.mrNumber||null,
+                              child_name: selected.name, parent_name: selected.parentName,
+                              appointment_id: apt?.id||null, appointment_date: procedureForm.date,
+                              procedure_name: procedureForm.procedure_name, procedure_type: procedureForm.procedure_type,
+                              notes: procedureForm.notes, additional_notes: procedureForm.additional_notes,
+                              performed_by: procedureForm.performed_by, date: procedureForm.date,
+                            }]);
+                            setProcedures(prev => [{ id, ...procedureForm, child_name:selected.name, mr_number:selected.mrNumber, created_at:new Date().toISOString() }, ...prev]);
+                            setShowProcedureForm(false);
+                            toast.success('Procedure saved');
+                          } catch (err:any) { toast.error('Failed: '+err.message); }
+                          finally { setSavingProcedure(false); }
+                        }} className="btn-gold text-[11px] py-1.5 px-4 gap-1">
+                          <Save size={11}/> {savingProcedure ? 'Saving...' : 'Save Procedure'}
+                        </button>
+                        <button onClick={()=>setShowProcedureForm(false)} className="btn-outline text-[11px] py-1.5 px-3">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {procedures.length===0 && !showProcedureForm ? (
+                    <div className="text-center py-8 text-gray-400 text-[13px]">No procedures recorded</div>
+                  ) : procedures.map((p,i) => (
+                    <div key={p.id||i} className="rounded-xl p-4" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.12)'}}>
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <div className="text-[13px] font-semibold text-navy">{p.procedure_name}</div>
+                          {p.procedure_type && <span className="text-[10px] px-2 py-0.5 rounded-full mt-0.5 inline-block" style={{background:'#dbeafe',color:'#1d4ed8'}}>{p.procedure_type}</span>}
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[11px] text-gray-400">{formatUSDate(p.date||p.appointment_date)}</div>
+                          {p.performed_by && <div className="text-[10px] text-gray-400 mt-0.5">By: {p.performed_by}</div>}
+                        </div>
+                      </div>
+                      {p.notes && <div className="text-[12px] text-gray-600 mt-1"><span className="font-medium">Notes: </span>{p.notes}</div>}
+                      {p.additional_notes && <div className="text-[12px] text-gray-500 mt-1"><span className="font-medium">Additional: </span>{p.additional_notes}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SCRIBE FULL VIEW POPUP */}
+      {selectedScribe && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{background:'rgba(10,22,40,0.8)'}} onClick={() => setSelectedScribe(null)}>
+          <div className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl overflow-hidden" style={{background:'#1e293b',border:'1px solid rgba(255,255,255,0.1)'}} onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.08)',background:(() => { const c=SCRIBE_COLORS[selectedScribe.mode]||'#6b7280'; return `${c}22`; })()}}>
+              <div className="flex items-center gap-2">
+                <Bot size={16} style={{color:SCRIBE_COLORS[selectedScribe.mode]||'#6b7280'}}/>
+                <span className="font-semibold text-white">{selectedScribe.mode==='soap'?'SOAP Note':selectedScribe.mode==='prescription'?'Prescription':selectedScribe.mode==='discharge'?'Discharge Summary':selectedScribe.mode==='referral'?'Referral Letter':selectedScribe.mode}</span>
+                <span className="text-xs text-white/40">· {selectedScribe.generated_at ? new Date(selectedScribe.generated_at).toLocaleDateString() : ''}</span>
+              </div>
+              <button onClick={()=>setSelectedScribe(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10"><X size={14}/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {(selectedScribe.output||'').split('\n').map((line:string, i:number) => {
+                const color = SCRIBE_COLORS[selectedScribe.mode]||'#6b7280';
+                if (line.startsWith('**') && line.endsWith('**')) return <div key={i} className="font-bold text-sm mt-4 mb-1.5 pb-1 border-b" style={{color,borderColor:'rgba(255,255,255,0.08)'}}>{line.replace(/\*\*/g,'')}</div>;
+                if (line.startsWith('|')) return <div key={i} className="text-xs font-mono text-white/60 border-b py-0.5" style={{borderColor:'rgba(255,255,255,0.05)'}}>{line}</div>;
+                if (line.startsWith('- ')||line.startsWith('• ')) return <div key={i} className="text-xs text-white/65 ml-2 my-0.5">{line}</div>;
+                if (line.includes('⚠️')) return <div key={i} className="text-xs font-medium my-1 px-2 py-1 rounded" style={{background:'rgba(239,68,68,0.1)',color:'#f87171'}}>{line}</div>;
+                return <div key={i} className="text-[13px] text-white/75 my-0.5">{line}</div>;
+              })}
+            </div>
+            <div className="px-5 py-3 border-t flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.08)'}}>
+              <button onClick={() => { navigator.clipboard.writeText(selectedScribe.output||''); toast.success('Copied!'); }} className="text-xs px-3 py-1.5 rounded-lg" style={{background:'rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.6)'}}>Copy Full Text</button>
             </div>
           </div>
         </div>
