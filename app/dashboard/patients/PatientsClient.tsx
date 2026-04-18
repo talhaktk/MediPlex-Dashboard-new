@@ -597,37 +597,138 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
 
                   {procedures.length===0&&!showProcedureForm
                     ? <div className="text-center py-8 text-gray-400 text-[13px]">No procedures recorded</div>
-                    : procedures.map((p,i)=>(
-                      <div key={p.id||i} className="rounded-xl p-4" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.12)'}}>
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <div className="text-[13px] font-semibold text-navy">{p.procedure_name}</div>
-                              {p.immediate_outcome&&<span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{background:p.immediate_outcome==='Successful'?'#dcfce7':p.immediate_outcome==='Complication'?'#fee2e2':'#fff7ed',color:p.immediate_outcome==='Successful'?'#166534':p.immediate_outcome==='Complication'?'#991b1b':'#92400e'}}>{p.immediate_outcome}</span>}
-                              {p.tier&&<span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'#f3f4f6',color:'#6b7280'}}>T{p.tier}</span>}
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {p.anaesthesia_type&&p.anaesthesia_type!=='None'&&<span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3e8ff',color:'#7c3aed'}}>Anaes: {p.anaesthesia_type}</span>}
-                              {p.site&&<span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3f4f6',color:'#6b7280'}}>📍 {p.site}{p.laterality&&p.laterality!=='N/A'?` (${p.laterality})`:''}</span>}
-                              {p.complications&&p.complications!=='None'&&<span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#fee2e2',color:'#991b1b'}}>⚠ {p.complications}</span>}
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0 ml-3">
-                            <div className="text-[11px] font-medium text-navy">{formatUSDate(p.date||p.appointment_date)}</div>
-                            {p.performed_by&&<div className="text-[10px] text-gray-400">By: {p.performed_by}</div>}
-                            <div className="flex gap-1 mt-1 justify-end">
-                              <button onClick={()=>{navigator.clipboard.writeText(`Procedure: ${p.procedure_name}\nDate: ${p.date}\nOutcome: ${p.immediate_outcome||''}\nNotes: ${p.notes||''}`);toast.success('Copied!');}} className="text-[10px] px-2 py-0.5 rounded" style={{background:'#f3f4f6',color:'#6b7280'}}>Copy</button>
-                              <button onClick={()=>{const w=window.open('','_blank');if(!w)return;w.document.write(`<!DOCTYPE html><html><head><title>Procedure</title><style>body{font-family:Arial;padding:30px;max-width:700px;margin:0 auto}.r{display:flex;gap:16px;margin:5px 0}.l{font-size:10px;text-transform:uppercase;color:#9ca3af;width:130px}.v{font-size:13px;font-weight:600}.n{background:#f9f7f3;padding:10px;border-radius:6px;margin-top:10px;font-size:13px}</style></head><body><h2 style="border-bottom:2px solid #c9a84c;padding-bottom:8px">Procedure Report</h2><div class="r"><span class="l">Patient</span><span class="v">${selected?.name} (MR# ${selected?.mrNumber||'-'})</span></div><div class="r"><span class="l">Procedure</span><span class="v">${p.procedure_name}</span></div><div class="r"><span class="l">Date</span><span class="v">${formatUSDate(p.date)}</span></div>${p.performed_by?`<div class="r"><span class="l">Performed By</span><span class="v">${p.performed_by}</span></div>`:''}<div class="r"><span class="l">Outcome</span><span class="v">${p.immediate_outcome||'-'}</span></div>${p.site?`<div class="r"><span class="l">Site</span><span class="v">${p.site} ${p.laterality&&p.laterality!=='N/A'?'('+p.laterality+')':''}</span></div>`:''} ${p.notes?`<div class="n"><strong>Notes:</strong><br>${p.notes}</div>`:''} ${p.additional_notes?`<div class="n"><strong>Post-procedure:</strong><br>${p.additional_notes}</div>`:''}</body></html>`);w.document.close();setTimeout(()=>w.print(),400);}} className="text-[10px] px-2 py-0.5 rounded" style={{background:'#f3f4f6',color:'#6b7280'}}>Print</button>
-                            </div>
-                          </div>
-                        </div>
-                        {p.indication&&<div className="text-[11px] text-gray-500 mt-1">Indication: {p.indication}</div>}
-                        {p.equipment&&<div className="text-[11px] text-gray-500">Equipment: {p.equipment}</div>}
-                        {p.cpt_code&&<div className="text-[11px] text-gray-500">CPT: {p.cpt_code}{p.icd10_code?` · ICD-10: ${p.icd10_code}`:''}</div>}
-                        {p.notes&&<div className="text-[12px] text-gray-600 mt-2 pt-2 border-t border-black/5"><span className="font-medium">Notes: </span>{p.notes}</div>}
-                        {p.additional_notes&&<div className="text-[11px] text-gray-500 mt-1"><span className="font-medium">Post-procedure: </span>{p.additional_notes}</div>}
-                      </div>
-                    ))
+                   : procedures.map((p,i)=>(
+  <div key={p.id||i} className="rounded-xl overflow-hidden" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.18)'}}>
+    
+    {/* Header bar */}
+    <div className="flex items-start justify-between px-4 py-3" style={{background:'rgba(201,168,76,0.08)',borderBottom:'1px solid rgba(201,168,76,0.15)'}}>
+      <div className="flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="text-[14px] font-bold text-navy">{p.procedure_name}</div>
+          {p.tier && <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{background:'#0a1628',color:'#c9a84c'}}>Tier {p.tier} — {p.tier==='1'?'Quick':p.tier==='3'?'Major':'Minor'}</span>}
+          {p.immediate_outcome && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{background:p.immediate_outcome==='Successful'?'#dcfce7':p.immediate_outcome==='Complication'?'#fee2e2':'#fff7ed',color:p.immediate_outcome==='Successful'?'#166534':p.immediate_outcome==='Complication'?'#991b1b':'#92400e'}}>{p.immediate_outcome}</span>}
+          {p.status && p.status!=='Completed' && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3f4f6',color:'#6b7280'}}>{p.status}</span>}
+        </div>
+        <div className="flex flex-wrap gap-2 mt-1.5">
+          {p.complications && p.complications!=='None' && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#fee2e2',color:'#991b1b'}}>⚠ {p.complications}</span>}
+          {p.anaesthesia_type && p.anaesthesia_type!=='None' && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3e8ff',color:'#7c3aed'}}>Anaes: {p.anaesthesia_type}{p.anaesthesia_agent?` (${p.anaesthesia_agent})`:''}</span>}
+          {p.site && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3f4f6',color:'#6b7280'}}>📍 {p.site}{p.laterality&&p.laterality!=='N/A'?` (${p.laterality})`:''}</span>}
+          {p.specimen_collected && p.specimen_collected!=='No' && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f0fdf4',color:'#166534'}}>🧪 {p.specimen_collected}</span>}
+          {p.patient_tolerance && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3f4f6',color:'#6b7280'}}>Tolerance: {p.patient_tolerance}</span>}
+        </div>
+      </div>
+      <div className="text-right flex-shrink-0 ml-3">
+        <div className="text-[12px] font-semibold text-navy">{formatUSDate(p.date||p.appointment_date)}</div>
+        {p.performed_by && <div className="text-[11px] text-gray-500 mt-0.5">By: {p.performed_by}</div>}
+        {(p.start_time||p.end_time) && <div className="text-[10px] text-gray-400 mt-0.5">{p.start_time&&`Start: ${p.start_time}`}{p.start_time&&p.end_time&&' · '}{p.end_time&&`End: ${p.end_time}`}</div>}
+        <div className="flex gap-1 mt-2 justify-end">
+          <button onClick={()=>{navigator.clipboard.writeText([`PROCEDURE REPORT`,`Patient: ${selected?.name} (MR# ${selected?.mrNumber||'-'})`,`Procedure: ${p.procedure_name}`,`Date: ${p.date}`,p.performed_by?`Performed By: ${p.performed_by}`:'',p.tier?`Tier: ${p.tier}`:'',p.immediate_outcome?`Outcome: ${p.immediate_outcome}`:'',p.indication?`Indication: ${p.indication}`:'',p.site?`Site: ${p.site}${p.laterality&&p.laterality!=='N/A'?` (${p.laterality})`:''}`:'' ,p.anaesthesia_type&&p.anaesthesia_type!=='None'?`Anaesthesia: ${p.anaesthesia_type}${p.anaesthesia_agent?` - ${p.anaesthesia_agent}`:''}`:'' ,p.equipment?`Equipment: ${p.equipment}`:'',p.technique?`Technique: ${p.technique}`:'',p.ebl?`Est. Blood Loss: ${p.ebl}`:'',p.cpt_code?`CPT: ${p.cpt_code}`:'',p.icd10_code?`ICD-10: ${p.icd10_code}`:'',p.complications&&p.complications!=='None'?`Complications: ${p.complications}`:'',p.consent_obtained?`Consent: ${p.consent_obtained}`:'',p.specimen_collected&&p.specimen_collected!=='No'?`Specimen: ${p.specimen_collected}`:'',p.notes?`\nNotes:\n${p.notes}`:'',p.additional_notes?`\nPost-procedure:\n${p.additional_notes}`:''].filter(Boolean).join('\n'));toast.success('Copied!');}} className="text-[10px] px-2.5 py-1 rounded-lg font-medium" style={{background:'rgba(201,168,76,0.15)',color:'#a07a2a',border:'1px solid rgba(201,168,76,0.3)'}}>Copy</button>
+          <button onClick={()=>{
+            const rows = [
+              ['Patient', `${selected?.name} (MR# ${selected?.mrNumber||'-'})`],
+              ['Parent', selected?.parentName||'-'],
+              ['Age', selected?.age||'-'],
+              ['Procedure', p.procedure_name],
+              ['Date', formatUSDate(p.date||p.appointment_date)],
+              p.performed_by ? ['Performed By', p.performed_by] : null,
+              p.tier ? ['Procedure Tier', `Tier ${p.tier} — ${p.tier==='1'?'Quick Procedure':p.tier==='3'?'Major Procedure':'Minor Procedure'}`] : null,
+              p.procedure_type ? ['Procedure Type', p.procedure_type] : null,
+              p.status ? ['Status', p.status] : null,
+              p.immediate_outcome ? ['Outcome', p.immediate_outcome] : null,
+              p.patient_tolerance ? ['Patient Tolerance', p.patient_tolerance] : null,
+              p.indication ? ['Indication', p.indication] : null,
+              p.site ? ['Site', `${p.site}${p.laterality&&p.laterality!=='N/A'?` (${p.laterality})`:''}` ] : null,
+              p.anaesthesia_type && p.anaesthesia_type!=='None' ? ['Anaesthesia', `${p.anaesthesia_type}${p.anaesthesia_agent?` — ${p.anaesthesia_agent}`:''}` ] : null,
+              p.equipment ? ['Equipment Used', p.equipment] : null,
+              p.technique ? ['Technique', p.technique] : null,
+              p.start_time ? ['Start Time', p.start_time] : null,
+              p.end_time ? ['End Time', p.end_time] : null,
+              p.ebl ? ['Est. Blood Loss', p.ebl] : null,
+              p.specimen_collected && p.specimen_collected!=='No' ? ['Specimen Collected', p.specimen_collected] : null,
+              p.consent_obtained ? ['Consent', p.consent_obtained] : null,
+              p.patient_education ? ['Patient Education', p.patient_education] : null,
+              p.cpt_code ? ['CPT Code', p.cpt_code] : null,
+              p.icd10_code ? ['ICD-10 Code', p.icd10_code] : null,
+              p.complications && p.complications!=='None' ? ['Complications', p.complications] : null,
+            ].filter(Boolean) as [string,string][];
+            const rowsHtml = rows.map(([l,v])=>`<tr><td class="lbl">${l}</td><td class="val">${v}</td></tr>`).join('');
+            const w = window.open('','_blank');
+            if(!w)return;
+            w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Procedure Report — ${p.procedure_name}</title><style>
+              *{box-sizing:border-box;margin:0;padding:0}
+              body{font-family:Arial,sans-serif;color:#0a1628;padding:36px;font-size:13px;max-width:750px;margin:0 auto}
+              .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:3px solid #c9a84c}
+              .clinic{font-size:18px;font-weight:700;color:#0a1628}
+              .clinic-sub{font-size:11px;color:#6b7280;margin-top:2px}
+              .title{font-size:22px;font-weight:700;color:#c9a84c;text-align:right}
+              .patient-bar{background:#f9f7f3;border:1px solid rgba(201,168,76,0.3);border-radius:8px;padding:12px 16px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap}
+              .pb-item{font-size:12px}.pb-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:2px}.pb-val{font-weight:600;color:#0a1628}
+              .section{margin-bottom:20px}
+              .section-title{font-size:10px;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:#c9a84c;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(201,168,76,0.2)}
+              table{width:100%;border-collapse:collapse}
+              td.lbl{width:38%;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;padding:7px 10px;vertical-align:top;border-bottom:1px solid #f3f4f6}
+              td.val{font-size:13px;font-weight:500;color:#0a1628;padding:7px 10px;border-bottom:1px solid #f3f4f6}
+              .notes-box{background:#f8f8f8;border:1px solid #e5e7eb;border-radius:6px;padding:12px;font-size:13px;line-height:1.7;margin-top:4px;white-space:pre-wrap}
+              .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:${p.immediate_outcome==='Successful'?'#dcfce7':p.immediate_outcome==='Complication'?'#fee2e2':'#fff7ed'};color:${p.immediate_outcome==='Successful'?'#166534':p.immediate_outcome==='Complication'?'#991b1b':'#92400e'}}
+              .footer{margin-top:32px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:10px;color:#9ca3af;text-align:center}
+              @media print{body{padding:20px}}
+            </style></head><body>
+            <div class="header">
+              <div><div class="clinic">MediPlex Pediatric Centre</div><div class="clinic-sub">Procedure Report</div></div>
+              <div><div class="title">${p.procedure_name}</div><div style="font-size:11px;color:#6b7280;text-align:right;margin-top:4px">${formatUSDate(p.date||p.appointment_date)}</div>${p.immediate_outcome?`<div style="text-align:right;margin-top:4px"><span class="badge">${p.immediate_outcome}</span></div>`:''}</div>
+            </div>
+            <div class="patient-bar">
+              <div class="pb-item"><div class="pb-lbl">Patient</div><div class="pb-val">${selected?.name}</div></div>
+              <div class="pb-item"><div class="pb-lbl">MR Number</div><div class="pb-val">${selected?.mrNumber||'-'}</div></div>
+              <div class="pb-item"><div class="pb-lbl">Age</div><div class="pb-val">${selected?.age||'-'}</div></div>
+              <div class="pb-item"><div class="pb-lbl">Parent</div><div class="pb-val">${selected?.parentName||'-'}</div></div>
+              ${p.performed_by?`<div class="pb-item"><div class="pb-lbl">Performed By</div><div class="pb-val">${p.performed_by}</div></div>`:''}
+            </div>
+            <div class="section">
+              <div class="section-title">Procedure Details</div>
+              <table>${rowsHtml}</table>
+            </div>
+            ${p.notes?`<div class="section"><div class="section-title">Clinical Notes</div><div class="notes-box">${p.notes}</div></div>`:''}
+            ${p.additional_notes?`<div class="section"><div class="section-title">Post-Procedure Instructions</div><div class="notes-box">${p.additional_notes}</div></div>`:''}
+            <div class="footer">MediPlex Pediatric Centre · Generated ${new Date().toLocaleString()} · Confidential</div>
+            </body></html>`);
+            w.document.close();
+            setTimeout(()=>w.print(),500);
+          }} className="text-[10px] px-2.5 py-1 rounded-lg font-medium" style={{background:'rgba(43,108,176,0.1)',color:'#1d4ed8',border:'1px solid rgba(43,108,176,0.2)'}}>Print</button>
+        </div>
+      </div>
+    </div>
+
+    {/* All filled fields body */}
+    <div className="px-4 py-3 space-y-1.5">
+      {[
+        p.indication       && { label:'Indication',       val:p.indication },
+        p.equipment        && { label:'Equipment',        val:p.equipment },
+        p.technique        && { label:'Technique',        val:p.technique },
+        p.ebl              && { label:'Est. Blood Loss',  val:p.ebl },
+        p.cpt_code         && { label:'CPT Code',         val:`${p.cpt_code}${p.icd10_code?` · ICD-10: ${p.icd10_code}`:''}` },
+        p.consent_obtained && { label:'Consent',          val:p.consent_obtained },
+      ].filter(Boolean).map((f:any)=>(
+        <div key={f.label} className="flex gap-2 text-[12px]">
+          <span className="text-gray-400 font-medium flex-shrink-0" style={{minWidth:120}}>{f.label}:</span>
+          <span className="text-navy">{f.val}</span>
+        </div>
+      ))}
+      {p.notes && (
+        <div className="mt-2 pt-2 border-t border-black/5">
+          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Clinical Notes</div>
+          <div className="text-[12px] text-gray-700 whitespace-pre-wrap">{p.notes}</div>
+        </div>
+      )}
+      {p.additional_notes && (
+        <div className="mt-2 pt-2 border-t border-black/5">
+          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Post-Procedure Instructions</div>
+          <div className="text-[12px] text-gray-700 whitespace-pre-wrap">{p.additional_notes}</div>
+        </div>
+      )}
+    </div>
+  </div>
+))
                   }
                 </div>
               )}
