@@ -68,7 +68,20 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [procedures, setProcedures] = useState<any[]>([]);
   const [selectedScribe, setSelectedScribe] = useState<any|null>(null);
   const [showProcedureForm, setShowProcedureForm] = useState(false);
-  const [procedureForm, setProcedureForm] = useState({ procedure_name:'', procedure_type:'', notes:'', additional_notes:'', performed_by:'', date: new Date().toISOString().split('T')[0] });
+  const [procedureForm, setProcedureForm] = useState<Record<string,string>>({
+    procedure_name:'', procedure_type:'', tier:'1',
+    indication:'', site:'', laterality:'',
+    anaesthesia_type:'None', anaesthesia_agent:'',
+    equipment:'', technique:'', specimen_collected:'No',
+    consent_obtained:'', patient_education:'',
+    start_time:'', end_time:'', ebl:'',
+    cpt_code:'', icd10_code:'',
+    immediate_outcome:'Successful', complications:'None',
+    patient_tolerance:'Good', post_procedure_instructions:'',
+    performed_by:'', notes:'', additional_notes:'',
+    date: new Date().toISOString().split('T')[0],
+    status:'Completed',
+  });
   const [savingProcedure, setSavingProcedure] = useState(false);
 
   const patients = useMemo(() => buildPatients(data), [data]);
@@ -562,22 +575,23 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                           <textarea rows={2} placeholder="Additional notes..." value={procedureForm.additional_notes} onChange={e=>setProcedureForm(p=>({...p,additional_notes:e.target.value}))} className="w-full border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold resize-none"/>
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-1">
+                      <div className="flex gap-2 pt-2">
                         <button disabled={savingProcedure||!procedureForm.procedure_name} onClick={async () => {
                           if (!selected || !procedureForm.procedure_name) return;
                           setSavingProcedure(true);
                           const id = `PROC-${Date.now().toString(36).toUpperCase()}`;
                           try {
                             const apt = selected.visits.find(v => v.appointmentDate === procedureForm.date);
-                            await supabase.from('procedures').insert([{
+                            const insertData: Record<string,any> = {
                               id, mr_number: selected.mrNumber||null,
                               child_name: selected.name, parent_name: selected.parentName,
                               appointment_id: apt?.id||null, appointment_date: procedureForm.date,
-                              procedure_name: procedureForm.procedure_name, procedure_type: procedureForm.procedure_type,
-                              notes: procedureForm.notes, additional_notes: procedureForm.additional_notes,
-                              performed_by: procedureForm.performed_by, date: procedureForm.date,
-                            }]);
-                            setProcedures(prev => [{ id, ...procedureForm, child_name:selected.name, mr_number:selected.mrNumber, created_at:new Date().toISOString() }, ...prev]);
+                              date: procedureForm.date,
+                            };
+                            const fields = ['procedure_name','procedure_type','tier','indication','site','laterality','anaesthesia_type','anaesthesia_agent','equipment','technique','specimen_collected','consent_obtained','patient_education','start_time','end_time','ebl','cpt_code','icd10_code','immediate_outcome','complications','patient_tolerance','post_procedure_instructions','performed_by','notes','additional_notes','status'];
+                            fields.forEach(k => { if (procedureForm[k]) insertData[k] = procedureForm[k]; });
+                            await supabase.from('procedures').insert([insertData]);
+                            setProcedures(prev => [{ id, ...insertData, created_at:new Date().toISOString() }, ...prev]);
                             setShowProcedureForm(false);
                             toast.success('Procedure saved');
                           } catch (err:any) { toast.error('Failed: '+err.message); }
@@ -588,24 +602,38 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                         <button onClick={()=>setShowProcedureForm(false)} className="btn-outline text-[11px] py-1.5 px-3">Cancel</button>
                       </div>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {procedures.length===0 && !showProcedureForm ? (
                     <div className="text-center py-8 text-gray-400 text-[13px]">No procedures recorded</div>
                   ) : procedures.map((p,i) => (
                     <div key={p.id||i} className="rounded-xl p-4" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.12)'}}>
                       <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="text-[13px] font-semibold text-navy">{p.procedure_name}</div>
-                          {p.procedure_type && <span className="text-[10px] px-2 py-0.5 rounded-full mt-0.5 inline-block" style={{background:'#dbeafe',color:'#1d4ed8'}}>{p.procedure_type}</span>}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="text-[13px] font-semibold text-navy">{p.procedure_name}</div>
+                            {p.immediate_outcome && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{background:p.immediate_outcome==='Successful'?'#dcfce7':p.immediate_outcome==='Complication'?'#fee2e2':'#fff7ed',color:p.immediate_outcome==='Successful'?'#166534':p.immediate_outcome==='Complication'?'#991b1b':'#92400e'}}>{p.immediate_outcome}</span>}
+                            {p.tier && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'#f3f4f6',color:'#6b7280'}}>T{p.tier}</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {p.procedure_type && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#dbeafe',color:'#1d4ed8'}}>{p.procedure_type}</span>}
+                            {p.anaesthesia_type && p.anaesthesia_type!=='None' && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f3e8ff',color:'#7c3aed'}}>Anaes: {p.anaesthesia_type}</span>}
+                            {p.site && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#f9f7f3',color:'#6b7280'}}>📍 {p.site}{p.laterality&&p.laterality!=='N/A'?` (${p.laterality})`:''}</span>}
+                            {p.complications && p.complications!=='None' && <span className="text-[10px] px-2 py-0.5 rounded-full" style={{background:'#fee2e2',color:'#991b1b'}}>⚠ {p.complications}</span>}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-[11px] text-gray-400">{formatUSDate(p.date||p.appointment_date)}</div>
-                          {p.performed_by && <div className="text-[10px] text-gray-400 mt-0.5">By: {p.performed_by}</div>}
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <div className="text-[11px] font-medium text-navy">{formatUSDate(p.date||p.appointment_date)}</div>
+                          {p.start_time && p.end_time && <div className="text-[10px] text-gray-400">{p.start_time} → {p.end_time}</div>}
+                          {p.performed_by && <div className="text-[10px] text-gray-400 mt-0.5">Dr. {p.performed_by}</div>}
                         </div>
                       </div>
-                      {p.notes && <div className="text-[12px] text-gray-600 mt-1"><span className="font-medium">Notes: </span>{p.notes}</div>}
-                      {p.additional_notes && <div className="text-[12px] text-gray-500 mt-1"><span className="font-medium">Additional: </span>{p.additional_notes}</div>}
+                      {p.indication && <div className="text-[11px] text-gray-500 mt-1">Indication: {p.indication}</div>}
+                      {p.equipment && <div className="text-[11px] text-gray-500">Equipment: {p.equipment}</div>}
+                      {p.cpt_code && <div className="text-[11px] text-gray-500">CPT: {p.cpt_code}{p.icd10_code?` · ICD-10: ${p.icd10_code}`:''}</div>}
+                      {p.notes && <div className="text-[12px] text-gray-600 mt-2 pt-2 border-t border-black/5"><span className="font-medium">Notes: </span>{p.notes}</div>}
+                      {p.additional_notes && <div className="text-[11px] text-gray-500 mt-1"><span className="font-medium">Post-procedure: </span>{p.additional_notes}</div>}
                     </div>
                   ))}
                 </div>
