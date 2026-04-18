@@ -115,9 +115,16 @@ export function filterAppointments(
   return data.filter(a => {
     if (filters.status    && filters.status    !== 'all' && a.status    !== filters.status)    return false;
     if (filters.visitType && filters.visitType !== 'all' && a.visitType !== filters.visitType) return false;
+    if (filters.dateFrom  && a.appointmentDate < filters.dateFrom) return false;
+    if (filters.dateTo    && a.appointmentDate > filters.dateTo)   return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      return a.childName.toLowerCase().includes(q) || a.parentName.toLowerCase().includes(q) || (a.reason||'').toLowerCase().includes(q);
+      return (
+        a.childName.toLowerCase().includes(q)  ||
+        a.parentName.toLowerCase().includes(q) ||
+        (a.reason||'').toLowerCase().includes(q) ||
+        (a.mr_number||'').toLowerCase().includes(q)
+      );
     }
     return true;
   });

@@ -21,12 +21,38 @@ const OPTIONS = [
 ];
 
 export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
-  const [rec,          setRec]          = useState(() => getAttendance(appointment.id));
+  // ── Initialize from DB value first, then localStorage as override ──────────
+  const [rec, setRec] = useState(() => {
+    const stored = getAttendance(appointment.id);
+    // If localStorage has a real value, use it
+    if (stored.attendanceStatus && stored.attendanceStatus !== 'Not Set') return stored;
+    // Otherwise fall back to what came from DB
+    return {
+      attendanceStatus: appointment.attendanceStatus || 'Not Set',
+      checkInTime:      appointment.checkInTime      || '',
+      inClinicTime:     appointment.inClinicTime     || '',
+    };
+  });
+
   const [loading,      setLoading]      = useState(false);
   const [showCheckIn,  setShowCheckIn]  = useState(false);
   const [pendingValue, setPendingValue] = useState('');
 
-  useEffect(() => { setRec(getAttendance(appointment.id)); }, [appointment.id]);
+  // Sync DB value into localStorage on mount so it persists across renders
+  useEffect(() => {
+    if (appointment.attendanceStatus && appointment.attendanceStatus !== 'Not Set') {
+      const stored = getAttendance(appointment.id);
+      if (!stored.attendanceStatus || stored.attendanceStatus === 'Not Set') {
+        const fromDb = {
+          attendanceStatus: appointment.attendanceStatus,
+          checkInTime:      appointment.checkInTime  || '',
+          inClinicTime:     appointment.inClinicTime || '',
+        };
+        setAttendance(appointment.id, fromDb);
+        setRec(fromDb);
+      }
+    }
+  }, [appointment.id, appointment.attendanceStatus]);
 
   const current = OPTIONS.find(o => o.value === rec.attendanceStatus) ?? OPTIONS[0];
   const now = () => new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
@@ -43,17 +69,14 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
 
   const applyChange = async (newVal: string) => {
     setLoading(true);
-
     const updated = {
       attendanceStatus: newVal,
       checkInTime:  newVal === 'Checked-In' && !rec.checkInTime ? now() : rec.checkInTime,
       inClinicTime: newVal === 'In Clinic'  ? now() : rec.inClinicTime,
     };
-
     setRec(updated);
     setAttendance(appointment.id, updated);
 
-    // ── Sync to Supabase ──────────────────────────────────────────────────
     try {
       const { error } = await supabase
         .from('appointments')
@@ -63,11 +86,10 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
           in_clinic_time:    updated.inClinicTime || null,
         })
         .eq('id', appointment.id);
-
       if (error) throw error;
       toast.success(`Marked as ${newVal}`);
     } catch (err: any) {
-      toast.success(`Marked as ${newVal} (local only — DB sync failed: ${err.message})`);
+      toast.success(`Marked as ${newVal} (local — DB sync failed)`);
     } finally {
       setLoading(false);
     }
@@ -75,16 +97,8 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
 
   const handleCheckInComplete = (invoiceCreated: boolean) => {
     setShowCheckIn(false);
-    if (invoiceCreated) {
-      applyChange(pendingValue);
-    } else {
-      toast('Check-in cancelled — no invoice created', { icon:'⚠️' });
-    }
-    setPendingValue('');
-  };
-
-  const handleCheckInCancel = () => {
-    setShowCheckIn(false);
+    if (invoiceCreated) applyChange(pendingValue);
+    else toast('Check-in cancelled', { icon:'⚠️' });
     setPendingValue('');
   };
 
@@ -111,12 +125,11 @@ export default function AttendanceDropdown({ appointment, rowIndex }: Props) {
         {rec.checkInTime  && <div style={{ fontSize:10, color:'#0369a1', paddingLeft:2 }}>✓ {rec.checkInTime}</div>}
         {rec.inClinicTime && <div style={{ fontSize:10, color:'#166534', paddingLeft:2 }}>🩺 {rec.inClinicTime}</div>}
       </div>
-
       {showCheckIn && (
         <CheckInFlow
           appointment={appointment}
           onComplete={handleCheckInComplete}
-          onCancel={handleCheckInCancel}
+          onCancel={() => { setShowCheckIn(false); setPendingValue(''); }}
         />
       )}
     </>

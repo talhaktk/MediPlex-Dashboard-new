@@ -105,6 +105,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
         checkInTime:      row.check_in_time || '',
         inClinicTime:     row.in_clinic_time || '',
         mr_number:        row.mr_number || '',
+        gender:           row.gender || '',
       } as Appointment)));
     }
   };
@@ -410,7 +411,10 @@ const result = await createAppointmentFull(addForm);
                       )}
                     </td>
 
-                    <td className="text-[12px] text-gray-600">{a.childAge ? `${a.childAge} yr` : '—'}</td>
+                    <td className="text-[12px] text-gray-600">
+  {a.childAge ? `${a.childAge} yr` : '—'}
+  {(a as any).gender ? <span className="ml-1 text-[10px] px-1 py-0.5 rounded font-medium" style={{background:(a as any).gender==='Male'?'#dbeafe':(a as any).gender==='Female'?'#fce7f3':'#f3e8ff',color:(a as any).gender==='Male'?'#1d4ed8':(a as any).gender==='Female'?'#be185d':'#7c3aed'}}>{(a as any).gender.charAt(0)}</span> : null}
+</td>
 
                     {/* Contact */}
                     <td>

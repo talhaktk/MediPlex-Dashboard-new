@@ -81,6 +81,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [dbVitals, setDbVitals] = useState<any[]>([]);
+  const [dbHealth, setDbHealth] = useState<{bloodGroup?:string;allergies?:string;conditions?:string;notes?:string}>({});
+  const [aptVitals, setAptVitals] = useState<any[]>([]);
 
   const patients = useMemo(() => buildPatients(data), [data]);
   const filtered = useMemo(() => {
@@ -102,12 +104,41 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
       if (rows) setPatientInvoices(rows);
       setLoadingBilling(false);
     });
+    // Fetch vitals from patient_vitals table
     const vq = selected.mrNumber
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
     vq.order('recorded_at', { ascending: false }).then(({ data: rows }) => {
       if (rows && rows.length > 0) setDbVitals(rows);
     });
+
+    // Fetch vitals from appointments table (visit vitals)
+    const aq = selected.mrNumber
+      ? supabase.from('appointments').select('appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', selected.mrNumber).not('visit_weight', 'is', null)
+      : supabase.from('appointments').select('appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').ilike('child_name', selected.name).not('visit_weight', 'is', null);
+    aq.order('appointment_date', { ascending: false }).then(({ data: rows }) => {
+      if (rows && rows.length > 0) setAptVitals(rows);
+    });
+
+    // Fetch health info (blood group, allergies, conditions, notes) from patients table
+    if (selected.mrNumber) {
+      supabase.from('patients').select('blood_group,allergies,conditions,notes').eq('mr_number', selected.mrNumber).maybeSingle()
+        .then(({ data: row }) => {
+          if (row) {
+            setDbHealth({ bloodGroup: row.blood_group || '', allergies: row.allergies || '', conditions: row.conditions || '', notes: row.notes || '' });
+            // Also sync to localStorage so it shows in health tab
+            const key = selected.key;
+            const local = getHealth(key);
+            if (!local.bloodGroup && row.blood_group) local.bloodGroup = row.blood_group;
+            if (!local.allergies  && row.allergies)   local.allergies  = row.allergies;
+            if (!local.conditions && row.conditions)  local.conditions = row.conditions;
+            if (!local.notes      && row.notes)       local.notes      = row.notes;
+            setHealth(key, local);
+            setHealthState({...local});
+            setDraft({...local});
+          }
+        });
+    }
   }, [selected]);
 
   const openPatient = (p: PatientRecord) => {
@@ -165,10 +196,27 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
 
   const allVitals = useMemo(() => {
     const local = health.vitals || [];
-    const dbOnly = dbVitals.filter(dv => !local.some(lv => lv.recordedAt === dv.recorded_at))
-      .map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at }));
-    return [...local, ...dbOnly].sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
-  }, [health.vitals, dbVitals]);
+    const usedDates = new Set(local.map(v => v.recordedAt));
+
+    // Add from patient_vitals table
+    const fromPatientVitals = dbVitals
+      .filter(dv => !usedDates.has(dv.recorded_at))
+      .map(dv => {
+        usedDates.add(dv.recorded_at);
+        return { weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, source:'visit' };
+      });
+
+    // Add from appointments table (visit vitals)
+    const fromAppointments = aptVitals
+      .filter(av => av.appointment_date && !usedDates.has(av.appointment_date) && (av.visit_weight || av.visit_bp))
+      .map(av => {
+        usedDates.add(av.appointment_date);
+        return { weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, source:'appointment' };
+      });
+
+    return [...local, ...fromPatientVitals, ...fromAppointments]
+      .sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
+  }, [health.vitals, dbVitals, aptVitals]);
 
   const tabs = [
     { key:'visits',        label:'Visits' },

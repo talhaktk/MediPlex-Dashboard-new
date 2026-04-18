@@ -151,11 +151,14 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
   // ── Save vitals ──────────────────────────────────────────────────────────────
   const handleSaveVitals = async () => {
     const key = patientKey(a.childName);
+
+    // 1. Save health info (blood group, allergies) to localStorage
     const health = getHealth(key);
     if (vitals.bloodGroup) health.bloodGroup = vitals.bloodGroup;
     if (vitals.allergies)  health.allergies  = vitals.allergies;
     setHealth(key, health);
 
+    // 2. Save vitals to localStorage
     if (vitals.weight || vitals.height || vitals.bp || vitals.pulse || vitals.temperature) {
       addVitals(key, {
         weight:      vitals.weight      || '',
@@ -167,17 +170,53 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
       });
     }
 
-    // Also update patients table with vitals/health info
     const mrNum = (a as any).mr_number;
-    if (mrNum) {
-      await supabase.from('patients').update({
-        blood_group: vitals.bloodGroup || null,
-        allergies:   vitals.allergies  || null,
-        age:         a.childAge        || null,
-      }).eq('mr_number', mrNum);
+
+    // 3. Write vitals directly to this appointment row in Supabase
+    if (vitals.weight || vitals.height || vitals.bp || vitals.pulse || vitals.temperature) {
+      try {
+        const { error: aptErr } = await supabase
+          .from('appointments')
+          .update({
+            visit_weight:      vitals.weight      || null,
+            visit_height:      vitals.height      || null,
+            visit_bp:          vitals.bp          || null,
+            visit_pulse:       vitals.pulse       || null,
+            visit_temperature: vitals.temperature || null,
+          })
+          .eq('id', a.id);
+        if (aptErr) throw aptErr;
+
+        // Also insert into patient_vitals table for history
+        await supabase.from('patient_vitals').insert([{
+          mr_number:   mrNum || null,
+          child_name:  a.childName,
+          weight:      vitals.weight      || '',
+          height:      vitals.height      || '',
+          bp:          vitals.bp          || '',
+          pulse:       vitals.pulse       || '',
+          temperature: vitals.temperature || '',
+          recorded_at: vitals.recordedAt  || new Date().toISOString().split('T')[0],
+        }]);
+      } catch (err: any) {
+        console.warn('Vitals DB sync failed:', err.message);
+      }
     }
 
-    toast.success('Patient record updated');
+    // 4. Update patients table with blood group and allergies ONLY (no vitals)
+    if (mrNum) {
+      try {
+        await supabase.from('patients').update({
+          blood_group: vitals.bloodGroup || null,
+          allergies:   vitals.allergies  || null,
+          age:         a.childAge        || null,
+        }).eq('mr_number', mrNum);
+      } catch (err: any) {
+        console.warn('Patient health sync failed:', err.message);
+      }
+    }
+
+    toast.success('Vitals and health record saved');
     onComplete(true);
   };
 

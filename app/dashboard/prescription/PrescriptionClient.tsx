@@ -15,6 +15,7 @@ import {
   patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
 } from '@/lib/store';
 import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeStore';
+import { supabase } from '@/lib/supabase';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Medicine {
@@ -266,7 +267,24 @@ export default function PrescriptionClient({
 
   useEffect(() => {
     setPrescriptions(loadRx());
-    // Check if there's AI scribe output waiting
+    supabase.from('prescriptions').select('*').order('created_at', { ascending: false }).then(({ data: rows }) => {
+      if (rows && rows.length > 0) {
+        const dbRx = rows.map((r:any) => ({
+          id: r.id, appointmentId: r.appointment_id || '',
+          childName: r.child_name || '', parentName: r.parent_name || '',
+          childAge: r.child_age || '', date: r.date || '',
+          diagnosis: r.diagnosis || '', medicines: Array.isArray(r.medicines) ? r.medicines : [],
+          advice: r.advice || '', followUp: r.follow_up || '', createdAt: r.created_at || '',
+        }));
+        setPrescriptions(prev => {
+          const ids = new Set(prev.map((r:any) => r.id));
+          const merged = [...prev, ...dbRx.filter((r:any) => !ids.has(r.id))];
+          merged.sort((a:any,b:any) => b.createdAt.localeCompare(a.createdAt));
+          saveRxLS(merged);
+          return merged;
+        });
+      }
+    });
     const saved = getScribeOutput();
     if (saved) {
       setScribeData(saved);
@@ -353,7 +371,7 @@ export default function PrescriptionClient({
   const updateMed = (id: string, field: keyof Medicine, val: string) =>
     setMedicines(prev => prev.map(m => m.id === id ? { ...m, [field]: val } : m));
 
-  const saveRxForm = () => {
+  const saveRxForm = async () => {
     if (!form.childName) { toast.error('Select a patient first'); return; }
     if (medicines.filter(m => m.name).length === 0) { toast.error('Add at least one medicine'); return; }
     const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name) };
@@ -366,8 +384,22 @@ export default function PrescriptionClient({
       diagnosis: rx.diagnosis, medicines: rx.medicines, advice: rx.advice,
       followUp: rx.followUp, createdAt: rx.createdAt,
     });
+    // Sync to Supabase
+    try {
+      const apt = data.find((a:any) => a.id === rx.appointmentId || a.childName.toLowerCase() === rx.childName.toLowerCase());
+      const mrNumber = (apt as any)?.mr_number || null;
+      await supabase.from('prescriptions').upsert([{
+        id: rx.id, mr_number: mrNumber,
+        child_name: rx.childName, parent_name: rx.parentName,
+        child_age: rx.childAge || '', date: rx.date || '',
+        diagnosis: rx.diagnosis || '', medicines: rx.medicines,
+        advice: rx.advice || '', follow_up: rx.followUp || '',
+      }], { onConflict: 'id' });
+      toast.success(`Prescription ${rx.id} saved to database`);
+    } catch (err: any) {
+      toast.success(`Prescription ${rx.id} saved locally`);
+    }
     setShowForm(false);
-    toast.success(`Prescription ${rx.id} saved`);
   };
 
   const deleteRx = (id: string) => {
