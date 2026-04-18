@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Appointment } from '@/types';
-import { getHealth, getLatestVitals, patientKey } from '@/lib/store';
+import { getHealth, setHealth, getLatestVitals, patientKey } from '@/lib/store';
 import { saveScribeOutput } from '@/lib/scribeStore';
 import { supabase } from '@/lib/supabase';
 
