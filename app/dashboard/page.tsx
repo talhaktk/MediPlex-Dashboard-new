@@ -60,7 +60,7 @@ export default async function DashboardPage() {
             icon={Activity} iconColor="#7c3aed" delay={0} />
           <StatCard label="Upcoming (7d)" value={stats.upcomingCount}
             sub="Confirmed + Rescheduled" icon={TrendingUp} iconColor="#0369a1" delay={50} />
-          <StatCard label="Total Patients" value={new Set(data.map(a=>a.childName.toLowerCase())).size}
+          <StatCard label="Total Patients" value={new Set(data.map(a=>((a as any).mr_number || a.childName.toLowerCase().trim()))).size}
             sub="Unique child records" icon={Users} iconColor="#c9a84c" delay={150} />
         </div>
 

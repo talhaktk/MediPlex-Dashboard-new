@@ -187,17 +187,7 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
           .eq('id', a.id);
         if (aptErr) throw aptErr;
 
-        // Also insert into patient_vitals table for history
-        await supabase.from('patient_vitals').insert([{
-          mr_number:   mrNum || null,
-          child_name:  a.childName,
-          weight:      vitals.weight      || '',
-          height:      vitals.height      || '',
-          bp:          vitals.bp          || '',
-          pulse:       vitals.pulse       || '',
-          temperature: vitals.temperature || '',
-          recorded_at: vitals.recordedAt  || new Date().toISOString().split('T')[0],
-        }]);
+        // Vitals stored in appointments table only — patient_vitals updated via Patient tab
       } catch (err: any) {
         console.warn('Vitals DB sync failed:', err.message);
       }

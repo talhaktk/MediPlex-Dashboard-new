@@ -285,13 +285,13 @@ export async function syncHealthToDb(
   health: { bloodGroup?: string; allergies?: string; conditions?: string; notes?: string; vitals?: any[] }
 ): Promise<void> {
   try {
-    const updatePayload: Record<string, any> = {
-      blood_group: health.bloodGroup || null,
-      allergies:   health.allergies  || null,
-      conditions:  health.conditions || null,
-      notes:       health.notes      || null,
-      vitals_json: health.vitals     || null,
-    };
+    // Only sync health fields — NO vitals to patients table
+    const updatePayload: Record<string, any> = {};
+    if (health.bloodGroup !== undefined) updatePayload.blood_group = health.bloodGroup || null;
+    if (health.allergies  !== undefined) updatePayload.allergies   = health.allergies  || null;
+    if (health.conditions !== undefined) updatePayload.conditions  = health.conditions || null;
+    if (health.notes      !== undefined) updatePayload.notes       = health.notes      || null;
+    if (Object.keys(updatePayload).length === 0) return;
     if (mrNumber) {
       await supabase.from('patients').update(updatePayload).eq('mr_number', mrNumber);
     } else if (childName) {
