@@ -124,10 +124,11 @@ function ScribePanel({
     [scribeData.mode]: scribeData.output
   });
 
-  const modeColors = {
+  const modeColors: Record<string,string> = {
     soap: '#3b82f6',
     prescription: '#10b981',
-    discharge: '#f59e0b'
+    discharge: '#f59e0b',
+    referral: '#8b5cf6'
   };
   const color = modeColors[activeMode];
 
