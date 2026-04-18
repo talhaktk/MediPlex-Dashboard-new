@@ -118,7 +118,7 @@ function ScribePanel({
   onUseInPrescription: (text: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const [activeMode, setActiveMode] = useState<'soap' | 'prescription' | 'discharge'>(scribeData.mode);
+  const [activeMode, setActiveMode] = useState<'soap' | 'prescription' | 'discharge' | 'referral'>(scribeData.mode as any);
   const [generating, setGenerating] = useState(false);
   const [outputs, setOutputs] = useState<Record<string, string>>({
     [scribeData.mode]: scribeData.output
