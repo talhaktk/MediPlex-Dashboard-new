@@ -19,29 +19,37 @@ interface SelectedPatient {
   name: string; age: string; parentName: string; whatsapp: string; mrNumber?: string;
 }
 
-function buildPatientContext(patient: SelectedPatient): string {
+function buildPatientContext(patient: SelectedPatient, dbVitals?: any): string {
   const key = patientKey(patient.name);
   const health = getHealth(key);
-  const vitals = getLatestVitals(key);
+  const localVitals = getLatestVitals(key);
+  // Use DB vitals if more recent, otherwise local
+  const vitals = dbVitals || localVitals;
   const parts = [
     `Patient: ${patient.name}`,
     patient.age ? `Age: ${patient.age} years` : '',
     patient.parentName ? `Parent/Guardian: ${patient.parentName}` : '',
     patient.mrNumber ? `MR Number: ${patient.mrNumber}` : '',
     health.bloodGroup ? `Blood Group: ${health.bloodGroup}` : '',
-    health.allergies ? `⚠️ ALLERGIES: ${health.allergies}` : 'No known allergies',
-    health.conditions ? `Medical History: ${health.conditions}` : '',
-    health.notes ? `Previous Notes: ${health.notes}` : '',
+    health.allergies ? `⚠️ KNOWN ALLERGIES: ${health.allergies}` : 'No known allergies',
+    health.conditions ? `Medical Conditions/History: ${health.conditions}` : '',
+    health.notes ? `Clinical Notes: ${health.notes}` : '',
   ];
   if (vitals) {
+    const w = vitals.weight || vitals.visit_weight || '';
+    const h = vitals.height || vitals.visit_height || '';
+    const bp = vitals.bp || vitals.visit_bp || '';
+    const pulse = vitals.pulse || vitals.visit_pulse || '';
+    const temp = vitals.temperature || vitals.visit_temperature || '';
+    const date = vitals.recordedAt || vitals.recorded_at || vitals.appointment_date || '';
     const vp = [
-      vitals.weight ? `Weight: ${vitals.weight}kg` : '',
-      vitals.height ? `Height: ${vitals.height}cm` : '',
-      vitals.bp ? `BP: ${vitals.bp}` : '',
-      vitals.pulse ? `Pulse: ${vitals.pulse}bpm` : '',
-      vitals.temperature ? `Temp: ${vitals.temperature}°C` : '',
+      w ? `Weight: ${w}kg` : '',
+      h ? `Height: ${h}cm` : '',
+      bp ? `BP: ${bp}` : '',
+      pulse ? `Pulse: ${pulse}bpm` : '',
+      temp ? `Temperature: ${temp}°C` : '',
     ].filter(Boolean);
-    if (vp.length) parts.push(`Latest Vitals (${vitals.recordedAt}): ${vp.join(', ')}`);
+    if (vp.length) parts.push(`Latest Vitals${date ? ` (${date})` : ''}: ${vp.join(', ')}`);
   }
   return parts.filter(Boolean).join('\n');
 }
@@ -221,12 +229,48 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
     ? uniquePatients.filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase()) || p.parentName.toLowerCase().includes(patientSearch.toLowerCase()))
     : uniquePatients.slice(0, 8);
 
-  const selectPatient = (p: SelectedPatient) => {
+  const selectPatient = async (p: SelectedPatient) => {
     setSelectedPatient(p);
-    setPatientContext(buildPatientContext(p));
     setShowPatientSearch(false);
     setPatientSearch('');
     setSavedToDb(false);
+
+    // Fetch latest vitals from DB (appointments + patient_vitals)
+    let dbVitals = null;
+    try {
+      // Try patient_vitals first
+      const pvQ = p.mrNumber
+        ? supabase.from('patient_vitals').select('*').eq('mr_number', p.mrNumber).order('recorded_at', {ascending:false}).limit(1)
+        : supabase.from('patient_vitals').select('*').ilike('child_name', p.name).order('recorded_at', {ascending:false}).limit(1);
+      const { data: pvRows } = await pvQ;
+
+      // Also get latest visit vitals from appointments
+      const aptQ = p.mrNumber
+        ? supabase.from('appointments').select('appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', p.mrNumber).not('visit_weight','is',null).order('appointment_date',{ascending:false}).limit(1)
+        : supabase.from('appointments').select('appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').ilike('child_name', p.name).not('visit_weight','is',null).order('appointment_date',{ascending:false}).limit(1);
+      const { data: aptRows } = await aptQ;
+
+      // Also fetch health from patients table
+      if (p.mrNumber) {
+        const { data: hRow } = await supabase.from('patients').select('blood_group,allergies,conditions,notes').eq('mr_number', p.mrNumber).maybeSingle();
+        if (hRow) {
+          const key = patientKey(p.name);
+          const local = getHealth(key);
+          if (!local.bloodGroup && hRow.blood_group) local.bloodGroup = hRow.blood_group;
+          if (!local.allergies  && hRow.allergies)   local.allergies  = hRow.allergies;
+          if (!local.conditions && hRow.conditions)  local.conditions = hRow.conditions;
+          if (!local.notes      && hRow.notes)       local.notes      = hRow.notes;
+          setHealth(key, local);
+        }
+      }
+
+      // Pick most recent vitals
+      const pvDate = pvRows?.[0]?.recorded_at || '';
+      const aptDate = aptRows?.[0]?.appointment_date || '';
+      dbVitals = pvDate >= aptDate ? pvRows?.[0] : aptRows?.[0];
+    } catch {}
+
+    setPatientContext(buildPatientContext(p, dbVitals));
     toast.success(`Loaded ${p.name}'s records`);
   };
 
