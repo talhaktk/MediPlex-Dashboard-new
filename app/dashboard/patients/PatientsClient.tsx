@@ -9,6 +9,8 @@ import { Search, X, Phone, Mail, Calendar, User, Heart, Activity, FileText, Plus
 import toast from 'react-hot-toast';
 import { getHealth, setHealth, addVitals, getLatestVitals, getPrescriptionsByPatient, patientKey, HealthRecord, VitalSigns } from '@/lib/store';
 import StatusPill from '@/components/ui/StatusPill';
+import LabResults from '@/components/ui/LabResults';
+import ConsentForms from '@/components/ui/ConsentForms';
 
 interface PatientRecord {
   key: string; mrNumber: string; name: string; gender: string;
@@ -54,7 +56,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
-  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'>('visits');
+  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'>('visits');
   const [editHealth, setEditHealth] = useState(false);
   const [draft, setDraft] = useState<HealthRecord>(emptyHealth());
   const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt: new Date().toISOString().split('T')[0] });
@@ -730,6 +732,21 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   </div>
 ))
                   }
+                </div>
+              )}
+
+
+              {/* LABS */}
+              {activeTab==='labs' && (
+                <div className="p-5">
+                  <LabResults childName={selected.name} mrNumber={selected.mrNumber} visitDate={new Date().toISOString().split('T')[0]}/>
+                </div>
+              )}
+
+              {/* CONSENT FORMS */}
+              {activeTab==='consent' && (
+                <div className="p-5">
+                  <ConsentForms childName={selected.name} parentName={selected.parentName} childAge={selected.age} mrNumber={selected.mrNumber} clinicName="MediPlex Pediatric Centre" doctorName="Dr. Talha"/>
                 </div>
               )}
 

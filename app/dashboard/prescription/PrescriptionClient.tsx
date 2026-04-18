@@ -257,6 +257,10 @@ export default function PrescriptionClient({
 }) {
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [drugSearch, setDrugSearch] = useState<Record<string,string>>({});
+  const [drugSuggestions, setDrugSuggestions] = useState<Record<string,any[]>>({});
+  const [interactionWarnings, setInteractionWarnings] = useState<string[]>([]);
+  const [doseWarnings, setDoseWarnings] = useState<Record<string,string>>({});
   const [search, setSearch] = useState('');
   const [aptSearch, setAptSearch] = useState('');
   const [form, setForm] = useState<Partial<Prescription>>({});
@@ -365,6 +369,83 @@ export default function PrescriptionClient({
     if (extractedMeds.length > 0) setMedicines(extractedMeds);
     setShowForm(true);
     toast.success('AI Scribe data loaded into prescription!');
+  };
+
+  // ── Drug Safety Functions ─────────────────────────────────────────────────
+  const searchDrug = async (medId: string, query: string) => {
+    setDrugSearch(p => ({...p, [medId]: query}));
+    if (query.length < 2) { setDrugSuggestions(p => ({...p, [medId]: []})); return; }
+    const { data } = await supabase.from('drugs').select('*').ilike('name', `%${query}%`).limit(6);
+    setDrugSuggestions(p => ({...p, [medId]: data || []}));
+  };
+
+  const selectDrug = (medId: string, drug: any) => {
+    const vitals = form.childName ? (() => {
+      const key = patientKey(form.childName);
+      return getLatestVitals(key);
+    })() : null;
+    const health = form.childName ? getHealth(patientKey(form.childName)) : null;
+    const ageYears = parseFloat(form.childAge || '0');
+    const weightKg = parseFloat(vitals?.weight || '0');
+    const pd = drug.paediatric || {};
+
+    // Auto-calculate dose
+    let autoDose = '';
+    let warning = '';
+    if (pd.mgPerKg && weightKg > 0) {
+      const calc = pd.mgPerKg * weightKg;
+      const final = pd.maxDose ? Math.min(calc, pd.maxDose) : calc;
+      autoDose = `${Math.round(final)}mg`;
+      if (calc > (pd.maxDose || 9999)) warning = `⚠️ Dose capped at max ${pd.maxDose}mg`;
+    } else if (ageYears < 2 && pd.age1to4y) autoDose = pd.age1to4y;
+    else if (ageYears < 5 && pd.age1to4y) autoDose = pd.age1to4y;
+    else if (ageYears < 12 && pd.age5to11y) autoDose = pd.age5to11y;
+    else if (pd.age12to17y) autoDose = pd.age12to17y;
+
+    // Allergy check
+    const allergies = (health?.allergies || '').toLowerCase();
+    const drugName = (drug.generic || drug.name || '').toLowerCase();
+    if (allergies && (allergies.includes(drugName) || allergies.includes(drug.category?.toLowerCase() || ''))) {
+      warning = `🚨 ALLERGY ALERT: Patient is allergic to ${drug.name}`;
+    }
+
+    if (pd.warning) warning = warning || pd.warning;
+    if (warning) setDoseWarnings(p => ({...p, [medId]: warning}));
+    else setDoseWarnings(p => { const n = {...p}; delete n[medId]; return n; });
+
+    updateMed(medId, 'name', drug.name);
+    updateMed(medId, 'dose', autoDose);
+    updateMed(medId, 'frequency', pd.frequency || 'Twice daily');
+    setDrugSearch(p => ({...p, [medId]: drug.name}));
+    setDrugSuggestions(p => ({...p, [medId]: []}));
+  };
+
+  const checkInteractions = async (meds: Medicine[]) => {
+    const names = meds.map(m => m.name.toLowerCase()).filter(Boolean);
+    if (names.length < 2) { setInteractionWarnings([]); return; }
+    const { data } = await supabase.from('drug_interactions').select('*').or(
+      names.map(n => `drug_a.ilike.%${n}%`).join(',')
+    );
+    const warnings: string[] = [];
+    (data || []).forEach((ix: any) => {
+      const aMatch = names.some(n => ix.drug_a?.toLowerCase().includes(n) || n.includes(ix.drug_a?.toLowerCase()));
+      const bMatch = names.some(n => ix.drug_b?.toLowerCase().includes(n) || n.includes(ix.drug_b?.toLowerCase()));
+      if (aMatch && bMatch) {
+        warnings.push(`${ix.severity === 'Contraindicated' ? '🚫' : ix.severity === 'Severe' ? '⛔' : '⚠️'} ${ix.drug_a} + ${ix.drug_b}: ${ix.effect}. ${ix.action}`);
+      }
+    });
+    setInteractionWarnings(warnings);
+  };
+
+  const validateAndSave = async () => {
+    if (!form.childName) { toast.error('Select a patient first'); return; }
+    if (medicines.filter(m => m.name).length === 0) { toast.error('Add at least one medicine'); return; }
+    const warnings = [...interactionWarnings, ...Object.values(doseWarnings)];
+    if (warnings.length > 0) {
+      const msg = warnings.join('\n\n') + '\n\nProceed anyway?';
+      if (!window.confirm(msg)) return;
+    }
+    await saveRxForm();
   };
 
   const addMedicine = () => setMedicines(prev => [...prev, emptyMed()]);
@@ -568,6 +649,14 @@ export default function PrescriptionClient({
                   className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
               </div>
 
+              {/* Interaction Warnings */}
+              {interactionWarnings.length > 0 && (
+                <div className="mb-4 rounded-xl p-4 space-y-2" style={{background:'#fff7ed',border:'2px solid #fed7aa'}}>
+                  <div className="text-[12px] font-bold text-amber-800 flex items-center gap-2">⚠️ Drug Interaction Warnings</div>
+                  {interactionWarnings.map((w,i) => <div key={i} className="text-[12px] text-amber-900">{w}</div>)}
+                </div>
+              )}
+
               {/* Medicines */}
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-2">
@@ -588,9 +677,28 @@ export default function PrescriptionClient({
                       <div className="grid grid-cols-2 gap-3">
                         <div className="col-span-2">
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Medicine Name</label>
-                          <input type="text" placeholder="e.g. Paracetamol 500mg" value={m.name}
-                            onChange={e => updateMed(m.id, 'name', e.target.value)}
-                            className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                          <div className="relative">
+                            <input type="text" placeholder="Type to search BNF drugs..." 
+                              value={drugSearch[m.id] !== undefined ? drugSearch[m.id] : m.name}
+                              onChange={e => { updateMed(m.id, 'name', e.target.value); searchDrug(m.id, e.target.value); checkInteractions(medicines); }}
+                              className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                            {(drugSuggestions[m.id]||[]).length > 0 && (
+                              <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl border border-black/10 bg-white shadow-lg overflow-hidden">
+                                {(drugSuggestions[m.id]||[]).map((drug:any) => (
+                                  <button key={drug.id} onClick={() => selectDrug(m.id, drug)}
+                                    className="w-full text-left px-3 py-2.5 hover:bg-amber-50 border-b border-black/5 last:border-0">
+                                    <div className="text-[13px] font-medium text-navy">{drug.name}</div>
+                                    <div className="text-[11px] text-gray-400">{drug.category} · {(drug.paediatric?.mgPerKg) ? `${drug.paediatric.mgPerKg}mg/kg` : 'See dosing'}</div>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          {doseWarnings[m.id] && (
+                            <div className="mt-1.5 px-3 py-2 rounded-lg text-[11px] font-medium" style={{background:doseWarnings[m.id].includes('🚨')?'#fee2e2':'#fff7ed',color:doseWarnings[m.id].includes('🚨')?'#991b1b':'#92400e'}}>
+                              {doseWarnings[m.id]}
+                            </div>
+                          )}
                         </div>
                         <div>
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Dose</label>
@@ -643,7 +751,7 @@ export default function PrescriptionClient({
               </div>
 
               <div className="flex gap-2 pt-4 border-t border-black/5">
-                <button onClick={saveRxForm} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
+                <button onClick={validateAndSave} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
                 <button onClick={() => {
                   saveRxForm();
                   const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name) };
