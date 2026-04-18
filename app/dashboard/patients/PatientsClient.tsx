@@ -211,6 +211,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     { key:'prescriptions', label:`Rx (${allRx.length})` },
     { key:'scribe',        label:`AI Notes (${scribeOutputs.length})` },
     { key:'procedures',    label:`Procedures (${procedures.length})` },
+    {key:'labs',label:'Labs & Reports'},
+    {key:'consent',label:'Consent Forms'},
   ] as const;
 
   return (
