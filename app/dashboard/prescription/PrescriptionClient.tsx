@@ -306,6 +306,7 @@ export default function PrescriptionClient({
   const [clinicalIxDrug2, setClinicalIxDrug2] = useState('');
   const [clinicalIxResult, setClinicalIxResult] = useState<any[]>([]);
   const [clinicalSearching, setClinicalSearching] = useState(false);
+  const [clinicalTab, setClinicalTab] = useState<'dose'|'interaction'>('dose');
 
   const searchClinical = async (q: string) => {
     setClinicalSearch(q);
@@ -466,8 +467,11 @@ export default function PrescriptionClient({
     // Allergy check
     const allergies = (health?.allergies || '').toLowerCase();
     const drugName = (drug.generic || drug.name || '').toLowerCase();
-    if (allergies && (allergies.includes(drugName) || allergies.includes(drug.category?.toLowerCase() || ''))) {
-      warning = `🚨 ALLERGY ALERT: Patient is allergic to ${drug.name}`;
+    const drugCategory = (drug.category || '').toLowerCase();
+    const allergyWords = allergies.split(/[,;\s]+/).filter((w:string) => w.length > 3);
+    const allergyMatch = allergyWords.some((w:string) => drugName.includes(w) || drugCategory.includes(w));
+    if (allergies && allergyMatch) {
+      warning = `🚨 ALLERGY ALERT: Patient has allergy (${health?.allergies}) — may cross-react with ${drug.name}`;
     }
 
     if (pd.warning) warning = warning || pd.warning;
@@ -956,8 +960,14 @@ export default function PrescriptionClient({
                 <button onClick={()=>setShowClinicalPanel(false)} className="w-6 h-6 rounded-lg flex items-center justify-center text-white/40 hover:text-white/70"><X size={12}/></button>
               </div>
 
-              {/* Drug Search */}
-              <div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+              {/* Dose / Interaction tab buttons */}
+              <div className="flex gap-1 px-3 py-2 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+                <button onClick={()=>setClinicalTab('dose')} className="flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all" style={{background:clinicalTab==='dose'?'rgba(59,130,246,0.25)':'rgba(255,255,255,0.05)',color:clinicalTab==='dose'?'#60a5fa':'rgba(255,255,255,0.4)',border:clinicalTab==='dose'?'1px solid rgba(59,130,246,0.4)':'1px solid transparent'}}>Drug Doses</button>
+                <button onClick={()=>setClinicalTab('interaction')} className="flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all" style={{background:clinicalTab==='interaction'?'rgba(59,130,246,0.25)':'rgba(255,255,255,0.05)',color:clinicalTab==='interaction'?'#60a5fa':'rgba(255,255,255,0.4)',border:clinicalTab==='interaction'?'1px solid rgba(59,130,246,0.4)':'1px solid transparent'}}>Interactions</button>
+              </div>
+
+              {/* Drug Search — only show on Dose tab */}
+              {clinicalTab==='dose' && <div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
                 <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Reference Search</div>
                 <div className="relative">
                   <input type="text" placeholder="Search BNF drugs..." value={clinicalSearch} onChange={e=>searchClinical(e.target.value)}
@@ -979,7 +989,7 @@ export default function PrescriptionClient({
 
               {/* Drug Info */}
               <div className="flex-1 overflow-y-auto px-3 py-3">
-                {clinicalSelected ? (
+                {clinicalTab==='dose' && clinicalSelected ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="text-[13px] font-bold text-white">{clinicalSelected.name}</div>
@@ -1023,13 +1033,10 @@ export default function PrescriptionClient({
                   </div>
                 ) : (
                   <div>
-                    {/* Interaction Checker */}
-                    <div className="mb-4">
+                    {clinicalTab==='interaction' && <div className="mb-4">
                       <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Interaction Checker</div>
-                      <input type="text" placeholder="Drug 1 (e.g. Ibuprofen)" value={clinicalIxDrug1} onChange={e=>setClinicalIxDrug1(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none mb-2"/>
-                      <input type="text" placeholder="Drug 2 (e.g. Warfarin)" value={clinicalIxDrug2} onChange={e=>setClinicalIxDrug2(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none mb-2"/>
+                      <ClinicalDrugInput value={clinicalIxDrug1} onChange={setClinicalIxDrug1} placeholder="Drug 1 (e.g. Ibuprofen)"/>
+                      <ClinicalDrugInput value={clinicalIxDrug2} onChange={setClinicalIxDrug2} placeholder="Drug 2 (e.g. Warfarin)"/>
                       <button onClick={checkClinicalInteraction} className="w-full py-2 rounded-xl text-[12px] font-semibold" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa',border:'1px solid rgba(59,130,246,0.3)'}}>
                         Check Interaction
                       </button>
