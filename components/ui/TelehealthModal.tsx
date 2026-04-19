@@ -21,6 +21,9 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
   const [platform, setPlatform] = useState('jitsi');
   const [manualLink, setManualLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [patientLinkCopied, setPatientLinkCopied] = useState(false);
+  const [sessionToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
+  const [patientSubmitted, setPatientSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [preConsult, setPreConsult] = useState({
     chief_complaint:'', symptoms:'', duration:'',
@@ -31,6 +34,17 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
   const [dbRx, setDbRx] = useState<any[]>([]);
 
   const jitsiLink = `https://meet.jit.si/MediPlex-${appointment.id.toString().replace(/[^a-zA-Z0-9]/g,'').slice(0,12)}`;
+  const patientLink = typeof window !== 'undefined' ? `${window.location.origin}/preconsult/${sessionToken}` : `/preconsult/${sessionToken}`;
+
+  // Poll for patient submission every 5s
+  useEffect(() => {
+    if (step !== 'ready') return;
+    const interval = setInterval(async () => {
+      const { data } = await supabase.from('telehealth_sessions').select('status').eq('token', sessionToken).maybeSingle();
+      if (data?.status === 'submitted') { setPatientSubmitted(true); clearInterval(interval); }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [step, sessionToken]);
   const finalLink = platform==='jitsi' ? jitsiLink : manualLink;
 
   useEffect(() => {
@@ -49,6 +63,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
   const saveAndProceed = async () => {
     setLoading(true);
     try { await supabase.from('telehealth_sessions').insert([{
+      token: sessionToken,
       appointment_id: appointment.id, mr_number:(appointment as any).mr_number||null,
       child_name:appointment.childName, parent_name:appointment.parentName,
       platform, link:finalLink,
@@ -57,7 +72,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
       vitals:{weight:preConsult.weight,bp:preConsult.bp,pulse:preConsult.pulse,temperature:preConsult.temperature,o2_sat:preConsult.o2_sat},
       allergies:preConsult.allergies_confirmed, current_meds:preConsult.current_meds,
       blood_group:preConsult.blood_group, notes:preConsult.notes,
-    }]); } catch {}
+    }]).catch(()=>{});
     setLoading(false);
     setStep('ready');
   };
@@ -178,6 +193,22 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
                 )}
                 {outstanding>0&&<div className="text-[11px] text-red-400">⚠ Outstanding: PKR {outstanding.toLocaleString()}</div>}
               </div>
+              {/* Patient pre-consult link */}
+              <div className="rounded-xl p-3 space-y-2" style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.3)'}}>
+                <div className="text-[10px] text-amber-400 uppercase tracking-widest font-medium">Send to Patient (WhatsApp)</div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] text-white/50 flex-1 truncate">{patientLink}</span>
+                  <button onClick={()=>{navigator.clipboard.writeText(patientLink);setPatientLinkCopied(true);setTimeout(()=>setPatientLinkCopied(false),2000);}} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] flex-shrink-0" style={{background:'rgba(201,168,76,0.2)',color:'#c9a84c'}}>
+                    {patientLinkCopied?<Check size={10}/>:<Copy size={10}/>} {patientLinkCopied?'Copied':'Copy'}
+                  </button>
+                </div>
+                {patientSubmitted
+                  ? <div className="text-[11px] text-emerald-400 font-medium">✅ Patient form submitted — data synced to records</div>
+                  : <div className="text-[11px] text-white/30">⏳ Waiting for patient to complete form...</div>
+                }
+              </div>
+
+              {/* Doctor join link */}
               <div className="rounded-xl p-3 flex items-center gap-2" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.08)'}}>
                 <span className="font-mono text-[11px] text-blue-400 flex-1 truncate">{finalLink}</span>
                 <button onClick={copyLink} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] flex-shrink-0" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa'}}>
