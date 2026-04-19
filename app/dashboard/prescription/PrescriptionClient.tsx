@@ -247,6 +247,33 @@ function ScribePanel({
   );
 }
 
+
+// ── Clinical Drug Input with autocomplete ─────────────────────────────────
+function ClinicalDrugInput({ value, onChange, placeholder }: { value:string; onChange:(v:string)=>void; placeholder:string }) {
+  const [results, setResults] = useState<any[]>([]);
+  const search = async (q: string) => {
+    onChange(q);
+    if (q.length < 2) { setResults([]); return; }
+    const { createClient } = await import('@supabase/supabase-js');
+    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+    const { data } = await sb.from('drugs').select('name').ilike('name', `%${q}%`).limit(6);
+    setResults(data||[]);
+  };
+  return (
+    <div className="relative mb-2">
+      <input type="text" placeholder={placeholder} value={value} onChange={e=>search(e.target.value)}
+        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none focus:border-blue-500/50"/>
+      {results.length>0&&(
+        <div className="absolute top-full left-0 right-0 z-50 mt-0.5 rounded-xl border border-white/10 overflow-hidden" style={{background:'#1e293b'}}>
+          {results.map((d:any)=>(
+            <button key={d.name} onClick={()=>{onChange(d.name);setResults([]);}} className="w-full text-left px-3 py-2 hover:bg-white/10 text-[12px] text-white border-b border-white/5 last:border-0">{d.name}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────
 export default function PrescriptionClient({
   data, clinicName, doctorName, clinicPhone, clinicAddress
