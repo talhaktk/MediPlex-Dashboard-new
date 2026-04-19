@@ -15,6 +15,7 @@ import {
   patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
 } from '@/lib/store';
 import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeStore';
+import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -251,13 +252,11 @@ function ScribePanel({
 // ── Clinical Drug Input with autocomplete ─────────────────────────────────
 function ClinicalDrugInput({ value, onChange, placeholder }: { value:string; onChange:(v:string)=>void; placeholder:string }) {
   const [results, setResults] = useState<any[]>([]);
-  const search = async (q: string) => {
+  const search = (q: string) => {
     onChange(q);
     if (q.length < 2) { setResults([]); return; }
-    const { createClient } = await import('@supabase/supabase-js');
-    const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-    const { data } = await sb.from('drugs').select('name').ilike('name', `%${q}%`).limit(6);
-    setResults(data||[]);
+    const data = searchDrugs(q).slice(0, 6).map((d:any) => ({name: d.name}));
+    setResults(data);
   };
   return (
     <div className="relative mb-2">
@@ -308,20 +307,20 @@ export default function PrescriptionClient({
   const [clinicalSearching, setClinicalSearching] = useState(false);
   const [clinicalTab, setClinicalTab] = useState<'dose'|'interaction'>('dose');
 
-  const searchClinical = async (q: string) => {
+  const searchClinical = (q: string) => {
     setClinicalSearch(q);
     if (q.length < 2) { setClinicalResults([]); return; }
-    setClinicalSearching(true);
-    const { data } = await supabase.from('drugs').select('*').ilike('name', `%${q}%`).limit(8);
-    setClinicalResults(data || []);
-    setClinicalSearching(false);
+    const results = searchDrugs(q).slice(0, 8);
+    setClinicalResults(results);
   };
 
   const checkClinicalInteraction = async () => {
     if (!clinicalIxDrug1 || !clinicalIxDrug2) { toast.error('Enter both drug names'); return; }
-    const { data } = await supabase.from('drug_interactions').select('*').or(
-      `drug_a.ilike.%${clinicalIxDrug1}%,drug_b.ilike.%${clinicalIxDrug1}%,drug_a.ilike.%${clinicalIxDrug2}%,drug_b.ilike.%${clinicalIxDrug2}%`
-    );
+    const bnfResults = bnfCheckInteractions([clinicalIxDrug1, clinicalIxDrug2]);
+    setClinicalIxResult(bnfResults as any[]);
+    if (bnfResults.length === 0) { toast('No interactions found', {icon:'✅'}); return; }
+    toast.error(bnfResults.length + ' interaction(s) found');
+    return;
     const results = (data||[]).filter((ix:any) => {
       const a = ix.drug_a?.toLowerCase()||''; const b = ix.drug_b?.toLowerCase()||'';
       const d2 = clinicalIxDrug2.toLowerCase();
