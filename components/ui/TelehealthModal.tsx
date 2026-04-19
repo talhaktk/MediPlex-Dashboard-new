@@ -48,7 +48,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
 
   const saveAndProceed = async () => {
     setLoading(true);
-    await supabase.from('telehealth_sessions').insert([{
+    try { await supabase.from('telehealth_sessions').insert([{
       appointment_id: appointment.id, mr_number:(appointment as any).mr_number||null,
       child_name:appointment.childName, parent_name:appointment.parentName,
       platform, link:finalLink,
@@ -57,7 +57,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
       vitals:{weight:preConsult.weight,bp:preConsult.bp,pulse:preConsult.pulse,temperature:preConsult.temperature,o2_sat:preConsult.o2_sat},
       allergies:preConsult.allergies_confirmed, current_meds:preConsult.current_meds,
       blood_group:preConsult.blood_group, notes:preConsult.notes,
-    }]).catch(()=>{});
+    }]); } catch {}
     setLoading(false);
     setStep('ready');
   };
