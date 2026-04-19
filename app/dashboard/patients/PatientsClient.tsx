@@ -195,8 +195,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const allVitals = useMemo(() => {
     const local = health.vitals || [];
     const used = new Set(local.map(v => v.recordedAt));
-    const fromPatientVitals = dbVitals.filter(dv => !used.has(dv.recorded_at)).map(dv => { used.add(dv.recorded_at); return { weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, _source:'record' }; });
-    const fromApt = aptVitals.filter(av => !used.has(av.appointment_date)).map(av => { used.add(av.appointment_date); return { weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, _source:'visit' }; });
+    const fromPatientVitals = dbVitals.map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, _source:'record' }));
+    const fromApt = aptVitals.filter(av => av.visit_weight||av.visit_bp||av.visit_height||av.visit_pulse||av.visit_temperature).map(av => ({ weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, _source:'visit' }));
     return [...local, ...fromPatientVitals, ...fromApt].sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
   }, [health.vitals, dbVitals, aptVitals]);
 
