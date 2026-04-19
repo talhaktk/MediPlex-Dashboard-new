@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { FolderOpen, usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
 
 const NAV = [
   { label:'Overview',      href:'/dashboard',               icon:LayoutDashboard },
