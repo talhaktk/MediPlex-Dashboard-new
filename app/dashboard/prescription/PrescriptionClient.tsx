@@ -717,7 +717,7 @@ export default function PrescriptionClient({
               {form.childName && (() => {
                 const key = patientKey(form.childName);
                 const h = getHealth(key);
-                const vitals = getLatestVitals(key);
+                const vitals = dbPatientVitals;
                 if (!h.bloodGroup && !h.allergies && !h.conditions && !vitals) return null;
                 return (
                   <div className="rounded-xl p-4 space-y-3 mb-4" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
