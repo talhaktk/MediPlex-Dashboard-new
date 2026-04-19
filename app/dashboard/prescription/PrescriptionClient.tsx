@@ -500,10 +500,14 @@ export default function PrescriptionClient({
     const orFilter = [...names.map(n=>`drug_a.ilike.%${n}%`),...names.map(n=>`drug_b.ilike.%${n}%`)].join(',');
     const { data } = await supabase.from('drug_interactions').select('*').or(orFilter);
     const warnings: string[] = [];
+    const seen = new Set<string>();
     (data || []).forEach((ix: any) => {
-      const aMatch = names.some(n => ix.drug_a?.toLowerCase().includes(n) || n.includes(ix.drug_a?.toLowerCase()));
-      const bMatch = names.some(n => ix.drug_b?.toLowerCase().includes(n) || n.includes(ix.drug_b?.toLowerCase()));
-      if (aMatch && bMatch) {
+      const a = (ix.drug_a||'').toLowerCase().split(' ')[0];
+      const b = (ix.drug_b||'').toLowerCase().split(' ')[0];
+      const aMatch = a.length > 3 && names.some(n => n.startsWith(a) || a.startsWith(n.split(' ')[0]));
+      const bMatch = b.length > 3 && names.some(n => n.startsWith(b) || b.startsWith(n.split(' ')[0]));
+      const key = [ix.drug_a,ix.drug_b].sort().join('||');
+      if (aMatch && bMatch && !seen.has(key)) { seen.add(key);
         warnings.push(`${ix.severity === 'Contraindicated' ? '🚫' : ix.severity === 'Severe' ? '⛔' : '⚠️'} ${ix.drug_a} + ${ix.drug_b}: ${ix.effect}. ${ix.action}`);
       }
     });
