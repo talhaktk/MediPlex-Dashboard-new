@@ -2,12 +2,14 @@ import { supabase } from '@/lib/supabase';
 import PreConsultClient from './PreConsultClient';
 
 export default async function PreConsultPage({ params }: { params: { token: string } }) {
-  const { data: session } = await supabase
+  console.log('Looking for token:', params.token);
+  const { data: session, error: sessionError } = await supabase
     .from('telehealth_sessions')
     .select('*')
     .eq('token', params.token)
     .maybeSingle();
 
+  console.log('Session:', session, 'Error:', sessionError?.message);
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6" style={{background:'#f9f7f3'}}>
