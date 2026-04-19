@@ -261,6 +261,7 @@ export default function PrescriptionClient({
   const [drugSuggestions, setDrugSuggestions] = useState<Record<string,any[]>>({});
   const [interactionWarnings, setInteractionWarnings] = useState<string[]>([]);
   const [doseWarnings, setDoseWarnings] = useState<Record<string,string>>({});
+  const [recommendedDoses, setRecommendedDoses] = useState<Record<string,{dose:string;min:number;max:number;unit:string}>>({});
   const [search, setSearch] = useState('');
   const [aptSearch, setAptSearch] = useState('');
   const [form, setForm] = useState<Partial<Prescription>>({});
@@ -413,6 +414,12 @@ export default function PrescriptionClient({
     if (warning) setDoseWarnings(p => ({...p, [medId]: warning}));
     else setDoseWarnings(p => { const n = {...p}; delete n[medId]; return n; });
 
+    // Store recommended dose for override checking
+    if (pd.mgPerKg && weightKg > 0) {
+      const minDose = Math.round(pd.mgPerKg * weightKg * 0.8);
+      const maxDose2 = pd.maxDose ? Math.min(Math.round(pd.mgPerKg * weightKg * 1.2), pd.maxDose) : Math.round(pd.mgPerKg * weightKg * 1.2);
+      setRecommendedDoses(p => ({...p, [medId]: { dose: autoDose, min: minDose, max: maxDose2, unit: 'mg' }}));
+    }
     updateMed(medId, 'name', drug.name);
     updateMed(medId, 'dose', autoDose);
     updateMed(medId, 'frequency', pd.frequency || 'Twice daily');
@@ -703,8 +710,26 @@ export default function PrescriptionClient({
                         <div>
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Dose</label>
                           <input type="text" placeholder="e.g. 5ml, 250mg" value={m.dose}
-                            onChange={e => updateMed(m.id, 'dose', e.target.value)}
+                            onChange={e => {
+                              updateMed(m.id, 'dose', e.target.value);
+                              // Dose override warning
+                              const rec = recommendedDoses[m.id];
+                              if (rec) {
+                                const entered = parseFloat(e.target.value.replace(/[^0-9.]/g,''));
+                                if (!isNaN(entered) && (entered < rec.min * 0.7 || entered > rec.max * 1.3)) {
+                                  setDoseWarnings(p => ({...p, [m.id]: `⚠️ Dose override: ${entered}mg entered. Recommended range for this patient: ${rec.min}–${rec.max}mg`}));
+                                } else if (!isNaN(entered)) {
+                                  setDoseWarnings(p => { const n={...p}; delete n[m.id]; return n; });
+                                }
+                              }
+                            }}
                             className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                          {recommendedDoses[m.id] && (
+                            <div className="mt-1 text-[10px] text-emerald-700 flex items-center gap-1">
+                              <span>Recommended for {form.childAge||'?'}yr / {(() => { const k=patientKey(form.childName||''); const v=getLatestVitals(k); return v?.weight||'?'; })()}kg:</span>
+                              <strong>{recommendedDoses[m.id].min}–{recommendedDoses[m.id].max}mg</strong>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Frequency</label>
