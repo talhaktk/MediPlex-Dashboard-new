@@ -967,7 +967,7 @@ export default function PrescriptionClient({
               </div>
 
               {/* Drug Search — only show on Dose tab */}
-              {clinicalTab==='dose' && <div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+              {clinicalTab==='dose' && (<div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
                 <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Reference Search</div>
                 <div className="relative">
                   <input type="text" placeholder="Search BNF drugs..." value={clinicalSearch} onChange={e=>searchClinical(e.target.value)}
