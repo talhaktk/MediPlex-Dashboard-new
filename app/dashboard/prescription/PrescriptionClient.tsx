@@ -468,24 +468,8 @@ export default function PrescriptionClient({
     const allergies = (health?.allergies || '').toLowerCase();
     const drugName = (drug.generic || drug.name || '').toLowerCase();
     const drugCategory = (drug.category || '').toLowerCase();
-    const ALLERGY_MAP: Record<string,string[]> = {
-      'penicillin': ['amoxicillin','ampicillin','flucloxacillin','co-amoxiclav','piperacillin','penicillin'],
-      'cephalosporin': ['cefalexin','cefuroxime','ceftriaxone','cefixime','cephalosporin'],
-      'sulfa': ['trimethoprim','sulfamethoxazole','co-trimoxazole','sulfonamide'],
-      'nsaid': ['ibuprofen','diclofenac','naproxen','aspirin','ketorolac','mefenamic','celecoxib','indomethacin'],
-      'macrolide': ['erythromycin','azithromycin','clarithromycin'],
-      'quinolone': ['ciprofloxacin','levofloxacin','ofloxacin','moxifloxacin'],
-      'aspirin': ['aspirin','acetylsalicylic'],
-      'codeine': ['codeine','dihydrocodeine','tramadol'],
-      'morphine': ['morphine','oxycodone','fentanyl','pethidine'],
-    };
     const allergyWords = allergies.split(/[,;\s]+/).filter((w:string) => w.length > 3);
-    const allergyMatch = allergyWords.some((w:string) => {
-      if (drugName.includes(w) || drugCategory.includes(w)) return true;
-      // Check cross-class: if allergy word matches a class key, check if drug is in that class
-      const classMembers = ALLERGY_MAP[w] || [];
-      return classMembers.some(m => drugName.includes(m) || drugCategory.includes(m));
-    });
+    const allergyMatch = allergyWords.some((w:string) => drugName.includes(w) || drugCategory.includes(w));
     if (allergies && allergyMatch) {
       warning = `🚨 ALLERGY ALERT: Patient has allergy (${health?.allergies}) — may cross-react with ${drug.name}`;
     }
