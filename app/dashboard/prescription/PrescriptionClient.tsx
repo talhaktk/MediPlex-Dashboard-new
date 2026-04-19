@@ -270,6 +270,39 @@ export default function PrescriptionClient({
   // AI Scribe panel state
   const [scribeData, setScribeData] = useState<ScribeOutput | null>(null);
   const [showScribePanel, setShowScribePanel] = useState(false);
+  // Clinical panel state
+  const [showClinicalPanel, setShowClinicalPanel] = useState(false);
+  const [clinicalSearch, setClinicalSearch] = useState('');
+  const [clinicalResults, setClinicalResults] = useState<any[]>([]);
+  const [clinicalSelected, setClinicalSelected] = useState<any|null>(null);
+  const [clinicalIxDrug1, setClinicalIxDrug1] = useState('');
+  const [clinicalIxDrug2, setClinicalIxDrug2] = useState('');
+  const [clinicalIxResult, setClinicalIxResult] = useState<any[]>([]);
+  const [clinicalSearching, setClinicalSearching] = useState(false);
+
+  const searchClinical = async (q: string) => {
+    setClinicalSearch(q);
+    if (q.length < 2) { setClinicalResults([]); return; }
+    setClinicalSearching(true);
+    const { data } = await supabase.from('drugs').select('*').ilike('name', `%${q}%`).limit(8);
+    setClinicalResults(data || []);
+    setClinicalSearching(false);
+  };
+
+  const checkClinicalInteraction = async () => {
+    if (!clinicalIxDrug1 || !clinicalIxDrug2) { toast.error('Enter both drug names'); return; }
+    const { data } = await supabase.from('drug_interactions').select('*').or(
+      `drug_a.ilike.%${clinicalIxDrug1}%,drug_b.ilike.%${clinicalIxDrug1}%`
+    );
+    const results = (data||[]).filter((ix:any) => {
+      const a = ix.drug_a?.toLowerCase()||''; const b = ix.drug_b?.toLowerCase()||'';
+      const d2 = clinicalIxDrug2.toLowerCase();
+      return (a.includes(clinicalIxDrug1.toLowerCase()) && b.includes(d2)) ||
+             (b.includes(clinicalIxDrug1.toLowerCase()) && a.includes(d2));
+    });
+    setClinicalIxResult(results);
+    if (results.length === 0) toast('No interactions found between these drugs', {icon:'✅'});
+  };
 
   useEffect(() => {
     setPrescriptions(loadRx());
@@ -414,11 +447,13 @@ export default function PrescriptionClient({
     if (warning) setDoseWarnings(p => ({...p, [medId]: warning}));
     else setDoseWarnings(p => { const n = {...p}; delete n[medId]; return n; });
 
-    // Store recommended dose for override checking
+    // Store recommended dose + frequency for override checking
     if (pd.mgPerKg && weightKg > 0) {
       const minDose = Math.round(pd.mgPerKg * weightKg * 0.8);
       const maxDose2 = pd.maxDose ? Math.min(Math.round(pd.mgPerKg * weightKg * 1.2), pd.maxDose) : Math.round(pd.mgPerKg * weightKg * 1.2);
-      setRecommendedDoses(p => ({...p, [medId]: { dose: autoDose, min: minDose, max: maxDose2, unit: 'mg' }}));
+      setRecommendedDoses(p => ({...p, [medId]: { dose: autoDose, min: minDose, max: maxDose2, unit: 'mg', frequency: pd.frequency||'', weight: weightKg }}));
+    } else if (autoDose) {
+      setRecommendedDoses(p => ({...p, [medId]: { dose: autoDose, min: 0, max: 0, unit: '', frequency: pd.frequency||'', weight: weightKg }}));
     }
     updateMed(medId, 'name', drug.name);
     updateMed(medId, 'dose', autoDose);
@@ -531,7 +566,17 @@ export default function PrescriptionClient({
         </div>
         <div className="ml-auto flex items-center gap-2">
           {/* AI Scribe toggle button */}
-          <button onClick={() => setShowScribePanel(!showScribePanel)}
+          <button onClick={() => { setShowClinicalPanel(!showClinicalPanel); if(showScribePanel) setShowScribePanel(false); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all border"
+            style={{
+              background: showClinicalPanel ? 'rgba(59,130,246,0.1)' : 'rgba(0,0,0,0.03)',
+              borderColor: showClinicalPanel ? 'rgba(59,130,246,0.4)' : 'rgba(0,0,0,0.1)',
+              color: showClinicalPanel ? '#3b82f6' : '#6b7280'
+            }}>
+            <Activity size={13} />
+            Clinical
+          </button>
+          <button onClick={() => { setShowScribePanel(!showScribePanel); if(showClinicalPanel) setShowClinicalPanel(false); }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium transition-all border"
             style={{
               background: showScribePanel ? 'rgba(201,168,76,0.1)' : 'rgba(0,0,0,0.03)',
@@ -549,7 +594,7 @@ export default function PrescriptionClient({
       </div>
 
       {/* Main layout — splits when scribe panel is open */}
-      <div className={`grid gap-5 transition-all ${showScribePanel ? 'grid-cols-1 lg:grid-cols-[1fr_380px]' : 'grid-cols-1'}`}>
+      <div className={`grid gap-5 transition-all ${(showScribePanel||showClinicalPanel) ? 'grid-cols-1 lg:grid-cols-[1fr_380px]' : 'grid-cols-1'}`}>
 
         {/* LEFT: Prescription content */}
         <div className="space-y-5 min-w-0">
@@ -712,31 +757,57 @@ export default function PrescriptionClient({
                           <input type="text" placeholder="e.g. 5ml, 250mg" value={m.dose}
                             onChange={e => {
                               updateMed(m.id, 'dose', e.target.value);
-                              // Dose override warning
+                              // Dose override/underride warning
                               const rec = recommendedDoses[m.id];
-                              if (rec) {
+                              if (rec && rec.min > 0) {
                                 const entered = parseFloat(e.target.value.replace(/[^0-9.]/g,''));
-                                if (!isNaN(entered) && (entered < rec.min * 0.7 || entered > rec.max * 1.3)) {
-                                  setDoseWarnings(p => ({...p, [m.id]: `⚠️ Dose override: ${entered}mg entered. Recommended range for this patient: ${rec.min}–${rec.max}mg`}));
-                                } else if (!isNaN(entered)) {
-                                  setDoseWarnings(p => { const n={...p}; delete n[m.id]; return n; });
+                                if (!isNaN(entered)) {
+                                  if (entered > rec.max * 1.3) {
+                                    setDoseWarnings(p => ({...p, [m.id]: `🔺 Dose Override: ${entered}mg exceeds recommended maximum ${rec.max}mg for this patient`}));
+                                  } else if (entered < rec.min * 0.7) {
+                                    setDoseWarnings(p => ({...p, [m.id]: `🔻 Sub-therapeutic Dose: ${entered}mg is below recommended minimum ${rec.min}mg — may be ineffective`}));
+                                  } else {
+                                    setDoseWarnings(p => { const n={...p}; delete n[m.id]; return n; });
+                                  }
                                 }
                               }
                             }}
                             className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
                           {recommendedDoses[m.id] && (
-                            <div className="mt-1 text-[10px] text-emerald-700 flex items-center gap-1">
-                              <span>Recommended for {form.childAge||'?'}yr / {(() => { const k=patientKey(form.childName||''); const v=getLatestVitals(k); return v?.weight||'?'; })()}kg:</span>
-                              <strong>{recommendedDoses[m.id].min}–{recommendedDoses[m.id].max}mg</strong>
+                            <div className="mt-1 px-2 py-1 rounded-lg text-[10px]" style={{background:'#f0fdf4',border:'1px solid #bbf7d0',color:'#166534'}}>
+                              {recommendedDoses[m.id].min > 0
+                                ? <>✓ Recommended for {recommendedDoses[m.id].weight}kg: <strong>{recommendedDoses[m.id].min}–{recommendedDoses[m.id].max}mg</strong>{recommendedDoses[m.id].frequency ? <> · <strong>{recommendedDoses[m.id].frequency}</strong></> : ''}</>
+                                : <>✓ Age-based dose: <strong>{recommendedDoses[m.id].dose}</strong>{recommendedDoses[m.id].frequency ? <> · <strong>{recommendedDoses[m.id].frequency}</strong></> : ''}</>
+                              }
                             </div>
                           )}
                         </div>
                         <div>
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Frequency</label>
-                          <select value={m.frequency} onChange={e => updateMed(m.id, 'frequency', e.target.value)}
-                            className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+                          <select value={m.frequency} onChange={e => {
+                            updateMed(m.id, 'frequency', e.target.value);
+                            // Frequency override warning
+                            const rec = recommendedDoses[m.id];
+                            if (rec?.frequency) {
+                              const freqMap: Record<string,number> = {'Once daily':1,'Twice daily':2,'Three times daily':3,'Four times daily':4,'Every 6 hours':4,'Every 8 hours':3,'Every 12 hours':2,'Every 4 hours':6,'As needed':0,'Before meals':3,'After meals':3,'At bedtime':1};
+                              const recCount = freqMap[rec.frequency] || 0;
+                              const newCount = freqMap[e.target.value] || 0;
+                              if (recCount > 0 && newCount > recCount * 1.5) {
+                                setDoseWarnings(p => ({...p, [`${m.id}_freq`]: `🔺 Frequency Override: "${e.target.value}" selected — drug recommended "${rec.frequency}". Review total daily dose.`}));
+                              } else if (recCount > 0 && newCount < recCount * 0.5) {
+                                setDoseWarnings(p => ({...p, [`${m.id}_freq`]: `🔻 Reduced Frequency: "${e.target.value}" selected — drug recommended "${rec.frequency}". May reduce efficacy.`}));
+                              } else {
+                                setDoseWarnings(p => { const n={...p}; delete n[`${m.id}_freq`]; return n; });
+                              }
+                            }
+                          }} className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
                             {FREQ.map(f => <option key={f} value={f}>{f}</option>)}
                           </select>
+                          {doseWarnings[`${m.id}_freq`] && (
+                            <div className="mt-1 px-2 py-1 rounded-lg text-[10px] font-medium" style={{background:'#fff7ed',color:'#92400e',border:'1px solid #fed7aa'}}>
+                              {doseWarnings[`${m.id}_freq`]}
+                            </div>
+                          )}
                         </div>
                         <div>
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Duration</label>
@@ -844,6 +915,115 @@ export default function PrescriptionClient({
             </div>
           </div>
         </div>
+
+        {/* RIGHT: Clinical Reference Panel */}
+        {showClinicalPanel && (
+          <div className="lg:sticky lg:top-4" style={{ height: 'calc(100vh - 120px)' }}>
+            <div className="h-full flex flex-col rounded-2xl border overflow-hidden" style={{background:'linear-gradient(135deg,#0f172a,#1e293b)',borderColor:'rgba(255,255,255,0.1)'}}>
+              <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.08)'}}>
+                <div className="flex items-center gap-2">
+                  <Activity size={15} style={{color:'#3b82f6'}}/>
+                  <span className="text-sm font-semibold text-white">Clinical Reference</span>
+                </div>
+                <button onClick={()=>setShowClinicalPanel(false)} className="w-6 h-6 rounded-lg flex items-center justify-center text-white/40 hover:text-white/70"><X size={12}/></button>
+              </div>
+
+              {/* Drug Search */}
+              <div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+                <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Reference Search</div>
+                <div className="relative">
+                  <input type="text" placeholder="Search BNF drugs..." value={clinicalSearch} onChange={e=>searchClinical(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none focus:border-blue-500/50"/>
+                  {clinicalSearching && <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 animate-spin"/>}
+                </div>
+                {clinicalResults.length > 0 && !clinicalSelected && (
+                  <div className="mt-1 rounded-xl border border-white/10 overflow-hidden">
+                    {clinicalResults.map((drug:any) => (
+                      <button key={drug.id} onClick={()=>{setClinicalSelected(drug);setClinicalSearch(drug.name);setClinicalResults([]);}}
+                        className="w-full text-left px-3 py-2 hover:bg-white/5 border-b border-white/5 last:border-0">
+                        <div className="text-[12px] font-medium text-white">{drug.name}</div>
+                        <div className="text-[10px] text-white/40">{drug.category}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Drug Info */}
+              <div className="flex-1 overflow-y-auto px-3 py-3">
+                {clinicalSelected ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-[13px] font-bold text-white">{clinicalSelected.name}</div>
+                      <button onClick={()=>{setClinicalSelected(null);setClinicalSearch('');}} className="text-white/30 hover:text-white/60"><X size={12}/></button>
+                    </div>
+                    <div className="text-[10px] px-2 py-0.5 rounded-full inline-block" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa'}}>{clinicalSelected.category}</div>
+                    {[
+                      {label:'Paediatric Dosing', val: (() => {
+                        const pd = clinicalSelected.paediatric||{};
+                        const parts = [];
+                        if (pd.neonatal) parts.push(`Neonate: ${pd.neonatal}`);
+                        if (pd.age1to11m) parts.push(`1-11m: ${pd.age1to11m}`);
+                        if (pd.age1to4y) parts.push(`1-4yr: ${pd.age1to4y}`);
+                        if (pd.age5to11y) parts.push(`5-11yr: ${pd.age5to11y}`);
+                        if (pd.age12to17y) parts.push(`12-17yr: ${pd.age12to17y}`);
+                        if (pd.mgPerKg) parts.push(`Weight-based: ${pd.mgPerKg}mg/kg/dose`);
+                        if (pd.maxDose) parts.push(`Max: ${pd.maxDose}mg`);
+                        if (pd.frequency) parts.push(`Frequency: ${pd.frequency}`);
+                        if (pd.route) parts.push(`Route: ${pd.route}`);
+                        return parts.join(' · ') || 'See BNF';
+                      })()},
+                      {label:'Adult Dose', val: (() => { const a=clinicalSelected.adult||{}; return [a.standard, a.max?`Max: ${a.max}`:'', a.frequency, a.route].filter(Boolean).join(' · ') || '-'; })()},
+                      {label:'Contraindications', val: (clinicalSelected.contraindications||[]).join(', ')||'None listed'},
+                      {label:'Cautions', val: (clinicalSelected.cautions||[]).join(', ')||'None listed'},
+                      {label:'Side Effects', val: (clinicalSelected.side_effects||[]).join(', ')||'None listed'},
+                      {label:'Monitoring', val: clinicalSelected.monitoring||'-'},
+                      {label:'Renal Dose', val: clinicalSelected.renal_dose||'No adjustment needed'},
+                      {label:'Hepatic Dose', val: clinicalSelected.hepatic_dose||'No adjustment needed'},
+                    ].map(({label,val})=>(
+                      <div key={label} className="rounded-lg p-2.5" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)'}}>
+                        <div className="text-[9px] uppercase tracking-widest text-white/30 font-medium mb-1">{label}</div>
+                        <div className="text-[11px] text-white/80 leading-relaxed">{val}</div>
+                      </div>
+                    ))}
+                    {(clinicalSelected.paediatric?.warning) && (
+                      <div className="rounded-lg p-2.5" style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.2)'}}>
+                        <div className="text-[10px] text-red-400 font-medium">⚠️ Warning</div>
+                        <div className="text-[11px] text-red-300 mt-0.5">{clinicalSelected.paediatric.warning}</div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {/* Interaction Checker */}
+                    <div className="mb-4">
+                      <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Interaction Checker</div>
+                      <input type="text" placeholder="Drug 1 (e.g. Ibuprofen)" value={clinicalIxDrug1} onChange={e=>setClinicalIxDrug1(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none mb-2"/>
+                      <input type="text" placeholder="Drug 2 (e.g. Warfarin)" value={clinicalIxDrug2} onChange={e=>setClinicalIxDrug2(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none mb-2"/>
+                      <button onClick={checkClinicalInteraction} className="w-full py-2 rounded-xl text-[12px] font-semibold" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa',border:'1px solid rgba(59,130,246,0.3)'}}>
+                        Check Interaction
+                      </button>
+                      {clinicalIxResult.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {clinicalIxResult.map((ix:any,i:number) => (
+                            <div key={i} className="rounded-lg p-2.5" style={{background:ix.severity==='Contraindicated'?'rgba(239,68,68,0.15)':ix.severity==='Severe'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',border:`1px solid ${ix.severity==='Contraindicated'?'rgba(239,68,68,0.3)':ix.severity==='Severe'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.2)'}`}}>
+                              <div className="text-[10px] font-bold" style={{color:ix.severity==='Contraindicated'?'#f87171':ix.severity==='Severe'?'#fca5a5':'#fcd34d'}}>{ix.severity==='Contraindicated'?'🚫':ix.severity==='Severe'?'⛔':'⚠️'} {ix.severity}</div>
+                              <div className="text-[11px] text-white/80 mt-0.5">{ix.effect}</div>
+                              <div className="text-[10px] text-white/50 mt-0.5">→ {ix.action}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center text-white/20 text-[11px]">Search a drug above to see full BNF reference</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* RIGHT: AI Scribe Panel (like Claude artifacts) */}
         {showScribePanel && (
