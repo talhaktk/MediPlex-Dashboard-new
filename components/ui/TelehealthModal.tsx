@@ -71,7 +71,8 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
     if (platform !== 'jitsi' && !manualLink) { toast.error('Please paste your meeting link'); return; }
     setCreating(true);
     try {
-      await supabase.from('telehealth_sessions').insert([{
+      console.log('Creating session with token:', sessionToken);
+      const { error: insertError } = await supabase.from('telehealth_sessions').insert([{
         token: sessionToken,
         appointment_id: appointment.id,
         mr_number: (appointment as any).mr_number || null,
@@ -81,7 +82,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
         link: finalLink,
         status: 'pending',
       }]);
-    } catch {}
+    } catch (e: any) { console.error('Session insert error:', e); }
     setCreating(false);
     setStep('waiting');
   };
