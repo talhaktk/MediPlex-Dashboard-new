@@ -48,7 +48,7 @@ function emptyMed(): Medicine { return { id: medId(), name: '', dose: '', freque
 function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string) {
   const key = patientKey(rx.childName);
   const health = getHealth(key);
-  const vitals = dbPatientVitals;
+  const vitals = getLatestVitals(key);
 
   const vitalsHTML = vitals ? `
     <div class="section">
@@ -716,7 +716,7 @@ export default function PrescriptionClient({
               {form.childName && (() => {
                 const key = patientKey(form.childName);
                 const h = getHealth(key);
-                const vitals = dbPatientVitals;
+                const vitals = getLatestVitals(key);
                 if (!h.bloodGroup && !h.allergies && !h.conditions && !vitals) return null;
                 return (
                   <div className="rounded-xl p-4 space-y-3 mb-4" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
