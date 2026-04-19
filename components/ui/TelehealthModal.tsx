@@ -71,8 +71,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
     if (platform !== 'jitsi' && !manualLink) { toast.error('Please paste your meeting link'); return; }
     setCreating(true);
     try {
-      console.log('Creating session with token:', sessionToken);
-      const { error: insertError } = await supabase.from('telehealth_sessions').insert([{
+      await supabase.from('telehealth_sessions').insert([{
         token: sessionToken,
         appointment_id: appointment.id,
         mr_number: (appointment as any).mr_number || null,
@@ -82,7 +81,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
         link: finalLink,
         status: 'pending',
       }]);
-    } catch (e: any) { console.error('Session insert error:', e); }
+    } catch {}
     setCreating(false);
     setStep('waiting');
   };
@@ -174,7 +173,15 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
                   </button>
                 </div>
                 <button onClick={()=>window.open(patientLink,'_blank')} className="flex items-center gap-1.5 text-[11px] text-amber-400/70 hover:text-amber-400">
-                  <ExternalLink size={11}/> Preview patient form
+                  <ExternalLink size={11}/> Preview form
+                </button>
+                <button onClick={()=>{
+                    const ph=(appointment.whatsapp||'').replace(/\D/g,'');
+                    const p=ph.startsWith('0')?'92'+ph.slice(1):ph;
+                    const msg='Dear '+appointment.parentName+',\n\nPlease fill your pre-consultation form before your telehealth appointment with MediPlex Pediatric Centre.\n\nForm: '+patientLink+'\n\nThank you.';
+                    window.open('https://wa.me/'+p+'?text='+encodeURIComponent(msg),'_blank');
+                  }} className="flex items-center gap-1.5 text-[11px] text-emerald-400/70 hover:text-emerald-400">
+                  📱 Send WhatsApp
                 </button>
               </div>
 
