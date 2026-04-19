@@ -261,7 +261,7 @@ export default function PrescriptionClient({
   const [drugSuggestions, setDrugSuggestions] = useState<Record<string,any[]>>({});
   const [interactionWarnings, setInteractionWarnings] = useState<string[]>([]);
   const [doseWarnings, setDoseWarnings] = useState<Record<string,string>>({});
-  const [recommendedDoses, setRecommendedDoses] = useState<Record<string,{dose:string;min:number;max:number;unit:string}>>({});
+  const [recommendedDoses, setRecommendedDoses] = useState<Record<string,{dose:string;min:number;max:number;unit:string;frequency:string;weight:number}>>({});
   const [search, setSearch] = useState('');
   const [aptSearch, setAptSearch] = useState('');
   const [form, setForm] = useState<Partial<Prescription>>({});
