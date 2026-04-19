@@ -63,6 +63,7 @@ export default function TelehealthModal({ appointment, onClose }: Props) {
   const saveAndProceed = async () => {
     setLoading(true);
     try { await supabase.from('telehealth_sessions').insert([{
+      token: sessionToken,
       appointment_id: appointment.id, mr_number:(appointment as any).mr_number||null,
       child_name:appointment.childName, parent_name:appointment.parentName,
       platform, link:finalLink,
