@@ -319,7 +319,7 @@ export default function PrescriptionClient({
   const checkClinicalInteraction = async () => {
     if (!clinicalIxDrug1 || !clinicalIxDrug2) { toast.error('Enter both drug names'); return; }
     const { data } = await supabase.from('drug_interactions').select('*').or(
-      `drug_a.ilike.%${clinicalIxDrug1}%,drug_b.ilike.%${clinicalIxDrug1}%`
+      `drug_a.ilike.%${clinicalIxDrug1}%,drug_b.ilike.%${clinicalIxDrug1}%,drug_a.ilike.%${clinicalIxDrug2}%,drug_b.ilike.%${clinicalIxDrug2}%`
     );
     const results = (data||[]).filter((ix:any) => {
       const a = ix.drug_a?.toLowerCase()||''; const b = ix.drug_b?.toLowerCase()||'';
@@ -471,6 +471,8 @@ export default function PrescriptionClient({
     }
 
     if (pd.warning) warning = warning || pd.warning;
+    const contras = (drug.contraindications||[]).join('; ');
+    if (!warning && contras) warning = `⚠️ Contraindications: ${contras}`;
     if (warning) setDoseWarnings(p => ({...p, [medId]: warning}));
     else setDoseWarnings(p => { const n = {...p}; delete n[medId]; return n; });
 
@@ -482,6 +484,8 @@ export default function PrescriptionClient({
     } else if (autoDose) {
       setRecommendedDoses(p => ({...p, [medId]: { dose: autoDose, min: 0, max: 0, unit: '', frequency: pd.frequency||'', weight: weightKg }}));
     }
+    setRecommendedDoses(p => { const n={...p}; delete n[medId]; return n; });
+    setDoseWarnings(p => { const n={...p}; delete n[medId]; delete n[`${medId}_freq`]; return n; });
     updateMed(medId, 'name', drug.name);
     updateMed(medId, 'dose', autoDose);
     updateMed(medId, 'frequency', pd.frequency || 'Twice daily');
@@ -492,9 +496,8 @@ export default function PrescriptionClient({
   const checkInteractions = async (meds: Medicine[]) => {
     const names = meds.map(m => m.name.toLowerCase()).filter(Boolean);
     if (names.length < 2) { setInteractionWarnings([]); return; }
-    const { data } = await supabase.from('drug_interactions').select('*').or(
-      names.map(n => `drug_a.ilike.%${n}%`).join(',')
-    );
+    const orFilter = [...names.map(n=>`drug_a.ilike.%${n}%`),...names.map(n=>`drug_b.ilike.%${n}%`)].join(',');
+    const { data } = await supabase.from('drug_interactions').select('*').or(orFilter);
     const warnings: string[] = [];
     (data || []).forEach((ix: any) => {
       const aMatch = names.some(n => ix.drug_a?.toLowerCase().includes(n) || n.includes(ix.drug_a?.toLowerCase()));
