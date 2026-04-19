@@ -952,6 +952,8 @@ export default function PrescriptionClient({
         {showClinicalPanel && (
           <div className="lg:sticky lg:top-4" style={{ height: 'calc(100vh - 120px)' }}>
             <div className="h-full flex flex-col rounded-2xl border overflow-hidden" style={{background:'linear-gradient(135deg,#0f172a,#1e293b)',borderColor:'rgba(255,255,255,0.1)'}}>
+
+              {/* Header */}
               <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.08)'}}>
                 <div className="flex items-center gap-2">
                   <Activity size={15} style={{color:'#3b82f6'}}/>
@@ -960,107 +962,102 @@ export default function PrescriptionClient({
                 <button onClick={()=>setShowClinicalPanel(false)} className="w-6 h-6 rounded-lg flex items-center justify-center text-white/40 hover:text-white/70"><X size={12}/></button>
               </div>
 
-              {/* Dose / Interaction tab buttons */}
+              {/* Tab buttons */}
               <div className="flex gap-1 px-3 py-2 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
                 <button onClick={()=>setClinicalTab('dose')} className="flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all" style={{background:clinicalTab==='dose'?'rgba(59,130,246,0.25)':'rgba(255,255,255,0.05)',color:clinicalTab==='dose'?'#60a5fa':'rgba(255,255,255,0.4)',border:clinicalTab==='dose'?'1px solid rgba(59,130,246,0.4)':'1px solid transparent'}}>Drug Doses</button>
                 <button onClick={()=>setClinicalTab('interaction')} className="flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all" style={{background:clinicalTab==='interaction'?'rgba(59,130,246,0.25)':'rgba(255,255,255,0.05)',color:clinicalTab==='interaction'?'#60a5fa':'rgba(255,255,255,0.4)',border:clinicalTab==='interaction'?'1px solid rgba(59,130,246,0.4)':'1px solid transparent'}}>Interactions</button>
               </div>
 
-              {/* Drug Search — only show on Dose tab */}
-              {clinicalTab==='dose' && (<div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
-                <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Reference Search</div>
-                <div className="relative">
-                  <input type="text" placeholder="Search BNF drugs..." value={clinicalSearch} onChange={e=>searchClinical(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none focus:border-blue-500/50"/>
-                  {clinicalSearching && <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 animate-spin"/>}
-                </div>
-                {clinicalResults.length > 0 && !clinicalSelected && (
-                  <div className="mt-1 rounded-xl border border-white/10 overflow-hidden">
-                    {clinicalResults.map((drug:any) => (
-                      <button key={drug.id} onClick={()=>{setClinicalSelected(drug);setClinicalSearch(drug.name);setClinicalResults([]);}}
-                        className="w-full text-left px-3 py-2 hover:bg-white/5 border-b border-white/5 last:border-0">
-                        <div className="text-[12px] font-medium text-white">{drug.name}</div>
-                        <div className="text-[10px] text-white/40">{drug.category}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Drug Info */}
-              <div className="flex-1 overflow-y-auto px-3 py-3">
-                {clinicalTab==='dose' && clinicalSelected ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-[13px] font-bold text-white">{clinicalSelected.name}</div>
-                      <button onClick={()=>{setClinicalSelected(null);setClinicalSearch('');}} className="text-white/30 hover:text-white/60"><X size={12}/></button>
+              {/* DOSE TAB */}
+              {clinicalTab==='dose' && (
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <div className="px-3 py-3 border-b flex-shrink-0" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+                    <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Search Drug</div>
+                    <div className="relative">
+                      <input type="text" placeholder="Type drug name..." value={clinicalSearch} onChange={e=>searchClinical(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[12px] text-white placeholder-white/30 outline-none focus:border-blue-500/50"/>
+                      {clinicalSearching && <Loader2 size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 animate-spin"/>}
                     </div>
-                    <div className="text-[10px] px-2 py-0.5 rounded-full inline-block" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa'}}>{clinicalSelected.category}</div>
-                    {[
-                      {label:'Paediatric Dosing', val: (() => {
-                        const pd = clinicalSelected.paediatric||{};
-                        const parts = [];
-                        if (pd.neonatal) parts.push(`Neonate: ${pd.neonatal}`);
-                        if (pd.age1to11m) parts.push(`1-11m: ${pd.age1to11m}`);
-                        if (pd.age1to4y) parts.push(`1-4yr: ${pd.age1to4y}`);
-                        if (pd.age5to11y) parts.push(`5-11yr: ${pd.age5to11y}`);
-                        if (pd.age12to17y) parts.push(`12-17yr: ${pd.age12to17y}`);
-                        if (pd.mgPerKg) parts.push(`Weight-based: ${pd.mgPerKg}mg/kg/dose`);
-                        if (pd.maxDose) parts.push(`Max: ${pd.maxDose}mg`);
-                        if (pd.frequency) parts.push(`Frequency: ${pd.frequency}`);
-                        if (pd.route) parts.push(`Route: ${pd.route}`);
-                        return parts.join(' · ') || 'See BNF';
-                      })()},
-                      {label:'Adult Dose', val: (() => { const a=clinicalSelected.adult||{}; return [a.standard, a.max?`Max: ${a.max}`:'', a.frequency, a.route].filter(Boolean).join(' · ') || '-'; })()},
-                      {label:'Contraindications', val: (clinicalSelected.contraindications||[]).join(', ')||'None listed'},
-                      {label:'Cautions', val: (clinicalSelected.cautions||[]).join(', ')||'None listed'},
-                      {label:'Side Effects', val: (clinicalSelected.side_effects||[]).join(', ')||'None listed'},
-                      {label:'Monitoring', val: clinicalSelected.monitoring||'-'},
-                      {label:'Renal Dose', val: clinicalSelected.renal_dose||'No adjustment needed'},
-                      {label:'Hepatic Dose', val: clinicalSelected.hepatic_dose||'No adjustment needed'},
-                    ].map(({label,val})=>(
-                      <div key={label} className="rounded-lg p-2.5" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)'}}>
-                        <div className="text-[9px] uppercase tracking-widest text-white/30 font-medium mb-1">{label}</div>
-                        <div className="text-[11px] text-white/80 leading-relaxed">{val}</div>
-                      </div>
-                    ))}
-                    {(clinicalSelected.paediatric?.warning) && (
-                      <div className="rounded-lg p-2.5" style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.2)'}}>
-                        <div className="text-[10px] text-red-400 font-medium">⚠️ Warning</div>
-                        <div className="text-[11px] text-red-300 mt-0.5">{clinicalSelected.paediatric.warning}</div>
+                    {clinicalResults.length > 0 && !clinicalSelected && (
+                      <div className="mt-1 rounded-xl border border-white/10 overflow-hidden">
+                        {clinicalResults.map((drug:any) => (
+                          <button key={drug.id} onClick={()=>{setClinicalSelected(drug);setClinicalSearch(drug.name);setClinicalResults([]);}}
+                            className="w-full text-left px-3 py-2 hover:bg-white/5 border-b border-white/5 last:border-0">
+                            <div className="text-[12px] font-medium text-white">{drug.name}</div>
+                            <div className="text-[10px] text-white/40">{drug.category}</div>
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div>
-                    {clinicalTab==='interaction' && <div className="mb-4">
-                      <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2">Drug Interaction Checker</div>
-                      <ClinicalDrugInput value={clinicalIxDrug1} onChange={setClinicalIxDrug1} placeholder="Drug 1 (e.g. Ibuprofen)"/>
-                      <ClinicalDrugInput value={clinicalIxDrug2} onChange={setClinicalIxDrug2} placeholder="Drug 2 (e.g. Warfarin)"/>
-                      <button onClick={checkClinicalInteraction} className="w-full py-2 rounded-xl text-[12px] font-semibold" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa',border:'1px solid rgba(59,130,246,0.3)'}}>
-                        Check Interaction
-                      </button>
-                      {clinicalIxResult.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          {clinicalIxResult.map((ix:any,i:number) => (
-                            <div key={i} className="rounded-lg p-2.5" style={{background:ix.severity==='Contraindicated'?'rgba(239,68,68,0.15)':ix.severity==='Severe'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',border:`1px solid ${ix.severity==='Contraindicated'?'rgba(239,68,68,0.3)':ix.severity==='Severe'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.2)'}`}}>
-                              <div className="text-[10px] font-bold" style={{color:ix.severity==='Contraindicated'?'#f87171':ix.severity==='Severe'?'#fca5a5':'#fcd34d'}}>{ix.severity==='Contraindicated'?'🚫':ix.severity==='Severe'?'⛔':'⚠️'} {ix.severity}</div>
-                              <div className="text-[11px] text-white/80 mt-0.5">{ix.effect}</div>
-                              <div className="text-[10px] text-white/50 mt-0.5">→ {ix.action}</div>
-                            </div>
-                          ))}
+                  <div className="flex-1 overflow-y-auto px-3 py-3">
+                    {clinicalSelected ? (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="text-[13px] font-bold text-white">{clinicalSelected.name}</div>
+                          <button onClick={()=>{setClinicalSelected(null);setClinicalSearch('');}} className="text-white/30 hover:text-white/60"><X size={12}/></button>
                         </div>
-                      )}
-                    </div>}
-                    {clinicalTab==='dose' && !clinicalSelected && <div className="text-center text-white/20 text-[11px] mt-4">Search a drug above to see full BNF reference</div>}
+                        <div className="text-[10px] px-2 py-0.5 rounded-full inline-block" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa'}}>{clinicalSelected.category}</div>
+                        {[
+                          {label:'Paediatric Dosing', val: (() => { const pd=clinicalSelected.paediatric||{}; const parts=[]; if(pd.neonatal)parts.push(`Neonate: ${pd.neonatal}`); if(pd.age1to11m)parts.push(`1-11m: ${pd.age1to11m}`); if(pd.age1to4y)parts.push(`1-4yr: ${pd.age1to4y}`); if(pd.age5to11y)parts.push(`5-11yr: ${pd.age5to11y}`); if(pd.age12to17y)parts.push(`12-17yr: ${pd.age12to17y}`); if(pd.mgPerKg)parts.push(`${pd.mgPerKg}mg/kg/dose`); if(pd.maxDose)parts.push(`Max: ${pd.maxDose}mg`); if(pd.frequency)parts.push(pd.frequency); if(pd.route)parts.push(pd.route); return parts.join(' · ')||'See BNF'; })()},
+                          {label:'Adult Dose', val: (() => { const a=clinicalSelected.adult||{}; return [a.standard,a.max?`Max: ${a.max}`:'',a.frequency,a.route].filter(Boolean).join(' · ')||'-'; })()},
+                          {label:'Contraindications', val:(clinicalSelected.contraindications||[]).join(', ')||'None'},
+                          {label:'Cautions', val:(clinicalSelected.cautions||[]).join(', ')||'None'},
+                          {label:'Side Effects', val:(clinicalSelected.side_effects||[]).join(', ')||'None'},
+                          {label:'Monitoring', val:clinicalSelected.monitoring||'-'},
+                          {label:'Renal Dose', val:clinicalSelected.renal_dose||'No adjustment'},
+                          {label:'Hepatic Dose', val:clinicalSelected.hepatic_dose||'No adjustment'},
+                        ].map(({label,val})=>(
+                          <div key={label} className="rounded-lg p-2.5" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)'}}>
+                            <div className="text-[9px] uppercase tracking-widest text-white/30 font-medium mb-1">{label}</div>
+                            <div className="text-[11px] text-white/80 leading-relaxed">{val}</div>
+                          </div>
+                        ))}
+                        {clinicalSelected.paediatric?.warning && (
+                          <div className="rounded-lg p-2.5" style={{background:'rgba(239,68,68,0.1)',border:'1px solid rgba(239,68,68,0.2)'}}>
+                            <div className="text-[10px] text-red-400 font-medium">⚠️ Warning</div>
+                            <div className="text-[11px] text-red-300 mt-0.5">{clinicalSelected.paediatric.warning}</div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center text-white/20 text-[11px] mt-8">Search a drug above to see full BNF reference</div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* INTERACTION TAB */}
+              {clinicalTab==='interaction' && (
+                <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
+                  <div className="text-[10px] uppercase tracking-widest text-white/40 font-medium">Check Drug Interaction</div>
+                  <ClinicalDrugInput value={clinicalIxDrug1} onChange={setClinicalIxDrug1} placeholder="Drug 1 (e.g. Ibuprofen)"/>
+                  <ClinicalDrugInput value={clinicalIxDrug2} onChange={setClinicalIxDrug2} placeholder="Drug 2 (e.g. Warfarin)"/>
+                  <button onClick={checkClinicalInteraction} className="w-full py-2 rounded-xl text-[12px] font-semibold" style={{background:'rgba(59,130,246,0.2)',color:'#60a5fa',border:'1px solid rgba(59,130,246,0.3)'}}>
+                    Check Interaction
+                  </button>
+                  {clinicalIxResult.length > 0 && (
+                    <div className="space-y-2">
+                      {clinicalIxResult.map((ix:any,i:number) => (
+                        <div key={i} className="rounded-lg p-2.5" style={{background:ix.severity==='Contraindicated'?'rgba(239,68,68,0.15)':ix.severity==='Severe'?'rgba(239,68,68,0.1)':'rgba(245,158,11,0.1)',border:`1px solid ${ix.severity==='Contraindicated'?'rgba(239,68,68,0.3)':ix.severity==='Severe'?'rgba(239,68,68,0.2)':'rgba(245,158,11,0.2)'}`}}>
+                          <div className="text-[10px] font-bold mb-1" style={{color:ix.severity==='Contraindicated'?'#f87171':ix.severity==='Severe'?'#fca5a5':'#fcd34d'}}>{ix.severity==='Contraindicated'?'🚫':ix.severity==='Severe'?'⛔':'⚠️'} {ix.severity}</div>
+                          <div className="text-[11px] text-white/80">{ix.effect}</div>
+                          <div className="text-[10px] text-white/50 mt-0.5">→ {ix.action}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {clinicalIxResult.length === 0 && clinicalIxDrug1 && clinicalIxDrug2 && (
+                    <div className="text-center text-white/20 text-[11px]">Click Check Interaction to search</div>
+                  )}
+                </div>
+              )}
+
             </div>
           </div>
         )}
 
-        {/* RIGHT: AI Scribe Panel (like Claude artifacts) */}
+                {/* RIGHT: AI Scribe Panel (like Claude artifacts) */}
         {showScribePanel && (
           <div className="lg:sticky lg:top-4" style={{ height: 'calc(100vh - 120px)' }}>
             {scribeData ? (
