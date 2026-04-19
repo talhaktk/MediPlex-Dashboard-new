@@ -11,6 +11,7 @@ import { getHealth, setHealth, addVitals, getLatestVitals, getPrescriptionsByPat
 import StatusPill from '@/components/ui/StatusPill';
 import LabResults from '@/components/ui/LabResults';
 import ConsentForms from '@/components/ui/ConsentForms';
+import TelehealthHistory from '@/components/ui/TelehealthHistory';
 
 interface PatientRecord {
   key: string; mrNumber: string; name: string; gender: string;
@@ -56,7 +57,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
-  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'>('visits');
+  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'|'telehealth'>('visits');
   const [editHealth, setEditHealth] = useState(false);
   const [draft, setDraft] = useState<HealthRecord>(emptyHealth());
   const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt: new Date().toISOString().split('T')[0] });
@@ -134,10 +135,10 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
           if (row) {
             const key = selected.key;
             const local = getHealth(key);
-            if (!local.bloodGroup && row.blood_group) local.bloodGroup = row.blood_group;
-            if (!local.allergies  && row.allergies)   local.allergies  = row.allergies;
-            if (!local.conditions && row.conditions)  local.conditions = row.conditions;
-            if (!local.notes      && row.notes)       local.notes      = row.notes;
+            if (row.blood_group) local.bloodGroup = row.blood_group;
+            if (row.allergies)   local.allergies  = row.allergies;
+            if (row.conditions)  local.conditions = row.conditions;
+            if (row.notes)       local.notes      = row.notes;
             setHealth(key, local);
             setHealthState({...local});
             setDraft({...local});
@@ -213,6 +214,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     { key:'procedures',    label:`Procedures (${procedures.length})` },
     {key:'labs',label:'Labs & Reports'},
     {key:'consent',label:'Consent Forms'},
+    {key:'telehealth',label:'Telehealth'},
   ] as const;
 
   return (
@@ -737,6 +739,13 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                 </div>
               )}
 
+
+              {/* TELEHEALTH */}
+              {activeTab==='telehealth' && (
+                <div className="p-5">
+                  <TelehealthHistory mrNumber={selected.mrNumber} childName={selected.name}/>
+                </div>
+              )}
 
               {/* LABS */}
               {activeTab==='labs' && (
