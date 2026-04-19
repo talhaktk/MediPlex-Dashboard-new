@@ -484,8 +484,6 @@ export default function PrescriptionClient({
     } else if (autoDose) {
       setRecommendedDoses(p => ({...p, [medId]: { dose: autoDose, min: 0, max: 0, unit: '', frequency: pd.frequency||'', weight: weightKg }}));
     }
-    setRecommendedDoses(p => { const n={...p}; delete n[medId]; return n; });
-    setDoseWarnings(p => { const n={...p}; delete n[medId]; delete n[`${medId}_freq`]; return n; });
     updateMed(medId, 'name', drug.name);
     updateMed(medId, 'dose', autoDose);
     updateMed(medId, 'frequency', pd.frequency || 'Twice daily');
