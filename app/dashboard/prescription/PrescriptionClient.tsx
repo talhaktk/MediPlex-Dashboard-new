@@ -1051,8 +1051,8 @@ export default function PrescriptionClient({
                           ))}
                         </div>
                       )}
-                    </div>
-                    <div className="text-center text-white/20 text-[11px]">Search a drug above to see full BNF reference</div>
+                    </div>}
+                    {clinicalTab==='dose' && !clinicalSelected && <div className="text-center text-white/20 text-[11px] mt-4">Search a drug above to see full BNF reference</div>}
                   </div>
                 )}
               </div>
