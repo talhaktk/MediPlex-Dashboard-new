@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { FolderOpen, usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot } from 'lucide-react';
 
@@ -9,6 +9,7 @@ const NAV = [
   { label:'Overview',      href:'/dashboard',               icon:LayoutDashboard },
   { label:'Appointments',  href:'/dashboard/appointments',  icon:CalendarDays    },
   { label:'Patients',      href:'/dashboard/patients',      icon:Users           },
+  { label:'Patient Portal', href:'/dashboard/portal',         icon:FolderOpen      },
   { label:'Prescription',  href:'/dashboard/prescription',  icon:FileText        },
   { label:'Clinical',      href:'/dashboard/clinical',      icon:Stethoscope     },
 { label:'AI Scribe', href:'/dashboard/scribe', icon:Bot },
