@@ -309,6 +309,7 @@ export default function PrescriptionClient({
   const [showScribePanel, setShowScribePanel] = useState(false);
   // Clinical panel state
   const [showClinicalPanel, setShowClinicalPanel] = useState(false);
+  const [dbPatientVitals, setDbPatientVitals] = useState<any>(null);
   const [clinicalSearch, setClinicalSearch] = useState('');
   const [clinicalResults, setClinicalResults] = useState<any[]>([]);
   const [clinicalSelected, setClinicalSelected] = useState<any|null>(null);
@@ -444,6 +445,22 @@ export default function PrescriptionClient({
   };
 
   // ── Drug Safety Functions ─────────────────────────────────────────────────
+  // Fetch DB vitals when patient changes
+  useEffect(() => {
+    if (!form.childName) { setDbPatientVitals(null); return; }
+    const apt = data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase());
+    const mr = (apt as any)?.mr_number;
+    if (!mr) return;
+    supabase.from('patient_vitals').select('*').eq('mr_number', mr)
+      .order('recorded_at', {ascending:false}).limit(1)
+      .then(({data:rows}) => { if (rows?.[0]) setDbPatientVitals(rows[0]); else {
+        supabase.from('appointments').select('visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature')
+          .eq('mr_number', mr).not('visit_weight','is',null)
+          .order('appointment_date',{ascending:false}).limit(1)
+          .then(({data:r}) => { if(r?.[0]) setDbPatientVitals({weight:r[0].visit_weight,height:r[0].visit_height,bp:r[0].visit_bp,pulse:r[0].visit_pulse,temperature:r[0].visit_temperature}); });
+      }});
+  }, [form.childName]);
+
   const searchDrug = async (medId: string, query: string) => {
     setDrugSearch(p => ({...p, [medId]: query}));
     if (query.length < 2) { setDrugSuggestions(p => ({...p, [medId]: []})); return; }
