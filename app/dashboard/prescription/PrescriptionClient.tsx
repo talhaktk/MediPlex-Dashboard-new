@@ -99,7 +99,16 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
       <table><thead><tr><th>Medicine / Dosage</th><th>Frequency</th><th>Duration</th></tr></thead><tbody>${medRows}</tbody></table>
       ${rx.advice ? `<div class="section-title">💡 Advice</div><div class="advice-box">${rx.advice}</div>` : ''}
       ${rx.followUp ? `<div class="section-title">📅 Follow-up</div><div class="followup-box">Please visit again: <strong>${rx.followUp}</strong></div>` : ''}
-      <div class="footer"><div style="font-size:11px;color:#9ca3af">Valid for 30 days from issue date.</div><div class="sig-line">${doctorName}<br>Signature & Stamp</div></div>
+      <div class="footer" style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Valid for 30 days from issue date.</div>
+          <div class="sig-line">${doctorName}<br>Signature & Stamp</div>
+        </div>
+        <div style="text-align:center">
+          <img src="https://chart.googleapis.com/chart?chs=100x100&cht=qr&chl=${encodeURIComponent('Patient: '+rx.childName+' | Rx: '+rx.id+' | Medicines: '+(rx.medicines.map(m=>m.name+' '+m.dose+' '+m.frequency).join(', '))+'| Date: '+rx.date)}" width="100" height="100" style="border:1px solid #e5e7eb;border-radius:4px"/>
+          <div style="font-size:9px;color:#9ca3af;margin-top:4px">Scan for prescription details</div>
+        </div>
+      </div>
     </div>
   </div></body></html>`;
 

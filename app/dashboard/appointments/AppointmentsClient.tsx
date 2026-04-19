@@ -6,9 +6,10 @@ import { Appointment } from '@/types';
 import { filterAppointments, exportToCSV, formatUSDate, createAppointmentFull, softDeleteAppointment } from '@/lib/sheets';import StatusPill from '@/components/ui/StatusPill';
 import AttendanceDropdown from '@/components/ui/AttendanceDropdown';
 import CheckInFlow from '@/components/ui/CheckInFlow';
+import TelehealthModal from '@/components/ui/TelehealthModal';
 import {
   Search, Download, Filter, ChevronLeft, ChevronRight,
-  X, CalendarCheck, UserCheck, Stethoscope, XCircle, FileText, Plus, Trash2
+  X, CalendarCheck, UserCheck, Stethoscope, XCircle, FileText, Plus, Trash2, Video
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getAttendanceAll, AttendanceRecord } from '@/lib/store';
@@ -65,6 +66,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
 
   // ── Patient record / check-in modal ───────────────────────────────────────
   const [patientRecordApt, setPatientRecordApt] = useState<Appointment | null>(null);
+  const [telehealthApt, setTelehealthApt] = useState<Appointment | null>(null);
 
   // ── Add appointment modal ──────────────────────────────────────────────────
   const [showAddModal, setShowAddModal] = useState(false);
@@ -466,14 +468,17 @@ const result = await createAppointmentFull(addForm);
 
                     {/* Actions */}
                     <td>
-                      <button
-                        onClick={() => handleDelete(a)}
-                        title="Cancel appointment"
-                        disabled={a.status === 'Cancelled'}
-                        className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 disabled:opacity-30"
-                      >
-                        <Trash2 size={12} className="text-red-500" />
-                      </button>
+                      <div className="flex gap-1">
+                        <button onClick={() => setTelehealthApt(a)} title="Start Telehealth"
+                          className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors flex-shrink-0">
+                          <Video size={12} className="text-blue-500"/>
+                        </button>
+                        <button onClick={() => handleDelete(a)} title="Cancel appointment"
+                          disabled={a.status === 'Cancelled'}
+                          className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0 disabled:opacity-30">
+                          <Trash2 size={12} className="text-red-500"/>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -518,6 +523,11 @@ const result = await createAppointmentFull(addForm);
             />
           </div>
         </div>
+      )}
+
+      {/* ── Telehealth Modal ── */}
+      {telehealthApt && (
+        <TelehealthModal appointment={telehealthApt} onClose={() => setTelehealthApt(null)}/>
       )}
 
       {/* ── Add Appointment Modal ── */}
