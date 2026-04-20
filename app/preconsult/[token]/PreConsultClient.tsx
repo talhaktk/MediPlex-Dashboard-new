@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Activity, Save, CheckCircle, Heart, User, AlertTriangle } from 'lucide-react';
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,23 +37,19 @@ export default function PreConsultClient({ session }: { session: any }) {
     if (!form.chief_complaint.trim()) { alert('Please enter your chief complaint'); return; }
     setSaving(true);
     try {
-      // 1. Update telehealth session with all form data
+      // 1. Update telehealth_sessions — clinical info + o2_sat only (NOT vitals/health)
       await sb.from('telehealth_sessions').update({
         chief_complaint: form.chief_complaint,
         symptoms: form.symptoms,
         duration: form.duration,
-        vitals: { weight:form.weight, height:form.height, bp:form.bp, pulse:form.pulse, temperature:form.temperature, o2_sat:form.o2_sat },
-        blood_group: form.blood_group,
-        gender: form.gender,
-        allergies: form.allergies,
-        conditions: form.conditions,
         current_meds: form.current_meds,
         notes: form.notes,
+        vitals: { o2_sat: form.o2_sat }, // only O2 sat stored here
         status: 'submitted',
         submitted_at: new Date().toISOString(),
       }).eq('token', session.token);
 
-      // 2. Save vitals to appointments table (visit_weight, visit_height etc)
+      // 2. Save vitals to appointments table ONLY (same as physical checkin)
       if (session.appointment_id && (form.weight || form.height || form.bp || form.pulse || form.temperature)) {
         await sb.from('appointments').update({
           visit_weight: form.weight || null,
@@ -65,29 +60,14 @@ export default function PreConsultClient({ session }: { session: any }) {
         }).eq('id', session.appointment_id);
       }
 
-      // 3. Save health record to patients table
-      if (session.mr_number) {
+      // 3. Save blood group, allergies, conditions, gender to patients table ONLY (same as physical checkin)
+      if (session.mr_number && (form.blood_group || form.allergies || form.conditions || form.gender)) {
         await sb.from('patients').update({
           blood_group: form.blood_group || null,
           allergies: form.allergies || null,
           conditions: form.conditions || null,
           gender: form.gender || null,
         }).eq('mr_number', session.mr_number);
-      }
-
-      // 4. Save vitals to patient_vitals table
-      if (form.weight || form.bp || form.pulse || form.temperature) {
-        const vitalsRow: any = {
-          child_name: session.child_name,
-          weight: form.weight || null,
-          height: form.height || null,
-          bp: form.bp || null,
-          pulse: form.pulse || null,
-          temperature: form.temperature || null,
-          recorded_at: new Date().toISOString().split('T')[0],
-        };
-        if (session.mr_number) vitalsRow.mr_number = session.mr_number;
-        await sb.from('patient_vitals').insert([vitalsRow]);
       }
 
       setSubmitted(true);
@@ -97,10 +77,10 @@ export default function PreConsultClient({ session }: { session: any }) {
     setSaving(false);
   };
 
-  const inp = (label: string, key: string, ph: string, type = 'text') => (
+  const inp = (label: string, key: string, ph: string) => (
     <div key={key}>
       <label style={{display:'block',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6b7280',marginBottom:6}}>{label}</label>
-      <input type={type} placeholder={ph} value={(form as any)[key]}
+      <input type="text" placeholder={ph} value={(form as any)[key]}
         onChange={e => setForm(p => ({...p, [key]: e.target.value}))}
         style={{width:'100%',border:'1px solid #e5e7eb',borderRadius:12,padding:'12px 16px',fontSize:14,color:'#0a1628',background:'#fff',outline:'none',boxSizing:'border-box'}}/>
     </div>
@@ -109,14 +89,11 @@ export default function PreConsultClient({ session }: { session: any }) {
   if (submitted) {
     return (
       <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24,background:'linear-gradient(135deg,#f9f7f3,#fff)'}}>
-        <div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16}}>
-          <span style={{fontSize:36}}>✅</span>
-        </div>
+        <div style={{width:80,height:80,borderRadius:'50%',background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16,fontSize:36}}>✅</div>
         <div style={{fontSize:22,fontWeight:700,color:'#0a1628',marginBottom:8}}>Form Submitted!</div>
         <div style={{fontSize:14,color:'#6b7280',textAlign:'center',maxWidth:300}}>Your pre-consultation information has been sent to the doctor. Please join the video call at your scheduled time.</div>
         <div style={{marginTop:20,background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.3)',borderRadius:12,padding:'12px 20px',textAlign:'center'}}>
           <div style={{fontSize:13,fontWeight:600,color:'#92400e'}}>MediPlex Pediatric Centre</div>
-          <div style={{fontSize:12,color:'#a07a2a',marginTop:4}}>Your doctor will review your information before the consultation.</div>
         </div>
       </div>
     );
@@ -124,7 +101,6 @@ export default function PreConsultClient({ session }: { session: any }) {
 
   return (
     <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#f9f7f3,#fff)',fontFamily:'system-ui,sans-serif'}}>
-      {/* Header */}
       <div style={{background:'#0a1628',padding:'16px 20px'}}>
         <div style={{maxWidth:480,margin:'0 auto',display:'flex',alignItems:'center',gap:12}}>
           <div style={{width:40,height:40,borderRadius:12,background:'rgba(201,168,76,0.2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>🏥</div>
@@ -143,11 +119,11 @@ export default function PreConsultClient({ session }: { session: any }) {
           {session.mr_number && <div style={{fontSize:11,fontFamily:'monospace',color:'#d97706',marginTop:2}}>MR# {session.mr_number}</div>}
         </div>
 
-        {/* Section: Chief Complaint */}
+        {/* Chief Complaint */}
         <div style={{marginBottom:24}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
             <div style={{width:24,height:24,borderRadius:8,background:'#fee2e2',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12}}>⚠️</div>
-            <div style={{fontSize:14,fontWeight:600,color:'#0a1628'}}>Chief Complaint</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#0a1628'}}>Chief Complaint</div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
             {inp('Main reason for visit *','chief_complaint','e.g. Fever, Cough, Rash')}
@@ -157,14 +133,14 @@ export default function PreConsultClient({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* Section: Vitals */}
+        {/* Vitals */}
         <div style={{marginBottom:24}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
             <div style={{width:24,height:24,borderRadius:8,background:'#dcfce7',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12}}>📊</div>
-            <div style={{fontSize:14,fontWeight:600,color:'#0a1628'}}>Vitals (if available at home)</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#0a1628'}}>Vitals (if available at home)</div>
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            {[{l:'Weight (kg)',k:'weight',p:'e.g. 25'},{l:'Height (cm)',k:'height',p:'e.g. 110'},{l:'Blood Pressure',k:'bp',p:'e.g. 110/70'},{l:'Pulse (bpm)',k:'pulse',p:'e.g. 88'},{l:'Temperature °C',k:'temperature',p:'e.g. 37.2'},{l:'O2 Sat %',k:'o2_sat',p:'e.g. 98'}].map(f=>(
+            {[{l:'Weight (kg)',k:'weight',p:'e.g. 25'},{l:'Height (cm)',k:'height',p:'e.g. 110'},{l:'Blood Pressure',k:'bp',p:'e.g. 110/70'},{l:'Pulse (bpm)',k:'pulse',p:'e.g. 88'},{l:'Temperature °C',k:'temperature',p:'e.g. 37.2'},{l:'O2 Saturation %',k:'o2_sat',p:'e.g. 98'}].map(f=>(
               <div key={f.k}>
                 <label style={{display:'block',fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',color:'#6b7280',marginBottom:6}}>{f.l}</label>
                 <input type="text" placeholder={f.p} value={(form as any)[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))}
@@ -174,11 +150,11 @@ export default function PreConsultClient({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* Section: Health Record */}
+        {/* Health Record */}
         <div style={{marginBottom:24}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
             <div style={{width:24,height:24,borderRadius:8,background:'#fee2e2',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12}}>❤️</div>
-            <div style={{fontSize:14,fontWeight:600,color:'#0a1628'}}>Health Information</div>
+            <div style={{fontSize:14,fontWeight:700,color:'#0a1628'}}>Health Information</div>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -208,7 +184,6 @@ export default function PreConsultClient({ session }: { session: any }) {
           </div>
         </div>
 
-        {/* Submit */}
         <button onClick={handleSubmit} disabled={saving||!form.chief_complaint}
           style={{width:'100%',padding:'16px',borderRadius:16,fontSize:16,fontWeight:700,border:'2px solid rgba(201,168,76,0.4)',background:'linear-gradient(135deg,#0a1628,#142240)',color:'#c9a84c',cursor:saving||!form.chief_complaint?'not-allowed':'pointer',opacity:saving||!form.chief_complaint?0.5:1,marginBottom:32}}>
           {saving ? 'Submitting...' : '✅ Submit Pre-Consultation Form'}
