@@ -562,6 +562,8 @@ export default function PrescriptionClient({
     setDoseWarnings(p => { const n={...p}; delete n[`${medId}_freq`]; return n; });
     // Check interactions after drug fully selected
     setTimeout(() => checkInteractions(medicines.map(m => m.id===medId?{...m,name:drug.name}:m)), 100);
+    // Check interactions after drug fully selected
+    setTimeout(() => checkInteractions(medicines.map(m => m.id===medId?{...m,name:drug.name}:m)), 100);
   };
 
   const checkInteractions = async (meds: Medicine[]) => {
