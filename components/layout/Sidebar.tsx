@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot } from 'lucide-react';
+import { Star as StarIcon } from 'lucide-react';
 import { FolderOpen } from 'lucide-react';
 
 const NAV = [
@@ -18,6 +19,7 @@ const NAV = [
   { label:'Reminders',     href:'/dashboard/reminders',     icon:MessageCircle   },
   { label:'Analytics',     href:'/dashboard/analytics',     icon:BarChart3       },
   { label:'Calendar',      href:'/dashboard/calendar',      icon:Calendar        },
+  { label:'Feedback', href:'/dashboard/feedback', icon:StarIcon },
   { label:'Settings',      href:'/dashboard/settings',      icon:Settings        },
 ];
 
