@@ -472,6 +472,17 @@ export default function PrescriptionClient({
   }, [form.childName]);
 
 
+  // Fetch patient uploaded lab results when patient changes
+  useEffect(() => {
+    if (!form.childName) { setPatientLabResults([]); return; }
+    const apt = data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase());
+    const mr = (apt as any)?.mr_number;
+    const q = mr
+      ? supabase.from('lab_results').select('*').eq('mr_number', mr)
+      : supabase.from('lab_results').select('*').ilike('child_name', form.childName || '');
+    q.order('uploaded_at', {ascending:false}).then(({data:rows}) => { if(rows) setPatientLabResults(rows); });
+  }, [form.childName]);
+
   // When vitals load, recalculate doses for already-selected medicines
   useEffect(() => {
     if (!dbPatientVitals) return;
