@@ -45,10 +45,10 @@ function medId() { return `m-${Math.random().toString(36).slice(2, 7)}`; }
 function emptyMed(): Medicine { return { id: medId(), name: '', dose: '', frequency: 'Twice daily', duration: '5 days', notes: '' }; }
 
 // ── Print ──────────────────────────────────────────────────────────────────
-function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string) {
+function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any) {
   const key = patientKey(rx.childName);
   const health = getHealth(key);
-  const vitals = getLatestVitals(key);
+  const vitals = getLatestVitals(key) || dbVitals;
 
   const vitalsHTML = vitals ? `
     <div class="section">
@@ -919,7 +919,7 @@ export default function PrescriptionClient({
                 <button onClick={() => {
                   saveRxForm();
                   const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name) };
-                  setTimeout(() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress), 300);
+                  setTimeout(() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals), 300);
                 }} className="btn-outline text-[12px] py-2 px-4 gap-1.5"><Printer size={13} /> Save & Print</button>
                 <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">Cancel</button>
               </div>
@@ -962,7 +962,7 @@ export default function PrescriptionClient({
                       </td>
                       <td>
                         <div className="flex gap-1">
-                          <button onClick={() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress)}
+                          <button onClick={() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals)}
                             className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors" title="Print">
                             <Printer size={12} className="text-gray-600" />
                           </button>
