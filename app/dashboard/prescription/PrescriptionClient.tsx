@@ -799,6 +799,7 @@ export default function PrescriptionClient({
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Medicine Name</label>
                           <div className="relative">
                             {form.childName && !dbPatientVitals && <div className="text-[10px] text-amber-600 mb-1">⏳ Loading patient vitals...</div>}
+                          {form.childName && !dbPatientVitals && <div className="text-[10px] text-amber-600 mb-1">⏳ Loading patient vitals...</div>}
                           <input type="text" placeholder="Type to search BNF drugs..." 
                               value={drugSearch[m.id] !== undefined ? drugSearch[m.id] : m.name}
                               onChange={e => { updateMed(m.id, 'name', e.target.value); searchDrug(m.id, e.target.value); checkInteractions(medicines); }}
