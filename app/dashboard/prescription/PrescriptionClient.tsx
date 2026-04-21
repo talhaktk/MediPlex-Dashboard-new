@@ -450,7 +450,8 @@ export default function PrescriptionClient({
     if (!form.childName) { setDbPatientVitals(null); return; }
     const apt = data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase());
     const mr = (apt as any)?.mr_number;
-    if (!mr) return;
+    console.log('Vitals fetch - patient:', form.childName, 'mr:', mr);
+    if (!mr) { console.log('No MR number found'); return; }
     supabase.from('patient_vitals').select('*').eq('mr_number', mr)
       .order('recorded_at', {ascending:false}).limit(1)
       .then(({data:rows}) => { if (rows?.[0]) setDbPatientVitals(rows[0]); else {
