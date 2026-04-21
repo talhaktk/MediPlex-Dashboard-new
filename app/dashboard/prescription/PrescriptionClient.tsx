@@ -560,6 +560,8 @@ export default function PrescriptionClient({
     setDrugSearch(p => ({...p, [medId]: drug.name}));
     setDrugSuggestions(p => ({...p, [medId]: []}));
     setDoseWarnings(p => { const n={...p}; delete n[`${medId}_freq`]; return n; });
+    // Check interactions after drug fully selected
+    setTimeout(() => checkInteractions(medicines.map(m => m.id===medId?{...m,name:drug.name}:m)), 100);
   };
 
   const checkInteractions = async (meds: Medicine[]) => {
@@ -594,7 +596,13 @@ export default function PrescriptionClient({
   };
 
   const addMedicine = () => setMedicines(prev => [...prev, emptyMed()]);
-  const removeMedicine = (id: string) => setMedicines(prev => prev.filter(m => m.id !== id));
+  const removeMedicine = (id: string) => {
+    const updated = medicines.filter(m => m.id !== id);
+    setMedicines(updated);
+    setDoseWarnings(p => { const n={...p}; delete n[id]; delete n[`${id}_freq`]; return n; });
+    setRecommendedDoses(p => { const n={...p}; delete n[id]; return n; });
+    setTimeout(() => checkInteractions(updated), 100);
+  };
   const updateMed = (id: string, field: keyof Medicine, val: string) =>
     setMedicines(prev => prev.map(m => m.id === id ? { ...m, [field]: val } : m));
 
@@ -855,7 +863,7 @@ export default function PrescriptionClient({
                           {form.childName && !dbPatientVitals && <div className="text-[10px] text-amber-600 mb-1">⏳ Loading patient vitals...</div>}
                           <input type="text" placeholder="Type to search BNF drugs..." 
                               value={drugSearch[m.id] !== undefined ? drugSearch[m.id] : m.name}
-                              onChange={e => { updateMed(m.id, 'name', e.target.value); searchDrug(m.id, e.target.value); checkInteractions(medicines); }}
+                              onChange={e => { updateMed(m.id, 'name', e.target.value); searchDrug(m.id, e.target.value); }}
                               className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
                             {(drugSuggestions[m.id]||[]).length > 0 && (
                               <div className="absolute top-full left-0 right-0 z-50 mt-1 rounded-xl border border-black/10 bg-white shadow-lg overflow-hidden">
