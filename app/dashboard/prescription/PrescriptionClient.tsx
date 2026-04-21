@@ -359,7 +359,7 @@ export default function PrescriptionClient({
           childName: r.child_name || '', parentName: r.parent_name || '',
           childAge: r.child_age || '', date: r.date || '',
           diagnosis: r.diagnosis || '', medicines: Array.isArray(r.medicines) ? r.medicines : [],
-          advice: r.advice || '', followUp: r.follow_up || '', createdAt: r.created_at || '',
+          advice: r.advice || '', followUp: r.follow_up || '', createdAt: r.created_at || '', chiefComplaint: r.chief_complaint||'', signsSymptoms: r.signs_symptoms||'',
         }));
         setPrescriptions(prev => {
           const ids = new Set(prev.map((r:any) => r.id));
