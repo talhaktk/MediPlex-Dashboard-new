@@ -466,6 +466,19 @@ export default function PrescriptionClient({
   }, [form.childName]);
 
 
+  // When vitals load, recalculate doses for already-selected medicines
+  useEffect(() => {
+    if (!dbPatientVitals) return;
+    const weightKg = parseFloat(dbPatientVitals.weight || '0');
+    if (!weightKg) return;
+    medicines.forEach(m => {
+      if (!m.name) return;
+      supabase.from('drugs').select('*').ilike('name', m.name).limit(1).then(({data}) => {
+        if (data?.[0]) selectDrug(m.id, data[0]);
+      });
+    });
+  }, [dbPatientVitals]);
+
   const searchDrug = async (medId: string, query: string) => {
     setDrugSearch(p => ({...p, [medId]: query}));
     if (query.length < 2) { setDrugSuggestions(p => ({...p, [medId]: []})); return; }
