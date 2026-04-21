@@ -474,7 +474,10 @@ export default function PrescriptionClient({
   };
 
   const selectDrug = (medId: string, drug: any) => {
+    const _apt = data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase());
+    const _mr = (_apt as any)?.mr_number;
     const vitals = dbPatientVitals || null;
+    if (!dbPatientVitals && _mr) { supabase.from('appointments').select('visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', _mr).not('visit_weight','is',null).order('appointment_date',{ascending:false}).limit(1).then(({data:r}) => { if(r?.[0]) setDbPatientVitals({weight:r[0].visit_weight,height:r[0].visit_height,bp:r[0].visit_bp,pulse:r[0].visit_pulse,temperature:r[0].visit_temperature}); }); }
     const health = form.childName ? getHealth(patientKey(form.childName)) : null;
     const ageYears = parseFloat(form.childAge || '0');
     const weightKg = parseFloat(vitals?.weight || '0');
