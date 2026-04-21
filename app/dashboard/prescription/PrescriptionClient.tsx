@@ -306,6 +306,8 @@ export default function PrescriptionClient({
   const [form, setForm] = useState<Partial<Prescription>>({});
   const [medicines, setMedicines] = useState<Medicine[]>([emptyMed()]);
   const [labRequests, setLabRequests] = useState<LabRequest[]>([]);
+  const [patientLabResults, setPatientLabResults] = useState<any[]>([]);
+  const [showLabResults, setShowLabResults] = useState(false);
 
   // AI Scribe panel state
   const [scribeData, setScribeData] = useState<ScribeOutput | null>(null);
@@ -918,6 +920,47 @@ export default function PrescriptionClient({
 
               {/* Lab Investigations */}
               <LabInvestigations labs={labRequests} onChange={setLabRequests}/>
+
+              {/* Browse Uploaded Lab Reports */}
+              {patientLabResults.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">📋 Uploaded Lab Reports</label>
+                    <button onClick={() => setShowLabResults(!showLabResults)} className="text-[11px] text-gold hover:text-amber-700 font-medium">
+                      {showLabResults ? 'Hide' : `View ${patientLabResults.length} Report(s)`}
+                    </button>
+                  </div>
+                  {showLabResults && (
+                    <div className="space-y-2 rounded-xl p-3" style={{background:'rgba(59,130,246,0.04)',border:'1px solid rgba(59,130,246,0.2)'}}>
+                      <div className="text-[11px] text-blue-600 mb-2">Open a report → copy values → paste into lab notes above</div>
+                      {patientLabResults.map((r:any) => (
+                        <div key={r.id} className="flex items-center justify-between rounded-lg px-3 py-2" style={{background:'#fff',border:'1px solid rgba(0,0,0,0.08)'}}>
+                          <div>
+                            <div className="text-[12px] font-medium text-navy">{r.test_name || 'Lab Result'}</div>
+                            <div className="text-[10px] text-gray-400">{r.visit_date ? new Date(r.visit_date).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}) : ''} · {r.file_urls?.length || 0} file(s)</div>
+                          </div>
+                          <div className="flex gap-1">
+                            {(r.file_urls||[]).map((url:string, i:number) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium"
+                                style={{background:'rgba(59,130,246,0.1)',color:'#1d4ed8',border:'1px solid rgba(59,130,246,0.2)'}}>
+                                {/\.(jpg|jpeg|png|gif|webp)$/i.test(url) ? '🖼' : '📄'} View {i+1}
+                              </a>
+                            ))}
+                            {r.notes && (
+                              <button onClick={() => { navigator.clipboard.writeText(r.notes); toast.success('Notes copied!'); }}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium"
+                                style={{background:'rgba(201,168,76,0.1)',color:'#a07a2a',border:'1px solid rgba(201,168,76,0.25)'}}>
+                                📋 Copy Notes
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Advice & Follow-up */}
               <div className="grid grid-cols-2 gap-4 mb-5">
