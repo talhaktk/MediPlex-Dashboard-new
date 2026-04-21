@@ -95,6 +95,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
         <div><div class="field-label">Date</div><div class="field-val">${formatUSDate(rx.date)}</div></div>
       </div>
       ${alertHTML}${vitalsHTML}
+      ${((rx as any).chiefComplaint||(rx as any).signsSymptoms)?`<div class="cc-row">${(rx as any).chiefComplaint?`<div class="cc-box"><div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:3px">Chief Complaint</div>${(rx as any).chiefComplaint}</div>`:''} ${(rx as any).signsSymptoms?`<div class="cc-box"><div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:3px">Signs & Symptoms</div>${(rx as any).signsSymptoms}</div>`:''}</div>`:''}
       ${rx.diagnosis ? `<div class="section-title">🔍 Diagnosis</div><div class="diagnosis-box">${rx.diagnosis}</div>` : ''}
       <div class="section-title">℞ Medicines</div>
       <table><thead><tr><th>Medicine / Dosage</th><th>Frequency</th><th>Duration</th></tr></thead><tbody>${medRows}</tbody></table>
