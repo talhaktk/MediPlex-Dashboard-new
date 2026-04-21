@@ -27,7 +27,7 @@ interface Medicine {
 interface Prescription {
   id: string; appointmentId: string; childName: string;
   parentName: string; childAge: string; date: string;
-  diagnosis: string; medicines: Medicine[]; advice: string;
+  diagnosis: string; chiefComplaint: string; signsSymptoms: string; medicines: Medicine[]; advice: string;
   followUp: string; createdAt: string;
 }
 
@@ -81,7 +81,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
     </tr>`).join('');
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Prescription ${rx.id}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:800px;margin:0 auto;padding:30px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:20px 28px;border-radius:10px 10px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:20px;font-weight:700}.clinic-sub{font-size:11px;color:rgba(255,255,255,0.6);margin-top:3px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 10px 10px;padding:20px 28px}.patient-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;padding:14px;background:#f9f7f3;border-radius:8px}.field-label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:2px}.field-val{font-size:13px;font-weight:600;color:#0a1628}.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:600;margin:16px 0 8px}.diagnosis-box{background:#fff9e6;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;font-size:14px;font-weight:500;color:#92400e;margin-bottom:16px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#0a1628;color:white;padding:9px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 16px;font-size:13px;color:#166534;margin-bottom:16px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 16px;font-size:13px;color:#1e40af}.footer{margin-top:24px;padding-top:16px;border-top:2px dashed #e5e7eb;display:flex;justify-content:space-between;align-items:flex-end}.sig-line{border-top:1px solid #374151;width:180px;padding-top:4px;font-size:11px;color:#6b7280;text-align:center}@media print{body{padding:0}.page{padding:20px}}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:210mm;margin:0 auto;padding:12px 16px;font-size:11px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:15px;font-weight:700}.clinic-sub{font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:10px 16px}.patient-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;padding:8px 10px;background:#f9f7f3;border-radius:6px}.field-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:1px}.field-val{font-size:11px;font-weight:600;color:#0a1628}.section-title{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin:8px 0 4px;border-bottom:1px solid #f0f0f0;padding-bottom:2px}.cc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.cc-box{background:#fff9e6;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;font-size:11px}.diagnosis-box{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:#856404;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#0a1628;color:white;padding:5px 8px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase}td{padding:4px 8px;border-bottom:1px solid #f5f5f5;font-size:11px}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:10px;color:#166534;margin-bottom:6px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;font-size:10px;color:#1e40af;margin-bottom:6px}.footer{margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;display:flex;justify-content:space-between;align-items:flex-end}.sig-line{border-top:1px solid #374151;width:150px;padding-top:3px;font-size:9px;color:#6b7280;text-align:center}@media print{body{padding:0;margin:0}.page{padding:8px 12px}}</style>
   </head><body><div class="page">
     <div class="header">
       <div><div class="clinic-name">🏥 ${clinicName}</div><div class="clinic-sub">${clinicAddress}</div><div class="clinic-sub" style="margin-top:4px">📞 ${clinicPhone} · 👨‍⚕️ ${doctorName}</div></div>
@@ -418,7 +418,7 @@ export default function PrescriptionClient({
       childName: apt?.childName || '', parentName: apt?.parentName || '',
       childAge: apt?.childAge || '',
       date: apt?.appointmentDate || new Date().toISOString().split('T')[0],
-      diagnosis: '', advice: 'Drink plenty of water. Rest well. Avoid cold drinks.',
+      diagnosis: '', chiefComplaint: '', signsSymptoms: '', advice: 'Drink plenty of water. Rest well. Avoid cold drinks.',
       followUp: '', createdAt: new Date().toISOString(),
     });
     setMedicines([emptyMed()]);
@@ -615,7 +615,7 @@ export default function PrescriptionClient({
         id: rx.id, mr_number: mrNumber,
         child_name: rx.childName, parent_name: rx.parentName,
         child_age: rx.childAge || '', date: rx.date || '',
-        diagnosis: rx.diagnosis || '', medicines: rx.medicines,
+        diagnosis: rx.diagnosis || '', chief_complaint: (rx as any).chiefComplaint||'', signs_symptoms: (rx as any).signsSymptoms||'', medicines: rx.medicines,
         advice: rx.advice || '', follow_up: rx.followUp || '',
       }], { onConflict: 'id' });
       toast.success(`Prescription ${rx.id} saved to database`);
@@ -790,6 +790,24 @@ export default function PrescriptionClient({
                   </div>
                 );
               })()}
+
+              {/* Chief Complaint & Signs */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Chief Complaint</label>
+                  <input type="text" placeholder="e.g. Fever, Cough, Rash"
+                    value={form.chiefComplaint || ''}
+                    onChange={e => setForm(prev => ({ ...prev, chiefComplaint: e.target.value }))}
+                    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Signs & Symptoms</label>
+                  <input type="text" placeholder="e.g. Fever 3 days, dry cough"
+                    value={form.signsSymptoms || ''}
+                    onChange={e => setForm(prev => ({ ...prev, signsSymptoms: e.target.value }))}
+                    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                </div>
+              </div>
 
               {/* Diagnosis */}
               <div className="mb-4">
