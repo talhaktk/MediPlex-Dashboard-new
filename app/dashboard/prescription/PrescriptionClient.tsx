@@ -479,7 +479,7 @@ export default function PrescriptionClient({
     const vitals = dbPatientVitals || null;
     if (!dbPatientVitals && _mr) { supabase.from('appointments').select('visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', _mr).not('visit_weight','is',null).order('appointment_date',{ascending:false}).limit(1).then(({data:r}) => { if(r?.[0]) setDbPatientVitals({weight:r[0].visit_weight,height:r[0].visit_height,bp:r[0].visit_bp,pulse:r[0].visit_pulse,temperature:r[0].visit_temperature}); }); }
     const health = form.childName ? getHealth(patientKey(form.childName)) : null;
-    const ageYears = parseFloat(form.childAge || '0');
+    const ageYears = parseFloat((form.childAge || '0').replace(/[^0-9.]/g, ''));
     const weightKg = parseFloat(vitals?.weight || '0');
     const pd = drug.paediatric || {};
 
@@ -525,6 +525,7 @@ export default function PrescriptionClient({
     updateMed(medId, 'frequency', pd.frequency || 'Twice daily');
     setDrugSearch(p => ({...p, [medId]: drug.name}));
     setDrugSuggestions(p => ({...p, [medId]: []}));
+    setDoseWarnings(p => { const n={...p}; delete n[`${medId}_freq`]; return n; });
   };
 
   const checkInteractions = async (meds: Medicine[]) => {
