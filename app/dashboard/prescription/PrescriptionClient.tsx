@@ -95,11 +95,11 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
         <div><div class="field-label">Date</div><div class="field-val">${formatUSDate(rx.date)}</div></div>
       </div>
       ${alertHTML}${vitalsHTML}
-      ${((rx as any).chiefComplaint||(rx as any).signsSymptoms)?`<div class="cc-row">${(rx as any).chiefComplaint?`<div class="cc-box"><div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:3px">Chief Complaint</div>${(rx as any).chiefComplaint}</div>`:''} ${(rx as any).signsSymptoms?`<div class="cc-box"><div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:3px">Signs & Symptoms</div>${(rx as any).signsSymptoms}</div>`:''}</div>`:''}
+      ${((rx as any).chiefComplaint||(rx as any).signsSymptoms)?`<div class="cc-row">${(rx as any).chiefComplaint?`<div class="cc-box"><div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:3px">Chief Complaint</div><div style="white-space:pre-line">${(rx as any).chiefComplaint}</div></div>`:''} ${(rx as any).signsSymptoms?`<div class="cc-box"><div style="font-size:9px;text-transform:uppercase;color:#9ca3af;font-weight:700;margin-bottom:3px">Signs & Symptoms</div><div style="white-space:pre-line">${(rx as any).signsSymptoms}</div></div>`:''}</div>`:''}
       ${rx.diagnosis ? `<div class="section-title">🔍 Diagnosis</div><div class="diagnosis-box">${rx.diagnosis}</div>` : ''}
       <div class="section-title">℞ Medicines</div>
       <table><thead><tr><th>Medicine / Dosage</th><th>Frequency</th><th>Duration</th></tr></thead><tbody>${medRows}</tbody></table>
-      ${(rx as any).labs?.length > 0 ? `<div class="section-title">🔬 Lab Investigations</div><table width="100%" style="border-collapse:collapse;margin-bottom:16px"><thead><tr><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Investigation</th><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Urgency</th><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Instructions</th></tr></thead><tbody>${(rx as any).labs.map((l:any) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:#0a1628">${l.name}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="padding:2px 8px;border-radius:10px;font-weight:600;background:${l.urgency==='STAT'?'#fee2e2':l.urgency==='Urgent'?'#fff7ed':'#f0fdf4'};color:${l.urgency==='STAT'?'#991b1b':l.urgency==='Urgent'?'#92400e':'#166534'}">${l.urgency}</span></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#6b7280">${l.instructions||'—'}</td></tr>`).join('')}</tbody></table>` : ''}
+      ${(rx as any).labs?.length > 0 ? `<div class="section-title">🔬 Lab Investigations</div><div style="margin-bottom:6px">${(rx as any).labs.map((l:any,i:number) => `<div style="font-size:11px;padding:2px 0;display:flex;align-items:center;gap:6px"><span style="font-weight:600;color:#0a1628">${i+1}. ${l.name}</span><span style="font-size:9px;padding:1px 6px;border-radius:8px;font-weight:600;background:${l.urgency==='STAT'?'#fee2e2':l.urgency==='Urgent'?'#fff7ed':'#dcfce7'};color:${l.urgency==='STAT'?'#991b1b':l.urgency==='Urgent'?'#92400e':'#166534'}">${l.urgency}</span>${l.instructions?`<span style="font-size:10px;color:#6b7280">— ${l.instructions}</span>`:''}</div>`).join('')}</div>` : ''}
       ${(rx as any).labResultsText ? `<div class="section-title">🧾 Lab Results</div><div style="border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:11px;white-space:pre-wrap;background:#f8f8f8">${(rx as any).labResultsText}</div>` : ''}
       ${rx.advice ? `<div class="section-title">💡 Advice</div><div class="advice-box">${rx.advice}</div>` : ''}
       ${rx.followUp ? `<div class="section-title">📅 Follow-up</div><div class="followup-box">Please visit again: <strong>${rx.followUp}</strong></div>` : ''}
@@ -799,17 +799,17 @@ export default function PrescriptionClient({
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Chief Complaint</label>
-                  <input type="text" placeholder="e.g. Fever, Cough, Rash"
+                  <textarea rows={3} placeholder="e.g.&#10;1. Fever&#10;2. Headache&#10;3. Vomiting"
                     value={form.chiefComplaint || ''}
                     onChange={e => setForm(prev => ({ ...prev, chiefComplaint: e.target.value }))}
-                    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none"/>
                 </div>
                 <div>
                   <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Signs & Symptoms</label>
-                  <input type="text" placeholder="e.g. Fever 3 days, dry cough"
+                  <textarea rows={3} placeholder="e.g.&#10;1. Fever 3 days&#10;2. Dry cough&#10;3. Fatigue"
                     value={form.signsSymptoms || ''}
                     onChange={e => setForm(prev => ({ ...prev, signsSymptoms: e.target.value }))}
-                    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                    className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none"/>
                 </div>
               </div>
 
