@@ -787,56 +787,6 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
           </div>
         </div>
-
-          {/* Aging Report */}
-          {(()=>{
-            const now=new Date();
-            const ageD=(d:string)=>Math.floor((now.getTime()-new Date(d||now).getTime())/(864e5));
-            const out=invoices.filter(i=>i.paymentStatus!=='Paid'&&Math.max(0,i.feeAmount-i.discount-i.paid)>0);
-            const a0=out.filter(i=>ageD(i.createdAt)<=30);
-            const a31=out.filter(i=>ageD(i.createdAt)>30&&ageD(i.createdAt)<=60);
-            const a60=out.filter(i=>ageD(i.createdAt)>60);
-            const tb=invoices.reduce((s,i)=>s+(i.feeAmount-i.discount),0);
-            const tc=invoices.reduce((s,i)=>s+i.paid,0);
-            const cr=tb?Math.round(tc/tb*100):0;
-            return (<div className="space-y-4 mt-2">
-              <div className="card p-5">
-                <div className="font-medium text-navy text-[14px] mb-3">Collection Rate</div>
-                <div className="flex items-center gap-4">
-                  <div className="text-[36px] font-bold" style={{color:cr>=80?'#1a7f5e':cr>=60?'#c9a84c':'#dc2626'}}>{cr}%</div>
-                  <div className="flex-1">
-                    <div className="h-3 rounded-full bg-gray-100 overflow-hidden"><div className="h-full rounded-full" style={{width:`${cr}%`,background:cr>=80?'#1a7f5e':cr>=60?'#c9a84c':'#dc2626'}}/></div>
-                    <div className="text-[11px] text-gray-400 mt-1">PKR {tc.toLocaleString()} collected of PKR {tb.toLocaleString()} billed</div>
-                  </div>
-                </div>
-              </div>
-              <div className="card p-5">
-                <div className="font-medium text-navy text-[14px] mb-3">Outstanding Dues — Aging Report</div>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  {[{l:'0–30 Days',it:a0,c:'#f59e0b',bg:'#fefce8'},{l:'31–60 Days',it:a31,c:'#ea580c',bg:'#fff7ed'},{l:'60+ Days',it:a60,c:'#dc2626',bg:'#fef2f2'}].map(b=>(
-                    <div key={b.l} className="rounded-xl p-4 text-center" style={{background:b.bg,border:`1px solid ${b.c}33`}}>
-                      <div className="text-[10px] uppercase tracking-widest font-medium mb-1" style={{color:b.c}}>{b.l}</div>
-                      <div className="text-[20px] font-bold" style={{color:b.c}}>PKR {b.it.reduce((s:number,i:any)=>s+Math.max(0,i.feeAmount-i.discount-i.paid),0).toLocaleString()}</div>
-                      <div className="text-[11px] mt-1" style={{color:b.c}}>{b.it.length} invoice(s)</div>
-                    </div>
-                  ))}
-                </div>
-                {out.length>0&&(<div>
-                  <div className="text-[12px] font-medium text-navy mb-2">Top Outstanding Balances</div>
-                  <div className="space-y-2">
-                    {[...out].sort((a,b)=>Math.max(0,b.feeAmount-b.discount-b.paid)-Math.max(0,a.feeAmount-a.discount-a.paid)).slice(0,8).map((inv,i)=>{
-                      const due=Math.max(0,inv.feeAmount-inv.discount-inv.paid);
-                      const days=ageD(inv.createdAt);
-                      return (<div key={inv.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.1)'}}>
-                        <div className="flex items-center gap-3"><span className="text-[11px] text-gray-400 w-4">{i+1}</span><div><div className="text-[13px] font-medium text-navy">{inv.childName}</div><div className="text-[10px] text-gray-400">{days} days ago</div></div></div>
-                        <div className="text-right"><div className="text-[13px] font-semibold" style={{color:days>60?'#dc2626':days>30?'#ea580c':'#f59e0b'}}>PKR {due.toLocaleString()}</div><div className="text-[10px]" style={{color:inv.paymentStatus==='Partial'?'#c9a84c':'#dc2626'}}>{inv.paymentStatus}</div></div>
-                      </div>);
-                    })}
-                  </div>
-                </div>)}
-              </div>
-            </div>);
-          })()}
       )}
     </div>
   );
