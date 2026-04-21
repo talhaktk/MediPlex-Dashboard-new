@@ -788,7 +788,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           </div>
         </div>
 
-          {/* Aging Report */}
+        {/* Aging Report */}
           {(()=>{
             const now=new Date();
             const ageD=(d:string)=>d?Math.floor((now.getTime()-new Date(d).getTime())/(864e5)):0;
