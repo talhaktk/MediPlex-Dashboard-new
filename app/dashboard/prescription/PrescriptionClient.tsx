@@ -99,6 +99,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
       <div class="section-title">℞ Medicines</div>
       <table><thead><tr><th>Medicine / Dosage</th><th>Frequency</th><th>Duration</th></tr></thead><tbody>${medRows}</tbody></table>
       ${(rx as any).labs?.length > 0 ? `<div class="section-title">🔬 Lab Investigations</div><table width="100%" style="border-collapse:collapse;margin-bottom:16px"><thead><tr><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Investigation</th><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Urgency</th><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Instructions</th></tr></thead><tbody>${(rx as any).labs.map((l:any) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:#0a1628">${l.name}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="padding:2px 8px;border-radius:10px;font-weight:600;background:${l.urgency==='STAT'?'#fee2e2':l.urgency==='Urgent'?'#fff7ed':'#f0fdf4'};color:${l.urgency==='STAT'?'#991b1b':l.urgency==='Urgent'?'#92400e':'#166534'}">${l.urgency}</span></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#6b7280">${l.instructions||'—'}</td></tr>`).join('')}</tbody></table>` : ''}
+      ${(rx as any).labResultsText ? `<div class="section-title">🧾 Lab Results</div><div style="border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:11px;white-space:pre-wrap;background:#f8f8f8">${(rx as any).labResultsText}</div>` : ''}
       ${rx.advice ? `<div class="section-title">💡 Advice</div><div class="advice-box">${rx.advice}</div>` : ''}
       ${rx.followUp ? `<div class="section-title">📅 Follow-up</div><div class="followup-box">Please visit again: <strong>${rx.followUp}</strong></div>` : ''}
       <div class="footer" style="display:flex;justify-content:space-between;align-items:flex-end">
@@ -306,6 +307,7 @@ export default function PrescriptionClient({
   const [form, setForm] = useState<Partial<Prescription>>({});
   const [medicines, setMedicines] = useState<Medicine[]>([emptyMed()]);
   const [labRequests, setLabRequests] = useState<LabRequest[]>([]);
+  const [labResultsText, setLabResultsText] = useState('');
   const [patientLabResults, setPatientLabResults] = useState<any[]>([]);
   const [showLabResults, setShowLabResults] = useState(false);
 
@@ -423,6 +425,7 @@ export default function PrescriptionClient({
     });
     setMedicines([emptyMed()]);
     setLabRequests([]);
+    setLabResultsText('');
     setAptSearch('');
     setShowForm(true);
   };
@@ -597,7 +600,7 @@ export default function PrescriptionClient({
   const saveRxForm = async () => {
     if (!form.childName) { toast.error('Select a patient first'); return; }
     if (medicines.filter(m => m.name).length === 0) { toast.error('Add at least one medicine'); return; }
-    const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests } as any;
+    const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests, labResultsText } as any;
     const updated = [rx, ...prescriptions.filter(r => r.id !== rx.id)];
     setPrescriptions(updated);
     saveRxLS(updated);
@@ -950,6 +953,18 @@ export default function PrescriptionClient({
               {/* Lab Investigations */}
               <LabInvestigations labs={labRequests} onChange={setLabRequests}/>
 
+              {/* Lab Results (Already Done) */}
+              <div className="mb-4">
+                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
+                  🧾 Lab Results (Already Done — paste values here)
+                </label>
+                <textarea rows={3}
+                  placeholder="e.g. CBC: Hb 8.5 g/dL, WBC 11,000, Platelets 180,000&#10;CRP: 45 mg/L (High)&#10;Blood Sugar: 95 mg/dL"
+                  value={labResultsText}
+                  onChange={e => setLabResultsText(e.target.value)}
+                  className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none"/>
+              </div>
+
               {/* Browse Uploaded Lab Reports */}
               {patientLabResults.length > 0 && (
                 <div className="mb-4">
@@ -1013,7 +1028,7 @@ export default function PrescriptionClient({
                 <button onClick={validateAndSave} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
                 <button onClick={() => {
                   saveRxForm();
-                  const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests } as any;
+                  const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests, labResultsText } as any;
                   setTimeout(() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals), 300);
                 }} className="btn-outline text-[12px] py-2 px-4 gap-1.5"><Printer size={13} /> Save & Print</button>
                 <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">Cancel</button>
