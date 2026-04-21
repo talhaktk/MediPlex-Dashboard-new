@@ -787,6 +787,71 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
           </div>
         </div>
+
+          {/* Aging Report */}
+          {(() => {
+            const now = new Date();
+            const age = (dateStr: string) => Math.floor((now.getTime() - new Date(dateStr).getTime()) / (1000*60*60*24));
+            const outstanding = invoices.filter(i => i.paymentStatus !== 'Paid' && Math.max(0,i.feeAmount-i.discount-i.paid) > 0);
+            const a0 = outstanding.filter(i => age(i.createdAt||'') <= 30);
+            const a31 = outstanding.filter(i => age(i.createdAt||'') > 30 && age(i.createdAt||'') <= 60);
+            const a60 = outstanding.filter(i => age(i.createdAt||'') > 60);
+            const totalBilled = invoices.reduce((s,i)=>s+(i.feeAmount-i.discount),0);
+            const totalCollected = invoices.reduce((s,i)=>s+i.paid,0);
+            const collectionRate = totalBilled ? Math.round((totalCollected/totalBilled)*100) : 0;
+            return (
+              <div className="space-y-4 mt-4">
+                <div className="card p-5">
+                  <div className="font-medium text-navy text-[14px] mb-3">Collection Rate</div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-[36px] font-bold" style={{color:collectionRate>=80?'#1a7f5e':collectionRate>=60?'#c9a84c':'#dc2626'}}>{collectionRate}%</div>
+                    <div className="flex-1">
+                      <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full" style={{width:`${collectionRate}%`,background:collectionRate>=80?'#1a7f5e':collectionRate>=60?'#c9a84c':'#dc2626'}}/>
+                      </div>
+                      <div className="text-[11px] text-gray-400 mt-1">PKR {totalCollected.toLocaleString()} collected of PKR {totalBilled.toLocaleString()} billed</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="card p-5">
+                  <div className="font-medium text-navy text-[14px] mb-3">Outstanding Dues — Aging Report</div>
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    {[{label:'0–30 Days',items:a0,color:'#f59e0b',bg:'#fefce8'},{label:'31–60 Days',items:a31,color:'#ea580c',bg:'#fff7ed'},{label:'60+ Days',items:a60,color:'#dc2626',bg:'#fef2f2'}].map(b=>(
+                      <div key={b.label} className="rounded-xl p-4 text-center" style={{background:b.bg,border:`1px solid ${b.color}33`}}>
+                        <div className="text-[10px] uppercase tracking-widest font-medium mb-1" style={{color:b.color}}>{b.label}</div>
+                        <div className="text-[20px] font-bold" style={{color:b.color}}>PKR {b.items.reduce((s:number,i:any)=>s+Math.max(0,i.feeAmount-i.discount-i.paid),0).toLocaleString()}</div>
+                        <div className="text-[11px] mt-1" style={{color:b.color}}>{b.items.length} invoice(s)</div>
+                      </div>
+                    ))}
+                  </div>
+                  {outstanding.length > 0 && (
+                    <div>
+                      <div className="text-[12px] font-medium text-navy mb-2">Top Outstanding Balances</div>
+                      <div className="space-y-2">
+                        {[...outstanding].sort((a,b)=>Math.max(0,b.feeAmount-b.discount-b.paid)-Math.max(0,a.feeAmount-a.discount-a.paid)).slice(0,8).map((inv,i)=>{
+                          const due=Math.max(0,inv.feeAmount-inv.discount-inv.paid);
+                          const days=age(inv.createdAt||'');
+                          return (
+                            <div key={inv.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.1)'}}>
+                              <div className="flex items-center gap-3">
+                                <span className="text-[11px] text-gray-400 w-4">{i+1}</span>
+                                <div><div className="text-[13px] font-medium text-navy">{inv.childName}</div><div className="text-[10px] text-gray-400">{inv.id} · {days} days ago</div></div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[13px] font-semibold" style={{color:days>60?'#dc2626':days>30?'#ea580c':'#f59e0b'}}>PKR {due.toLocaleString()}</div>
+                                <div className="text-[10px]" style={{color:inv.paymentStatus==='Partial'?'#c9a84c':'#dc2626'}}>{inv.paymentStatus}</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
       )}
     </div>
   );
