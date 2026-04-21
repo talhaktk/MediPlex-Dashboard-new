@@ -19,6 +19,13 @@ import LabInvestigations, { LabRequest } from '@/components/ui/LabInvestigations
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
 
+// ── WhatsApp send helper ─────────────────────────────────────────────────────
+function sendWA(phone: string, msg: string) {
+  let p = phone.replace(/\D/g, '');
+  if (p.startsWith('0')) p = '92' + p.slice(1);
+  window.open('https://wa.me/' + p + '?text=' + encodeURIComponent(msg), '_blank');
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Medicine {
   id: string; name: string; dose: string;
@@ -632,6 +639,14 @@ export default function PrescriptionClient({
         diagnosis: rx.diagnosis || '', chief_complaint: (rx as any).chiefComplaint||'', signs_symptoms: (rx as any).signsSymptoms||'', medicines: rx.medicines,
         advice: rx.advice || '', follow_up: rx.followUp || '',
       }], { onConflict: 'id' });
+      // Save to rx_public for patient link
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      await supabase.from('rx_public').upsert([{
+        id: rx.id,
+        rx_data: rx,
+        clinic_name: clinicName,
+        doctor_name: doctorName,
+      }], { onConflict: 'id' });
       toast.success(`Prescription ${rx.id} saved to database`);
     } catch (err: any) {
       toast.success(`Prescription ${rx.id} saved locally`);
@@ -1087,6 +1102,30 @@ export default function PrescriptionClient({
                             className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors" title="Print">
                             <Printer size={12} className="text-gray-600" />
                           </button>
+                          {(() => {
+                            const apt = data.find((a:any) => a.childName?.toLowerCase() === rx.childName?.toLowerCase());
+                            const phone = apt?.whatsapp;
+                            const rxLink = typeof window !== 'undefined' ? `${window.location.origin}/rx/${rx.id}` : `/rx/${rx.id}`;
+                            const fbId = `FB-${rx.id}`;
+                            return phone && phone !== '—' ? (
+                              <div className="flex gap-1">
+                                <button onClick={() => sendWA(phone, `Dear ${rx.parentName},\n\nYour prescription from MediPlex Pediatric Centre is ready.\n\n📋 View Prescription: ${rxLink}\n\nMedicines: ${rx.medicines.map((m:any)=>m.name).join(', ')}\n\nThank you.`)}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-green-50 transition-colors" title="Send Prescription via WhatsApp"
+                                  style={{background:'#f0fdf4',border:'1px solid #bbf7d0'}}>
+                                  <span style={{fontSize:12}}>📱</span>
+                                </button>
+                                <button onClick={async () => {
+                                  const fbRow = { id: fbId, rx_id: rx.id, mr_number: (apt as any)?.mr_number||null, child_name: rx.childName, parent_name: rx.parentName, whatsapp: phone, status: 'pending' };
+                                  await supabase.from('feedback').upsert([fbRow], { onConflict: 'id' });
+                                  const fbLink = typeof window !== 'undefined' ? `${window.location.origin}/feedback/${fbId}` : `/feedback/${fbId}`;
+                                  sendWA(phone, `Dear ${rx.parentName},\n\nThank you for visiting MediPlex Pediatric Centre.\n\nWe would love to hear about your experience. Please take a moment to share your feedback:\n\n⭐ Feedback Form: ${fbLink}\n\nThank you.`);
+                                }} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-yellow-50 transition-colors" title="Send Feedback Request"
+                                  style={{background:'#fefce8',border:'1px solid #fde68a'}}>
+                                  <span style={{fontSize:12}}>⭐</span>
+                                </button>
+                              </div>
+                            ) : null;
+                          })()}
                           <button onClick={() => { setForm(rx); setMedicines(rx.medicines); setShowForm(true); }}
                             className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-amber-50 transition-colors" title="Edit">
                             <FileText size={12} className="text-gray-600" />
