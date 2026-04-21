@@ -15,6 +15,7 @@ import {
   patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
 } from '@/lib/store';
 import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeStore';
+import LabInvestigations, { LabRequest } from '@/components/ui/LabInvestigations';
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
 
@@ -97,6 +98,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
       ${rx.diagnosis ? `<div class="section-title">🔍 Diagnosis</div><div class="diagnosis-box">${rx.diagnosis}</div>` : ''}
       <div class="section-title">℞ Medicines</div>
       <table><thead><tr><th>Medicine / Dosage</th><th>Frequency</th><th>Duration</th></tr></thead><tbody>${medRows}</tbody></table>
+      ${(rx as any).labs?.length > 0 ? `<div class="section-title">🔬 Lab Investigations</div><table width="100%" style="border-collapse:collapse;margin-bottom:16px"><thead><tr><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Investigation</th><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Urgency</th><th style="background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px">Instructions</th></tr></thead><tbody>${(rx as any).labs.map((l:any) => `<tr><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:#0a1628">${l.name}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px"><span style="padding:2px 8px;border-radius:10px;font-weight:600;background:${l.urgency==='STAT'?'#fee2e2':l.urgency==='Urgent'?'#fff7ed':'#f0fdf4'};color:${l.urgency==='STAT'?'#991b1b':l.urgency==='Urgent'?'#92400e':'#166534'}">${l.urgency}</span></td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;font-size:12px;color:#6b7280">${l.instructions||'—'}</td></tr>`).join('')}</tbody></table>` : ''}
       ${rx.advice ? `<div class="section-title">💡 Advice</div><div class="advice-box">${rx.advice}</div>` : ''}
       ${rx.followUp ? `<div class="section-title">📅 Follow-up</div><div class="followup-box">Please visit again: <strong>${rx.followUp}</strong></div>` : ''}
       <div class="footer" style="display:flex;justify-content:space-between;align-items:flex-end">
@@ -303,6 +305,7 @@ export default function PrescriptionClient({
   const [aptSearch, setAptSearch] = useState('');
   const [form, setForm] = useState<Partial<Prescription>>({});
   const [medicines, setMedicines] = useState<Medicine[]>([emptyMed()]);
+  const [labRequests, setLabRequests] = useState<LabRequest[]>([]);
 
   // AI Scribe panel state
   const [scribeData, setScribeData] = useState<ScribeOutput | null>(null);
@@ -417,6 +420,7 @@ export default function PrescriptionClient({
       followUp: '', createdAt: new Date().toISOString(),
     });
     setMedicines([emptyMed()]);
+    setLabRequests([]);
     setAptSearch('');
     setShowForm(true);
   };
@@ -580,7 +584,7 @@ export default function PrescriptionClient({
   const saveRxForm = async () => {
     if (!form.childName) { toast.error('Select a patient first'); return; }
     if (medicines.filter(m => m.name).length === 0) { toast.error('Add at least one medicine'); return; }
-    const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name) };
+    const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests } as any;
     const updated = [rx, ...prescriptions.filter(r => r.id !== rx.id)];
     setPrescriptions(updated);
     saveRxLS(updated);
@@ -912,6 +916,9 @@ export default function PrescriptionClient({
                 </div>
               </div>
 
+              {/* Lab Investigations */}
+              <LabInvestigations labs={labRequests} onChange={setLabRequests}/>
+
               {/* Advice & Follow-up */}
               <div className="grid grid-cols-2 gap-4 mb-5">
                 <div>
@@ -934,7 +941,7 @@ export default function PrescriptionClient({
                 <button onClick={validateAndSave} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
                 <button onClick={() => {
                   saveRxForm();
-                  const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name) };
+                  const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests } as any;
                   setTimeout(() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals), 300);
                 }} className="btn-outline text-[12px] py-2 px-4 gap-1.5"><Printer size={13} /> Save & Print</button>
                 <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">Cancel</button>

@@ -9,7 +9,7 @@ import { Search, X, Phone, Mail, Calendar, User, Heart, Activity, FileText, Plus
 import toast from 'react-hot-toast';
 import { getHealth, setHealth, addVitals, getLatestVitals, getPrescriptionsByPatient, patientKey, HealthRecord, VitalSigns } from '@/lib/store';
 import StatusPill from '@/components/ui/StatusPill';
-import LabResults from '@/components/ui/LabResults';
+import LabResultsWithPrint from '@/components/ui/LabResultsWithPrint';
 import ConsentForms from '@/components/ui/ConsentForms';
 import TelehealthHistory from '@/components/ui/TelehealthHistory';
 
@@ -750,7 +750,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
               {/* LABS */}
               {activeTab==='labs' && (
                 <div className="p-5">
-                  <LabResults childName={selected.name} mrNumber={selected.mrNumber} visitDate={new Date().toISOString().split('T')[0]}/>
+                  <LabResultsWithPrint childName={selected.name} mrNumber={selected.mrNumber} patientAge={selected.age} parentName={selected.parentName} visitDate={new Date().toISOString().split('T')[0]}/>
                 </div>
               )}
 
