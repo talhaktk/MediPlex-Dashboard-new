@@ -78,7 +78,7 @@ export default function LoginPage() {
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="dr.talha@mediplex.com"
+                placeholder="email@mediplex.com"
                 autoComplete="email"
                 className="w-full rounded-xl px-4 py-3 text-[13px] outline-none transition-all"
                 style={{
