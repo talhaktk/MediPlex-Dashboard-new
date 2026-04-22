@@ -459,14 +459,13 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                         {allVitals.map((v,i)=>(
                           <div key={i} className="rounded-lg p-3 flex flex-wrap gap-3 text-[12px]" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.1)'}}>
                             <span className="font-medium text-navy">{formatUSDate(v.recordedAt)}</span>
-                            {(v as any)._source === 'visit' && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'#dbeafe',color:'#1d4ed8'}}>Visit</span>}
+                            {i===0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'#dbeafe',color:'#1d4ed8'}}>Latest</span>}
                             {v.weight && <span className="text-gray-600">⚖ {v.weight}kg</span>}
                             {v.height && <span className="text-gray-600">📏 {v.height}cm</span>}
                             {v.bp && <span className="text-gray-600">❤ BP {v.bp}</span>}
                             {v.pulse && <span className="text-gray-600">💓 {v.pulse}bpm</span>}
                             {v.temperature && <span className="text-gray-600">🌡 {v.temperature}°C</span>}
-                            {(v as any).weight_percentile && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{background:'rgba(59,130,246,0.1)',color:'#1d4ed8'}}>Wt: {(v as any).weight_percentile}</span>}
-                            {(v as any).height_percentile && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{background:'rgba(16,185,129,0.1)',color:'#059669'}}>Ht: {(v as any).height_percentile}</span>}
+
                           </div>
                         ))}
                       </div>

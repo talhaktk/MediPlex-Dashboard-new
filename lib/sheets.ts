@@ -308,8 +308,6 @@ export async function syncVitalsToDb(
   mrNumber: string,
   childName: string,
   vitals: { weight?: string; height?: string; bp?: string; pulse?: string; temperature?: string; recordedAt?: string },
-  weightPercentile?: string,
-  heightPercentile?: string
 ): Promise<void> {
   try {
     await supabase.from('patient_vitals').insert([{
