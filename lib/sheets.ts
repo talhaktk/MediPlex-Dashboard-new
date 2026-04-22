@@ -307,18 +307,22 @@ export async function syncHealthToDb(
 export async function syncVitalsToDb(
   mrNumber: string,
   childName: string,
-  vitals: { weight?: string; height?: string; bp?: string; pulse?: string; temperature?: string; recordedAt?: string }
+  vitals: { weight?: string; height?: string; bp?: string; pulse?: string; temperature?: string; recordedAt?: string },
+  weightPercentile?: string,
+  heightPercentile?: string
 ): Promise<void> {
   try {
     await supabase.from('patient_vitals').insert([{
-      mr_number:   mrNumber   || null,
-      child_name:  childName,
-      weight:      vitals.weight      || '',
-      height:      vitals.height      || '',
-      bp:          vitals.bp          || '',
-      pulse:       vitals.pulse       || '',
-      temperature: vitals.temperature || '',
-      recorded_at: vitals.recordedAt  || new Date().toISOString().split('T')[0],
+      mr_number:        mrNumber   || null,
+      child_name:       childName,
+      weight:           vitals.weight      || '',
+      height:           vitals.height      || '',
+      bp:               vitals.bp          || '',
+      pulse:            vitals.pulse       || '',
+      temperature:      vitals.temperature || '',
+      recorded_at:      vitals.recordedAt  || new Date().toISOString().split('T')[0],
+      weight_percentile: weightPercentile  || null,
+      height_percentile: heightPercentile  || null,
     }]);
   } catch (err) {
     console.warn('Vitals sync failed:', err);
