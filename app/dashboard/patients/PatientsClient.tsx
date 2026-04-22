@@ -472,7 +472,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                       </div>
                     </div>
                   ) : <div className="text-center py-8 text-gray-400 text-[13px]">No vitals recorded yet</div>}
-                  <WHOGrowthChart vitals={allVitals} gender={(health as any).gender || selected.gender} ageMonths={selected.age ? Math.round(parseFloat(selected.age)*12) : undefined}/>
+                  <WHOGrowthChart vitals={allVitals} gender={(health as any).gender || selected.gender} ageMonths={selected.age ? Math.round(parseFloat(selected.age.toString().replace(/[^0-9.]/g,''))*12) : undefined}/>
                 </div>
               )}
 
