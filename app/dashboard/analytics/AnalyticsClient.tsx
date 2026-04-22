@@ -47,7 +47,8 @@ const PRESETS = [
 const MONTH_MAP: Record<string,string> = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
 function monthKey(label: string) {
   const [mon, yr] = label.split(' ');
-  return `${yr}-${MONTH_MAP[mon]||'01'}`;
+  const fullYr = yr?.startsWith("'") ? '20'+yr.slice(1) : yr;
+  return `${fullYr}-${MONTH_MAP[mon]||'01'}`;
 }
 
 function mapDbInvoice(r: any) {
