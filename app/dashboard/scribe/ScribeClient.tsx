@@ -195,8 +195,8 @@ I am writing to refer this [age]-year-old patient under the care of [parent name
 Thank you for seeing this patient.
 
 Yours sincerely,
-${doctorSetting||"Doctor"}
-${specialitySetting||"Clinic"}`
+Dr. [Doctor Name]
+[Clinic]`
   },
 ];
 
