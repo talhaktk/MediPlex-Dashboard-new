@@ -126,19 +126,25 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       .then(({data}) => { if(data) setExpenses(data); });
   }, []);
 
-  const totalExpenses = expenses.reduce((s,e) => s + Number(e.amount), 0);
-  const netProfit = invoices.reduce((s,i) => s + i.paid, 0) - totalExpenses;
+  const filteredExpenses = useMemo(() => expenses.filter(e => {
+    if (rangeFrom && e.date < rangeFrom) return false;
+    if (rangeTo   && e.date > rangeTo)   return false;
+    return true;
+  }), [expenses, rangeFrom, rangeTo]);
 
-  const totalRevenue = invoices.reduce((s,i) => s + i.paid, 0);
-  const totalPending = invoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
-  const paidCount    = invoices.filter(i => i.paymentStatus==='Paid').length;
-  const unpaidCount  = invoices.filter(i => i.paymentStatus==='Unpaid').length;
+  const totalExpenses = filteredExpenses.reduce((s,e) => s + Number(e.amount), 0);
+  const netProfit = filteredInvoices.reduce((s,i) => s + i.paid, 0) - totalExpenses;
+
+  const totalRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
+  const totalPending = filteredInvoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
+  const paidCount    = filteredInvoices.filter(i => i.paymentStatus==='Paid').length;
+  const unpaidCount  = filteredInvoices.filter(i => i.paymentStatus==='Unpaid').length;
 
   const filteredRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
   const filteredPending = filteredInvoices.reduce((s,i) => s + Math.max(0,i.feeAmount-i.discount-i.paid), 0);
 
-  const consultInvoices   = invoices.filter(i => i.recordType !== 'procedure');
-  const procedureInvoices = invoices.filter(i => i.recordType === 'procedure');
+  const consultInvoices   = filteredInvoices.filter(i => i.recordType !== 'procedure');
+  const procedureInvoices = filteredInvoices.filter(i => i.recordType === 'procedure');
   const filteredConsult   = filteredInvoices.filter(i => i.recordType !== 'procedure');
   const filteredProcedure = filteredInvoices.filter(i => i.recordType === 'procedure');
 
@@ -147,7 +153,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       month:string; invoices:number; revenue:number; paid:number; unpaid:number; partial:number;
       consultRevenue:number; procedureRevenue:number; consultCount:number; procedureCount:number;
     }> = {};
-    invoices.forEach(inv => {
+    filteredInvoices.forEach(inv => {
       if (!inv.date) return;
       const d = new Date(inv.date);
       if (isNaN(d.getTime())) return;
@@ -717,7 +723,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyBilling.map(m => {
                     const monthExp = expenses.filter(e=>e.date?.startsWith(m.month.replace(/\s/g,'-').toLowerCase())||false).reduce((s,e)=>s+Number(e.amount),0);
-                    const mExp = expenses.filter(e=>{
+                    const mExp = filteredExpenses.filter(e=>{
                       const d = new Date(e.date);
                       const label = d.toLocaleString('en-US',{month:'short',year:'2-digit'});
                       return label === m.month;
@@ -836,7 +842,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
               {label:'This Month', val:`PKR ${expenses.filter(e=>e.date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s,e)=>s+Number(e.amount),0).toLocaleString()}`, color:'#ea580c', bg:'#fff7ed'},
               {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
-              {label:'Expense Records', val:expenses.length, color:'#0a1628', bg:'#f9f7f3'},
+              {label:'Expense Records', val:filteredExpenses.length, color:'#0a1628', bg:'#f9f7f3'},
             ].map(s=>(
               <div key={s.label} className="card p-4">
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
@@ -851,7 +857,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="p-5" style={{height:280}}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthlyBilling.map(m => {
-                  const mExp = expenses.filter(e=>{
+                  const mExp = filteredExpenses.filter(e=>{
                     if(!e.date) return false;
                     const ym = e.date.slice(0,7);
                     return monthKey(m.month) === ym;
@@ -871,11 +877,11 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           </div>
 
           {/* Category breakdown */}
-          {expenses.length > 0 && (
+          {filteredExpenses.length > 0 && (
             <div className="card p-5">
               <div className="font-medium text-navy text-[14px] mb-4">Expenses by Category</div>
               <div className="space-y-3">
-                {Object.entries(expenses.reduce((m:any,e)=>{m[e.category]=(m[e.category]||0)+Number(e.amount);return m;},{}))
+                {Object.entries(filteredExpenses.reduce((m:any,e)=>{m[e.category]=(m[e.category]||0)+Number(e.amount);return m;},{}))
                   .sort((a:any,b:any)=>b[1]-a[1]).map(([cat,amt]:any)=>(
                   <div key={cat} className="flex items-center gap-3">
                     <div className="text-[12px] text-gray-600 w-44 flex-shrink-0 truncate">{cat}</div>
@@ -893,7 +899,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Expenses</div>
             <div className="divide-y divide-black/5">
-              {Object.entries(expenses.reduce((m:any,e)=>{const k=e.date?.slice(0,7)||'';m[k]=(m[k]||0)+Number(e.amount);return m;},{}))
+              {Object.entries(filteredExpenses.reduce((m:any,e)=>{const k=e.date?.slice(0,7)||'';m[k]=(m[k]||0)+Number(e.amount);return m;},{}))
                 .sort((a,b)=>b[0].localeCompare(a[0])).map(([month,amt]:any)=>(
                 <div key={month} className="flex items-center justify-between px-5 py-3">
                   <div className="text-[13px] font-medium text-navy">{new Date(month+'-01').toLocaleString('en-US',{month:'long',year:'numeric'})}</div>
