@@ -319,8 +319,6 @@ export async function syncVitalsToDb(
       pulse:            vitals.pulse       || '',
       temperature:      vitals.temperature || '',
       recorded_at:      vitals.recordedAt  || new Date().toISOString().split('T')[0],
-      weight_percentile: weightPercentile  || null,
-      height_percentile: heightPercentile  || null,
     }]);
   } catch (err) {
     console.warn('Vitals sync failed:', err);
