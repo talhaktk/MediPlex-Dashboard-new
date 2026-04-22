@@ -88,7 +88,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const [rangeFrom,    setRangeFrom]    = useState('');
   const [rangeTo,      setRangeTo]      = useState('');
   const [activePreset, setActivePreset] = useState('all');
-  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'|'aging'>('overview');  const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
+  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'|'aging'|'expenses'>('overview');  const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
 
   const applyPreset = (key: string) => {
     const { from, to } = getPreset(key);
@@ -263,8 +263,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     setTimeout(() => w.print(), 600);
   };
 
-  const tabs = ['overview','monthly','patients','trends','billing','aging'] as const;
-  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues' };
+  const tabs = ['overview','monthly','patients','trends','billing','aging','expenses'] as const;
+  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues', expenses:'Expenses' };
   const safeReasons = reasons||[];
   const safeAges    = ages||[];
 
@@ -827,6 +827,83 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           </div>
         </div>
       )}
+      {activeTab==='expenses' && (
+        <div className="space-y-5">
+          {/* Monthly expenses breakdown */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+              {label:'This Month', val:`PKR ${expenses.filter(e=>e.date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s,e)=>s+Number(e.amount),0).toLocaleString()}`, color:'#ea580c', bg:'#fff7ed'},
+              {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
+              {label:'Expense Records', val:expenses.length, color:'#0a1628', bg:'#f9f7f3'},
+            ].map(s=>(
+              <div key={s.label} className="card p-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
+                <div className="text-[22px] font-semibold" style={{color:s.color}}>{s.val}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Revenue vs Expenses chart */}
+          <div className="card animate-in">
+            <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Revenue vs Expenses — Net Profit</div>
+            <div className="p-5" style={{height:280}}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyBilling.map(m => {
+                  const mExp = expenses.filter(e=>{
+                    const d = new Date(e.date);
+                    const label = d.toLocaleString('en-US',{month:'short',year:'2-digit'});
+                    return label === m.month;
+                  }).reduce((s,e)=>s+Number(e.amount),0);
+                  return {...m, expenses: mExp, profit: m.revenue - mExp};
+                })}>
+                  <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
+                  <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={60} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
+                  <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`PKR ${Number(v).toLocaleString()}`,String(name)]}/>
+                  <Legend wrapperStyle={{fontSize:11}}/>
+                  <Bar dataKey="revenue" name="Revenue" fill={BLUE} radius={[3,3,0,0]}/>
+                  <Bar dataKey="expenses" name="Expenses" fill="#dc2626" radius={[3,3,0,0]}/>
+                  <Bar dataKey="profit" name="Net Profit" fill="#10b981" radius={[3,3,0,0]}/>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Category breakdown */}
+          {expenses.length > 0 && (
+            <div className="card p-5">
+              <div className="font-medium text-navy text-[14px] mb-4">Expenses by Category</div>
+              <div className="space-y-3">
+                {Object.entries(expenses.reduce((m:any,e)=>{m[e.category]=(m[e.category]||0)+Number(e.amount);return m;},{}))
+                  .sort((a:any,b:any)=>b[1]-a[1]).map(([cat,amt]:any)=>(
+                  <div key={cat} className="flex items-center gap-3">
+                    <div className="text-[12px] text-gray-600 w-44 flex-shrink-0 truncate">{cat}</div>
+                    <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full" style={{width:`${(amt/totalExpenses)*100}%`,background:'#dc2626'}}/>
+                    </div>
+                    <div className="text-[12px] font-medium text-red-600 w-28 text-right">PKR {amt.toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Monthly table */}
+          <div className="card overflow-hidden">
+            <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Expenses</div>
+            <div className="divide-y divide-black/5">
+              {Object.entries(expenses.reduce((m:any,e)=>{const k=e.date?.slice(0,7)||'';m[k]=(m[k]||0)+Number(e.amount);return m;},{}))
+                .sort((a,b)=>b[0].localeCompare(a[0])).map(([month,amt]:any)=>(
+                <div key={month} className="flex items-center justify-between px-5 py-3">
+                  <div className="text-[13px] font-medium text-navy">{new Date(month+'-01').toLocaleString('en-US',{month:'long',year:'numeric'})}</div>
+                  <div className="text-[13px] font-semibold text-red-600">PKR {amt.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab==='aging' && (
         <div className="space-y-5">
           <AgingReport/>
