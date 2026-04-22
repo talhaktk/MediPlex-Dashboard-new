@@ -67,6 +67,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [dbVitals, setDbVitals] = useState<any[]>([]);
+  const [patientDob, setPatientDob] = useState<string>('');
   const [aptVitals, setAptVitals] = useState<any[]>([]);
   const [scribeOutputs, setScribeOutputs] = useState<any[]>([]);
   const [dbRx, setDbRx] = useState<any[]>([]);
@@ -108,6 +109,10 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
     vq.order('recorded_at', { ascending: false }).then(({ data: rows }) => { if (rows) setDbVitals(rows); });
+    if (mr) {
+      supabase.from('patients').select('date_of_birth').eq('mr_number', mr).maybeSingle()
+        .then(({ data: pd }) => { if (pd?.date_of_birth) setPatientDob(pd.date_of_birth); });
+    }
 
     const aq = selected.mrNumber
       ? supabase.from('appointments').select('id,appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', selected.mrNumber)
@@ -183,6 +188,10 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
     vq.order('recorded_at', { ascending: false }).then(({ data: rows }) => { if (rows) setDbVitals(rows); });
+    if (mr) {
+      supabase.from('patients').select('date_of_birth').eq('mr_number', mr).maybeSingle()
+        .then(({ data: pd }) => { if (pd?.date_of_birth) setPatientDob(pd.date_of_birth); });
+    }
   };
 
   const latestVitals = selected ? getLatestVitals(selected.key) : null;
@@ -747,7 +756,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
               {/* TELEHEALTH */}
               {activeTab==='vaccines' && (
                 <div className="p-5">
-                  <VaccinationSchedule mrNumber={selected.mrNumber} childName={selected.name} dobString={(selected as any).dob}/>
+                  <VaccinationSchedule mrNumber={selected.mrNumber} childName={selected.name} dobString={patientDob}/>
                 </div>
               )}
 
