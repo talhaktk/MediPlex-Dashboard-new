@@ -314,6 +314,36 @@ Lab Results — ${lastLab.map((l:any)=>`${l.test_name}: ${l.notes||'uploaded'}`)
       ctx += `
 Pre-Consult — Complaint: ${lastTelehealth.chief_complaint||''} | Symptoms: ${lastTelehealth.symptoms||''} | Meds: ${lastTelehealth.current_meds||''}`;
     }
+
+    // Fetch vaccinations
+    try {
+      const vaxQ = p.mrNumber
+        ? supabase.from('vaccinations').select('vaccine_id,given_date').eq('mr_number', p.mrNumber)
+        : supabase.from('vaccinations').select('vaccine_id,given_date').ilike('child_name', p.name);
+      const { data: vaxRows } = await vaxQ;
+      if (vaxRows?.length) {
+        ctx += `
+Vaccinations Given (${vaxRows.length}): ${vaxRows.map((v:any)=>v.vaccine_id).join(', ')}`;
+      }
+    } catch {}
+
+    // Fetch growth data from patient_vitals for WHO percentile context
+    try {
+      const growthQ = p.mrNumber
+        ? supabase.from('patient_vitals').select('weight,height,recorded_at').eq('mr_number', p.mrNumber).order('recorded_at',{ascending:false}).limit(3)
+        : supabase.from('patient_vitals').select('weight,height,recorded_at').ilike('child_name', p.name).order('recorded_at',{ascending:false}).limit(3);
+      const { data: growthRows } = await growthQ;
+      if (growthRows?.length) {
+        const latest = growthRows[0];
+        ctx += `
+Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/A'}cm (${latest.recorded_at})`;
+        if (growthRows.length > 1) {
+          const prev = growthRows[1];
+          ctx += ` | Previous: Weight ${prev.weight||'N/A'}kg, Height ${prev.height||'N/A'}cm`;
+        }
+      }
+    } catch {}
+
     setPatientContext(ctx);
     toast.success(`Loaded ${p.name}'s full records`);
   };
