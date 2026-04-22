@@ -65,7 +65,9 @@ export default function Sidebar() {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center text-navy font-bold text-sm flex-shrink-0" style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)' }}>M+</div>
           <div>
             <div className="text-white font-display font-semibold text-[15px] leading-tight tracking-wide">MediPlex</div>
-            <div className="text-gold text-[10px] tracking-widest uppercase font-light mt-0.5">Pediatric Centre</div>
+            {doctorName && <div className="text-[11px] mt-0.5" style={{color:'#c9a84c'}}>{doctorName}</div>}
+            {clinicName && <div className="text-[10px] text-white/50">{clinicName}</div>}
+            {speciality && <div className="text-gold text-[10px] tracking-widest uppercase font-light mt-0.5">{speciality}</div>}
           </div>
         </div>
       </div>
@@ -96,7 +98,7 @@ export default function Sidebar() {
         </ul>
       </nav>
       <div className="px-3 pb-4 border-t border-white/5 pt-3">
-        <div className="text-[10px] text-white/20 text-center px-3 mb-3">{process.env.NEXT_PUBLIC_CLINIC_NAME || 'MediPlex Pediatric Clinic'}<br />{process.env.NEXT_PUBLIC_CLINIC_ADDRESS || 'New York, NY · USA'}</div>
+        {clinicName && <div className="text-[10px] text-white/20 text-center px-3 mb-3">{clinicName}<br />{speciality}</div>}
         <button onClick={handleSignOut} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all w-full"><LogOut size={15} />Sign Out</button>
       </div>
     </aside>
