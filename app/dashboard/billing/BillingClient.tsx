@@ -94,6 +94,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const [formType,   setFormType]   = useState<RecordType>('consultation');
   const [form,       setForm]       = useState<Partial<Invoice>>({});
   const [aptSearch,  setAptSearch]  = useState('');
+  const [billingTab, setBillingTab] = useState<'invoices'|'expenses'>('invoices');
 
   // ── Fetch + realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -317,6 +318,17 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
+      {/* Tab toggle */}
+      <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
+        {([['invoices','Invoices'],['expenses','Expenses']] as const).map(([k,l])=>(
+          <button key={k} onClick={()=>setBillingTab(k)}
+            className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${billingTab===k?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
+            {l}
+          </button>
+        ))}
+      </div>
+      {billingTab==='expenses' && <ExpensesTab/>}
+      {billingTab==='invoices' && <div className="space-y-5">
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -622,7 +634,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
           </table>
         </div>
       </div>
-    {activeTab === 'expenses' && <ExpensesTab/>}
+    </div>}
     </div>
   );
 }
