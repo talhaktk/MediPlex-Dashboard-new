@@ -220,12 +220,10 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   }, [localRx, dbRx]);
 
   const allVitals = useMemo(() => {
-    const local = health.vitals || [];
-    const used = new Set(local.map(v => v.recordedAt));
-    const fromPatientVitals = dbVitals.map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, _source:'record' }));
+    const fromPatientVitals = dbVitals.map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, weight_percentile:dv.weight_percentile, height_percentile:dv.height_percentile, _source:'record' }));
     const fromApt = aptVitals.filter(av => av.visit_weight||av.visit_bp||av.visit_height||av.visit_pulse||av.visit_temperature).map(av => ({ weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, _source:'visit' }));
-    return [...local, ...fromPatientVitals, ...fromApt].sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
-  }, [health.vitals, dbVitals, aptVitals]);
+    return [...fromPatientVitals, ...fromApt].sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
+  }, [dbVitals, aptVitals]);
 
   const latestAllVitals = allVitals[0] || null;
   const multiVisit = patients.filter(p => p.totalVisits > 1).length;
