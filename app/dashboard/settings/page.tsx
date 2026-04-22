@@ -53,7 +53,7 @@ export default function SettingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [form,     setForm]     = useState(emptyUser());
   const [saving,   setSaving]   = useState(false);
-  const [tab,      setTab]      = useState<'users'|'clinic'|'sheet'|'roles'>('users');
+  const [tab,      setTab]      = useState<string>('users');
 
   const loadUsers = async () => {
     if (!isAdmin) return;
