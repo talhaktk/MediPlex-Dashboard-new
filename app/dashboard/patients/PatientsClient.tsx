@@ -443,7 +443,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                         {allVitals.map((v,i)=>(
                           <div key={i} className="rounded-lg p-3 flex flex-wrap gap-3 text-[12px]" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.1)'}}>
                             <span className="font-medium text-navy">{formatUSDate(v.recordedAt)}</span>
-                            {i===0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'#dbeafe',color:'#1d4ed8'}}>Latest</span>}
+                            {i===0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{background:'#dbeafe',color:'#1d4ed8'}}>⭐ Latest {(v as any)._source==='visit'?'(Visit)':'(Manual)'}</span>}
                             {v.weight && <span className="text-gray-600">⚖ {v.weight}kg</span>}
                             {v.height && <span className="text-gray-600">📏 {v.height}cm</span>}
                             {v.bp && <span className="text-gray-600">❤ BP {v.bp}</span>}
