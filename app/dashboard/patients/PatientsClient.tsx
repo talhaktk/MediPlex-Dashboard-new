@@ -784,7 +784,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
               {/* CONSENT FORMS */}
               {activeTab==='consent' && (
                 <div className="p-5">
-                  <ConsentForms childName={selected.name} parentName={selected.parentName} childAge={selected.age} mrNumber={selected.mrNumber} clinicName="MediPlex Pediatric Centre" doctorName="Dr. Talha"/>
+                  <ConsentForms childName={selected.name} parentName={selected.parentName} childAge={selected.age} mrNumber={selected.mrNumber} clinicName={clinicSettings?.clinic_name||"MediPlex"} doctorName={clinicSettings?.doctor_name||"Doctor"}/>
                 </div>
               )}
 

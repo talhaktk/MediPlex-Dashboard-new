@@ -11,6 +11,10 @@ import {
 export const revalidate = 60; // refresh every 60 seconds
 
 export default async function DashboardPage() {
+  const { createClient } = await import('@supabase/supabase-js');
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {auth:{persistSession:false}});
+  const { data: cs } = await sb.from('clinic_settings').select('doctor_name').eq('id',1).maybeSingle();
+  const doctorName = cs?.doctor_name || process.env.NEXT_PUBLIC_DOCTOR_NAME || 'Doctor';
   const data = await fetchAppointmentsFromSheet();
   const stats = computeStats(data);
   const reasons = computeReasonStats(data);
@@ -34,7 +38,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Topbar
-        title="Good morning, Dr. Talha 👋"
+        title={`Good morning, ${doctorName || "Doctor"} 👋`}
         subtitle="Here's your clinic overview for today"
       />
 

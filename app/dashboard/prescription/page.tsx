@@ -5,6 +5,9 @@ import PrescriptionClient from './PrescriptionClient';
 export const revalidate = 60;
 
 export default async function PrescriptionPage() {
+  const { createClient } = await import('@supabase/supabase-js');
+  const sb3 = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {auth:{persistSession:false}});
+  const { data: cs3 } = await sb3.from('clinic_settings').select('doctor_name,clinic_name,clinic_phone,clinic_address').eq('id',1).maybeSingle();
   const data = await fetchAppointmentsFromSheet();
   return (
     <>
@@ -12,8 +15,8 @@ export default async function PrescriptionPage() {
       <main className="flex-1 p-8">
         <PrescriptionClient
           data={data}
-          clinicName={process.env.NEXT_PUBLIC_CLINIC_NAME   || 'MediPlex Pediatric Clinic'}
-          doctorName={process.env.NEXT_PUBLIC_DOCTOR_NAME   || 'Dr. Talha'}
+          clinicName={cs3?.clinic_name || process.env.NEXT_PUBLIC_CLINIC_NAME || 'My Clinic'}
+          doctorName={cs3?.doctor_name || process.env.NEXT_PUBLIC_DOCTOR_NAME || 'Doctor'}
           clinicPhone={process.env.NEXT_PUBLIC_CLINIC_PHONE || ''}
           clinicAddress={process.env.NEXT_PUBLIC_CLINIC_ADDRESS || ''}
         />
