@@ -123,6 +123,15 @@ export default function CalendarClient({ data: initialData }: { data: Appointmen
     if (!newAptForm.child_name || !newAptForm.appointment_date || !newAptForm.appointment_time) {
       toast.error('Name, date and time are required'); return;
     }
+    // Check working day
+    if (newAptForm.appointment_date) {
+      const aptDay = new Date(newAptForm.appointment_date);
+      if (!isWorkingDay(aptDay)) {
+        const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        toast.error(`${days[aptDay.getDay()]} is not a working day. Working days: ${schedule?.working_days||'Mon-Sat'}`);
+        return;
+      }
+    }
     // Check conflict
     const conflicts = data.filter(a =>
       a.appointmentDate === newAptForm.appointment_date &&
