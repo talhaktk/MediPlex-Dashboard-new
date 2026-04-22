@@ -6,6 +6,52 @@ import { formatUSDate } from '@/lib/sheets';
 import { MessageCircle, Search, Copy, Clock, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+// ── No-Show Risk Calculation ─────────────────────────────────────────────────
+function calcRisk(apt: Appointment, allData: Appointment[]): { score: number; level: 'High'|'Medium'|'Low'; reasons: string[] } {
+  const reasons: string[] = [];
+  let score = 0;
+
+  // Past no-show rate for this patient
+  const patientHistory = allData.filter(a =>
+    a.childName?.toLowerCase() === apt.childName?.toLowerCase() && a.id !== apt.id
+  );
+  const noShows = patientHistory.filter(a =>
+    ['No-Show','Absent','Cancelled'].includes(a.attendanceStatus || a.status)
+  ).length;
+  const total = patientHistory.length;
+  const noShowRate = total > 0 ? noShows / total : 0;
+  if (noShowRate >= 0.5) { score += 40; reasons.push(`Missed ${noShows}/${total} past visits`); }
+  else if (noShowRate >= 0.3) { score += 25; reasons.push(`Missed ${noShows}/${total} past visits`); }
+  else if (noShowRate > 0) { score += 10; }
+
+  // Days until appointment — booked far in advance = higher risk
+  const days = Math.max(0, Math.round((new Date(apt.appointmentDate).getTime() - Date.now()) / 86400000));
+  if (days >= 14) { score += 20; reasons.push('Booked 2+ weeks ago'); }
+  else if (days >= 7) { score += 10; reasons.push('Booked 1+ week ago'); }
+
+  // Day of week risk
+  const dow = new Date(apt.appointmentDate).getDay();
+  if (dow === 1 || dow === 5) { score += 10; reasons.push('Monday/Friday appointment'); }
+  if (dow === 0 || dow === 6) { score += 15; reasons.push('Weekend appointment'); }
+
+  // Time of day risk
+  if (apt.appointmentTime) {
+    const hour = parseInt(apt.appointmentTime.split(':')[0]);
+    const isPM = apt.appointmentTime.toLowerCase().includes('pm');
+    const h24 = isPM && hour !== 12 ? hour + 12 : hour;
+    if (h24 <= 8 || h24 >= 17) { score += 10; reasons.push('Early/late time slot'); }
+  }
+
+  // Visit type
+  if (apt.visitType === 'Follow-up') { score += 10; reasons.push('Follow-up (higher no-show rate)'); }
+
+  // No WhatsApp = can't remind = higher risk
+  if (!apt.whatsapp || apt.whatsapp === '—') { score += 15; reasons.push('No WhatsApp number'); }
+
+  const level: 'High'|'Medium'|'Low' = score >= 55 ? 'High' : score >= 30 ? 'Medium' : 'Low';
+  return { score: Math.min(score, 100), level, reasons };
+}
+
 interface Props {
   data: Appointment[];
   clinicName: string;
@@ -31,6 +77,8 @@ export default function RemindersClient({ data, clinicName, doctorName }: Props)
   const [selected, setSelected] = useState<Appointment|null>(null);
   const [msgType, setMsgType] = useState('reminder_24h');
   const [showLog, setShowLog] = useState(false);
+  const [riskFilter, setRiskFilter] = useState<'all'|'High'|'Medium'|'Low'>('all');
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
 
   useEffect(() => { setLog(loadLog()); }, []);
 
@@ -45,8 +93,17 @@ export default function RemindersClient({ data, clinicName, doctorName }: Props)
       if (filter === 'week') return d >= 0 && d <= 7;
       return d >= 0;
     }).filter(a => !search || a.childName.toLowerCase().includes(search.toLowerCase()) || a.parentName.toLowerCase().includes(search.toLowerCase()))
-    .sort((a,b) => a.appointmentDate.localeCompare(b.appointmentDate));
-  }, [data, filter, search]);
+    .sort((a,b) => {
+      const ra = calcRisk(a, data);
+      const rb = calcRisk(b, data);
+      if (ra.level !== rb.level) {
+        const order = { High:0, Medium:1, Low:2 };
+        return order[ra.level] - order[rb.level];
+      }
+      return a.appointmentDate.localeCompare(b.appointmentDate);
+    })
+    .filter(a => riskFilter === 'all' || calcRisk(a, data).level === riskFilter);
+  }, [data, filter, search, riskFilter]);
 
   const buildMsg = (type: string, a: Appointment) => {
     const date = formatUSDate(a.appointmentDate);
@@ -96,6 +153,40 @@ export default function RemindersClient({ data, clinicName, doctorName }: Props)
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Risk Summary */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="font-medium text-navy text-[13px]">🎯 No-Show Risk Prediction</div>
+          <div className="text-[11px] text-gray-400">{upcoming.length} appointments analyzed</div>
+        </div>
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          {([['High','#dc2626','#fef2f2'],['Medium','#d97706','#fefce8'],['Low','#16a34a','#f0fdf4']] as const).map(([level,color,bg])=>{
+            const count = upcoming.filter(a => calcRisk(a,data).level===level).length;
+            return (
+              <button key={level} onClick={()=>setRiskFilter(riskFilter===level?'all':level as any)}
+                className="rounded-xl p-3 text-center transition-all"
+                style={{background:riskFilter===level?color:bg,border:`2px solid ${riskFilter===level?color:color+'33'}`}}>
+                <div className="text-[20px] font-bold" style={{color:riskFilter===level?'#fff':color}}>{count}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-widest" style={{color:riskFilter===level?'#fff':color}}>
+                  {level==='High'?'🔴':level==='Medium'?'🟡':'🟢'} {level} Risk
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        {upcoming.filter(a=>calcRisk(a,data).level==='High'&&a.whatsapp&&a.whatsapp!=='—').length>0&&(
+          <button onClick={()=>{
+            const highRisk = upcoming.filter(a=>calcRisk(a,data).level==='High'&&a.whatsapp&&a.whatsapp!=='—');
+            if(confirm(`Send 24h reminder to all ${highRisk.length} high-risk patients?`)){
+              highRisk.forEach(a=>handleSend(a,'reminder_24h'));
+            }
+          }} className="w-full py-2 rounded-xl text-[12px] font-semibold"
+            style={{background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.3)'}}>
+            📱 Send Reminder to All High-Risk Patients ({upcoming.filter(a=>calcRisk(a,data).level==='High'&&a.whatsapp&&a.whatsapp!=='—').length})
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -165,9 +256,21 @@ export default function RemindersClient({ data, clinicName, doctorName }: Props)
                   <div className="text-[20px] font-bold" style={{ color:daysColor }}>{new Date(a.appointmentDate).getDate()}</div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-semibold text-navy text-[14px]">{a.childName}</div>
                     <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background:daysBg, color:daysColor }}>{daysLabel}</span>
+                    {(()=>{
+                      const risk = calcRisk(a, data);
+                      const rc = risk.level==='High'?'#dc2626':risk.level==='Medium'?'#d97706':'#16a34a';
+                      const rb = risk.level==='High'?'#fef2f2':risk.level==='Medium'?'#fefce8':'#f0fdf4';
+                      const emoji = risk.level==='High'?'🔴':risk.level==='Medium'?'🟡':'🟢';
+                      return (
+                        <span title={risk.reasons.join(' | ')} className="text-[10px] font-semibold px-2 py-0.5 rounded-full cursor-help"
+                          style={{background:rb,color:rc,border:`1px solid ${rc}33`}}>
+                          {emoji} {risk.level} Risk ({risk.score}%)
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="text-[12px] text-gray-500">Parent: {a.parentName} · {a.appointmentTime} · {a.reason||'No reason'}</div>
                   <div className="text-[11px] mt-0.5" style={{ color: hasPhone?'#16a34a':'#dc2626' }}>
