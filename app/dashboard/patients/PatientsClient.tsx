@@ -109,8 +109,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
     vq.order('recorded_at', { ascending: false }).then(({ data: rows }) => { if (rows) setDbVitals(rows); });
-    if (mr) {
-      supabase.from('patients').select('date_of_birth').eq('mr_number', mr).maybeSingle()
+    if (selected.mrNumber) {
+      supabase.from('patients').select('date_of_birth').eq('mr_number', selected.mrNumber).maybeSingle()
         .then(({ data: pd }) => { if (pd?.date_of_birth) setPatientDob(pd.date_of_birth); });
     }
 
@@ -188,8 +188,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
     vq.order('recorded_at', { ascending: false }).then(({ data: rows }) => { if (rows) setDbVitals(rows); });
-    if (mr) {
-      supabase.from('patients').select('date_of_birth').eq('mr_number', mr).maybeSingle()
+    if (selected.mrNumber) {
+      supabase.from('patients').select('date_of_birth').eq('mr_number', selected.mrNumber).maybeSingle()
         .then(({ data: pd }) => { if (pd?.date_of_birth) setPatientDob(pd.date_of_birth); });
     }
   };
