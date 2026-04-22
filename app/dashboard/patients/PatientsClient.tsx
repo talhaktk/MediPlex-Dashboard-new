@@ -67,6 +67,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [dbVitals, setDbVitals] = useState<any[]>([]);
+  const [clinicSettings, setClinicSettings] = useState<any>(null);
+  useEffect(()=>{ supabase.from('clinic_settings').select('clinic_name,doctor_name').eq('id',1).maybeSingle().then(({data})=>{if(data)setClinicSettings(data);}); },[]);
   const [patientDob, setPatientDob] = useState<string>('');
   const [aptVitals, setAptVitals] = useState<any[]>([]);
   const [scribeOutputs, setScribeOutputs] = useState<any[]>([]);
