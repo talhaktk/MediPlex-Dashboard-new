@@ -206,7 +206,9 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const allVitals = useMemo(() => {
     const fromPatientVitals = dbVitals.map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, createdAt:dv.created_at||dv.recorded_at, _source:'record' }));
     const fromApt = aptVitals.filter(av => av.visit_weight||av.visit_bp||av.visit_height||av.visit_pulse||av.visit_temperature).map(av => ({ weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, createdAt:av.created_at||av.appointment_date, _source:'visit' }));
-    return [...fromPatientVitals, ...fromApt].sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
+    const combined = [...fromPatientVitals, ...fromApt];
+    combined.sort((a,b) => ((b as any).createdAt||'').localeCompare((a as any).createdAt||''));
+    return combined;
   }, [dbVitals, aptVitals]);
 
   const latestAllVitals = allVitals[0] || null;
