@@ -270,8 +270,52 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
       dbVitals = pvDate >= aptDate ? pvRows?.[0] : aptRows?.[0];
     } catch {}
 
-    setPatientContext(buildPatientContext(p, dbVitals));
-    toast.success(`Loaded ${p.name}'s records`);
+    // Fetch last prescription
+    let lastRx = null;
+    try {
+      const rxQ = p.mrNumber
+        ? supabase.from('prescriptions').select('medicines,diagnosis,advice').eq('mr_number', p.mrNumber).order('created_at',{ascending:false}).limit(1)
+        : supabase.from('prescriptions').select('medicines,diagnosis,advice').ilike('child_name', p.name).order('created_at',{ascending:false}).limit(1);
+      const { data: rxRows } = await rxQ;
+      lastRx = rxRows?.[0] || null;
+    } catch {}
+
+    // Fetch latest lab results
+    let lastLab = null;
+    try {
+      const labQ = p.mrNumber
+        ? supabase.from('lab_results').select('test_name,notes,uploaded_at').eq('mr_number', p.mrNumber).order('uploaded_at',{ascending:false}).limit(3)
+        : supabase.from('lab_results').select('test_name,notes,uploaded_at').ilike('child_name', p.name).order('uploaded_at',{ascending:false}).limit(3);
+      const { data: labRows } = await labQ;
+      lastLab = labRows || [];
+    } catch {}
+
+    // Fetch latest telehealth pre-consult
+    let lastTelehealth = null;
+    try {
+      const thQ = p.mrNumber
+        ? supabase.from('telehealth_sessions').select('chief_complaint,symptoms,current_meds,notes').eq('mr_number', p.mrNumber).eq('status','submitted').order('submitted_at',{ascending:false}).limit(1)
+        : supabase.from('telehealth_sessions').select('chief_complaint,symptoms,current_meds,notes').ilike('child_name', p.name).eq('status','submitted').order('submitted_at',{ascending:false}).limit(1);
+      const { data: thRows } = await thQ;
+      lastTelehealth = thRows?.[0] || null;
+    } catch {}
+
+    let ctx = buildPatientContext(p, dbVitals);
+    if (lastRx) {
+      const meds = (lastRx.medicines||[]).slice(0,5).map((m:any)=>`${m.name} ${m.dose} ${m.frequency}`).join(', ');
+      ctx += `
+Last Prescription — Diagnosis: ${lastRx.diagnosis||'N/A'} | Medicines: ${meds}`;
+    }
+    if (lastLab?.length) {
+      ctx += `
+Lab Results — ${lastLab.map((l:any)=>`${l.test_name}: ${l.notes||'uploaded'}`).join(' | ')}`;
+    }
+    if (lastTelehealth) {
+      ctx += `
+Pre-Consult — Complaint: ${lastTelehealth.chief_complaint||''} | Symptoms: ${lastTelehealth.symptoms||''} | Meds: ${lastTelehealth.current_meds||''}`;
+    }
+    setPatientContext(ctx);
+    toast.success(`Loaded ${p.name}'s full records`);
   };
 
   const patientHealth = selectedPatient ? getHealth(patientKey(selectedPatient.name)) : null;
@@ -355,7 +399,8 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
     toast.success('Sent to Prescription tab!');
     router.push('/dashboard/prescription');
   };
-  const reset = () => { setInput(''); setOutput(''); setStatus('idle'); setSavedToDb(false); };
+  const reset = () => { setOutput(''); setStatus('idle'); setSavedToDb(false); };
+  const fullReset = () => { setInput(''); setOutput(''); setStatus('idle'); setSavedToDb(false); };
 
   return (
     <div className="min-h-screen p-6" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
