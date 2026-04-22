@@ -12,6 +12,8 @@ import StatusPill from '@/components/ui/StatusPill';
 import LabResultsWithPrint from '@/components/ui/LabResultsWithPrint';
 import ConsentForms from '@/components/ui/ConsentForms';
 import TelehealthHistory from '@/components/ui/TelehealthHistory';
+import WHOGrowthChart from '@/components/ui/WHOGrowthChart';
+import VaccinationSchedule from '@/components/ui/VaccinationSchedule';
 
 interface PatientRecord {
   key: string; mrNumber: string; name: string; gender: string;
@@ -57,7 +59,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
-  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'|'telehealth'>('visits');
+  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'|'telehealth'|'vaccines'>('visits');
   const [editHealth, setEditHealth] = useState(false);
   const [draft, setDraft] = useState<HealthRecord>(emptyHealth());
   const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt: new Date().toISOString().split('T')[0] });
@@ -215,6 +217,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     {key:'labs',label:'Labs & Reports'},
     {key:'consent',label:'Consent Forms'},
     {key:'telehealth',label:'Telehealth'},
+    {key:'vaccines',label:'Vaccines'},
   ] as const;
 
   return (
@@ -439,6 +442,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                       </div>
                     </div>
                   ) : <div className="text-center py-8 text-gray-400 text-[13px]">No vitals recorded yet</div>}
+                  <WHOGrowthChart vitals={allVitals} gender={health.gender} ageMonths={selected.age ? Math.round(parseFloat(selected.age)*12) : undefined}/>
                 </div>
               )}
 
@@ -741,6 +745,12 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
 
 
               {/* TELEHEALTH */}
+              {activeTab==='vaccines' && (
+                <div className="p-5">
+                  <VaccinationSchedule mrNumber={selected.mrNumber} childName={selected.name} dobString={(selected as any).dob}/>
+                </div>
+              )}
+
               {activeTab==='telehealth' && (
                 <div className="p-5">
                   <TelehealthHistory mrNumber={selected.mrNumber} childName={selected.name}/>
