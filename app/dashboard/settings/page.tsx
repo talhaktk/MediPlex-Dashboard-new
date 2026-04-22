@@ -122,7 +122,6 @@ export default function SettingsPage() {
   const tabs = [
     { key:'users',  label:'User Management' },
     { key:'roles',  label:'Role Permissions' },
-    { key:'clinic', label:'Clinic Info' },
     { key:'clinicsettings', label:'Clinic Settings' },
     { key:'sheet',  label:'Google Sheets' },
   ] as { key: 'users'|'clinic'|'sheet'|'roles'|'clinicsettings'; label: string }[];

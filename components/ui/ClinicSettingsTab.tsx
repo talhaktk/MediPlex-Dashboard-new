@@ -37,6 +37,7 @@ export default function ClinicSettingsTab() {
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
     toast.success('Clinic settings saved!');
+    window.dispatchEvent(new Event('clinic-settings-saved'));
   };
 
   if (loading) return <div className="text-center py-10 text-gray-400 text-[13px]">Loading...</div>;

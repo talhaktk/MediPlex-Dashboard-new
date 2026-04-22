@@ -29,7 +29,7 @@ export default function Sidebar() {
   const [doctorName, setDoctorName] = React.useState('');
   const [speciality, setSpeciality] = React.useState('');
 
-  React.useEffect(() => {
+  const fetchSettings = React.useCallback(() => {
     import('@/lib/supabase').then(({ supabase }) => {
       supabase.from('clinic_settings').select('clinic_name,doctor_name,speciality').eq('id',1).maybeSingle()
         .then(({ data }) => {
@@ -41,6 +41,13 @@ export default function Sidebar() {
         });
     });
   }, []);
+
+  React.useEffect(() => {
+    fetchSettings();
+    // Refetch when settings are saved
+    window.addEventListener('clinic-settings-saved', fetchSettings);
+    return () => window.removeEventListener('clinic-settings-saved', fetchSettings);
+  }, [fetchSettings]);
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
