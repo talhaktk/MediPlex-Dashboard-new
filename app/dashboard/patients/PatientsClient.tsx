@@ -396,6 +396,11 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                         <button onClick={()=>setEditHealth(false)} className="text-gray-400 hover:text-gray-600"><X size={14}/></button>
                       </div>
                       <div>
+                        <div>
+                          <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Date of Birth</label>
+                          <input type="date" value={patientDob} onChange={e=>setPatientDob(e.target.value)}
+                            className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                        </div>
                         <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Blood Group</label>
                         <select value={draft.bloodGroup} onChange={e=>setDraft(p=>({...p,bloodGroup:e.target.value}))} className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
                           {BLOOD_GROUPS.map(g=><option key={g} value={g}>{g||'Select...'}</option>)}
