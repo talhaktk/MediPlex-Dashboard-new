@@ -125,7 +125,7 @@ export default function SettingsPage() {
     { key:'clinic', label:'Clinic Info' },
     { key:'clinicsettings', label:'Clinic Settings' },
     { key:'sheet',  label:'Google Sheets' },
-  ] as const;
+  ] as { key: 'users'|'clinic'|'sheet'|'roles'|'clinicsettings'; label: string }[];
 
   return (
     <>
