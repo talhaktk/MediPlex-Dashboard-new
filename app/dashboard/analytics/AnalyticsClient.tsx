@@ -117,6 +117,17 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     return true;
   }), [invoices, rangeFrom, rangeTo]);
 
+  const [expenses, setExpenses] = useState<any[]>([]);
+
+  // Fetch expenses
+  useEffect(() => {
+    supabase.from('expenses').select('*').order('date',{ascending:false})
+      .then(({data}) => { if(data) setExpenses(data); });
+  }, []);
+
+  const totalExpenses = expenses.reduce((s,e) => s + Number(e.amount), 0);
+  const netProfit = invoices.reduce((s,i) => s + i.paid, 0) - totalExpenses;
+
   const totalRevenue = invoices.reduce((s,i) => s + i.paid, 0);
   const totalPending = invoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
   const paidCount    = invoices.filter(i => i.paymentStatus==='Paid').length;
@@ -674,8 +685,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             {[
               {label:'Total Revenue',   val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2'},
               {label:'Total Pending',   val:`PKR ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0'},
-              {label:'Paid Invoices',   val:paidCount,   color:'#1a7f5e', bg:'#f0fdf4'},
-              {label:'Unpaid Invoices', val:unpaidCount, color:RED,       bg:'#fef2f2'},
+              {label:'Total Expenses',  val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+              {label:'Net Profit',      val:`PKR ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
             ].map(s=>(
               <div key={s.label} className="card p-4">
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
@@ -696,6 +707,34 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               <div className="text-[11px] text-gray-400 mt-1">{procedureInvoices.length} invoices · {procedureInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
             </div>
           </div>
+
+          {/* Revenue vs Expenses Chart */}
+          {monthlyBilling.length>0&&(
+            <div className="card animate-in">
+              <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Revenue vs Expenses — Net Profit</div>
+              <div className="p-5" style={{height:260}}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthlyBilling.map(m => {
+                    const monthExp = expenses.filter(e=>e.date?.startsWith(m.month.replace(/\s/g,'-').toLowerCase())||false).reduce((s,e)=>s+Number(e.amount),0);
+                    const mExp = expenses.filter(e=>{
+                      const d = new Date(e.date);
+                      const label = d.toLocaleString('en-US',{month:'short',year:'2-digit'});
+                      return label === m.month;
+                    }).reduce((s,e)=>s+Number(e.amount),0);
+                    return {...m, expenses: mExp, profit: m.revenue - mExp};
+                  })}>
+                    <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={60} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
+                    <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`PKR ${Number(v).toLocaleString()}`,String(name)]}/>
+                    <Legend wrapperStyle={{fontSize:11}}/>
+                    <Bar dataKey="revenue" name="Revenue" fill={BLUE} radius={[3,3,0,0]}/>
+                    <Bar dataKey="expenses" name="Expenses" fill="#dc2626" radius={[3,3,0,0]}/>
+                    <Bar dataKey="profit" name="Net Profit" fill="#10b981" radius={[3,3,0,0]}/>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
 
           {monthlyBilling.length>0&&(
             <div className="card animate-in">

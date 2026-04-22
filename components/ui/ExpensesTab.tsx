@@ -25,13 +25,22 @@ export default function ExpensesTab() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({...EMPTY});
   const [saving, setSaving] = useState(false);
+  const [filterCat, setFilterCat] = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     supabase.from('expenses').select('*').order('date', { ascending: false })
       .then(({ data }) => { setExpenses(data || []); setLoading(false); });
   }, []);
 
-  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
+  const filteredExpenses = expenses.filter(e => {
+    if (filterCat !== 'all' && e.category !== filterCat) return false;
+    if (filterMonth !== 'all' && !e.date?.startsWith(filterMonth)) return false;
+    if (search && !e.description?.toLowerCase().includes(search.toLowerCase()) && !e.category?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+  const totalExpenses = filteredExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
   const byCat = useMemo(() => {
     const map: Record<string, number> = {};
@@ -95,6 +104,27 @@ export default function ExpensesTab() {
           <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Records</div>
           <div className="text-[24px] font-semibold text-navy">{expenses.length}</div>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <input type="text" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}
+          className="border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold w-40"/>
+        <select value={filterCat} onChange={e=>setFilterCat(e.target.value)}
+          className="border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold">
+          <option value="all">All Categories</option>
+          {CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+        </select>
+        <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}
+          className="border border-black/10 rounded-lg px-3 py-2 text-[12px] text-navy bg-white outline-none focus:border-gold">
+          <option value="all">All Months</option>
+          {Array.from(new Set(expenses.map(e=>e.date?.slice(0,7)||'').filter(Boolean))).sort().reverse().map(m=>(
+            <option key={m} value={m}>{new Date(m+'-01').toLocaleString('en-US',{month:'long',year:'numeric'})}</option>
+          ))}
+        </select>
+        {(filterCat!=='all'||filterMonth!=='all'||search) && (
+          <button onClick={()=>{setFilterCat('all');setFilterMonth('all');setSearch('');}} className="text-[11px] text-gray-400 hover:text-gray-600">Clear</button>
+        )}
       </div>
 
       {/* Add expense */}
@@ -187,12 +217,12 @@ export default function ExpensesTab() {
       <div className="card overflow-hidden">
         <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">All Expenses</div>
         {loading ? <div className="text-center py-8 text-gray-400 text-[13px]">Loading...</div>
-        : expenses.length===0 ? <div className="text-center py-8 text-gray-400 text-[13px]">No expenses recorded yet</div>
+        : filteredExpenses.length===0 ? <div className="text-center py-8 text-gray-400 text-[13px]">No expenses found</div>
         : (
           <table className="data-table">
             <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Method</th><th>Amount</th><th></th></tr></thead>
             <tbody>
-              {expenses.map(e=>(
+              {filteredExpenses.map(e=>(
                 <tr key={e.id}>
                   <td className="text-[12px] text-gray-600">{new Date(e.date).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</td>
                   <td><span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{background:'#fef2f2',color:'#dc2626'}}>{e.category}</span></td>
