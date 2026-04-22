@@ -52,7 +52,7 @@ export default function Sidebar() {
   const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
-  const name = user?.name ?? 'Dr. Talha';
+  const name = user?.name || doctorName || 'Doctor';
   const role = user?.role ?? 'admin';
   const initials = user?.initials ?? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const roleLabel = role === 'admin' ? 'Admin' : role === 'doctor' ? 'Doctor' : role === 'receptionist' ? 'Receptionist' : 'Staff';

@@ -6,6 +6,21 @@ import { format } from 'date-fns';
 
 export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const [now, setNow] = useState(new Date());
+  const [doctorName, setDoctorName] = useState('Doctor');
+  const [initials, setInitials] = useState('DR');
+
+  useEffect(() => {
+    import('@/lib/supabase').then(({ supabase }) => {
+      supabase.from('clinic_settings').select('doctor_name').eq('id',1).maybeSingle()
+        .then(({ data }) => {
+          if (data?.doctor_name) {
+            setDoctorName(data.doctor_name);
+            const parts = data.doctor_name.replace(/^Dr\.?\s*/i,'').split(' ');
+            setInitials(parts.map((p:string)=>p[0]||'').join('').toUpperCase().slice(0,2)||'DR');
+          }
+        });
+    });
+  }, []);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -48,10 +63,10 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-navy text-[12px] font-semibold flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #c9a84c, #e8c87a)' }}>
-            DT
+            {initials}
           </div>
           <div className="hidden md:block">
-            <div className="text-[12px] font-medium text-navy">Dr. Talha</div>
+            <div className="text-[12px] font-medium text-navy">{doctorName}</div>
             <div className="text-[10px] text-gray-400">Admin</div>
           </div>
         </div>
