@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import ExpensesTab from '@/components/ui/ExpensesTab';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate } from '@/lib/sheets';
@@ -621,6 +622,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
           </table>
         </div>
       </div>
+    {activeTab === 'expenses' && <ExpensesTab/>}
     </div>
   );
 }
