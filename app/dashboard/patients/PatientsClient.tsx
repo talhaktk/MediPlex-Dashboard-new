@@ -465,6 +465,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                             {v.bp && <span className="text-gray-600">❤ BP {v.bp}</span>}
                             {v.pulse && <span className="text-gray-600">💓 {v.pulse}bpm</span>}
                             {v.temperature && <span className="text-gray-600">🌡 {v.temperature}°C</span>}
+                            {(v as any).weight_percentile && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{background:'rgba(59,130,246,0.1)',color:'#1d4ed8'}}>Wt: {(v as any).weight_percentile}</span>}
+                            {(v as any).height_percentile && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{background:'rgba(16,185,129,0.1)',color:'#059669'}}>Ht: {(v as any).height_percentile}</span>}
                           </div>
                         ))}
                       </div>
