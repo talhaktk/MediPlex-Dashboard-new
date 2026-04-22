@@ -183,23 +183,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     setNewVitals({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt:new Date().toISOString().split('T')[0] });
     setShowVitalsForm(false);
     toast.success('Vitals recorded');
-    // Calculate WHO percentiles
-    const WHO_W50_BOYS: Record<number,number> = {0:3.3,3:6.4,6:7.9,9:8.9,12:9.6,18:10.9,24:12.0,36:13.9,48:15.5,60:16.9};
-    const WHO_H50_BOYS: Record<number,number> = {0:49.9,3:61.4,6:67.6,9:72.3,12:75.7,18:82.3,24:87.1,36:95.1,48:102.0,60:108.5};
-    const ageM = selected.age ? Math.round(parseFloat(selected.age)*12) : 0;
-    const nearM = ageM > 0 ? Object.keys(WHO_W50_BOYS).map(Number).reduce((a,b)=>Math.abs(b-ageM)<Math.abs(a-ageM)?b:a) : null;
-    let weightPct = '', heightPct = '';
-    if (nearM !== null && vitalsRecord.weight) {
-      const w = parseFloat(vitalsRecord.weight);
-      const ref50 = WHO_W50_BOYS[nearM];
-      if (!isNaN(w) && ref50) weightPct = w < ref50*0.7?'<3rd':w < ref50*0.87?'3rd-15th':w < ref50*1.0?'15th-50th':w < ref50*1.1?'50th-85th':w < ref50*1.2?'85th-97th':'>97th';
-    }
-    if (nearM !== null && vitalsRecord.height) {
-      const h = parseFloat(vitalsRecord.height);
-      const href50 = WHO_H50_BOYS[nearM];
-      if (!isNaN(h) && href50) heightPct = h < href50*0.96?'<3rd':h < href50*0.98?'3rd-15th':h < href50*1.0?'15th-50th':h < href50*1.02?'50th-85th':h < href50*1.04?'85th-97th':'>97th';
-    }
-    await syncVitalsToDb(selected.mrNumber, selected.name, vitalsRecord, weightPct, heightPct);
+    await syncVitalsToDb(selected.mrNumber, selected.name, vitalsRecord);
     const vq = selected.mrNumber
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
