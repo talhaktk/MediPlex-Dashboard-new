@@ -256,11 +256,12 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
         if (hRow) {
           const key = patientKey(p.name);
           const local = getHealth(key);
-          if (!local.bloodGroup && hRow.blood_group) local.bloodGroup = hRow.blood_group;
-          if (!local.allergies  && hRow.allergies)   local.allergies  = hRow.allergies;
-          if (!local.conditions && hRow.conditions)  local.conditions = hRow.conditions;
-          if (!local.notes      && hRow.notes)       local.notes      = hRow.notes;
+          if (hRow.blood_group) local.bloodGroup = hRow.blood_group;
+          if (hRow.allergies)   local.allergies  = hRow.allergies;
+          if (hRow.conditions)  local.conditions = hRow.conditions;
+          if (hRow.notes)       local.notes      = hRow.notes;
           setHealth(key, local);
+          setDbHealth(hRow);
         }
       }
 
@@ -301,6 +302,14 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
     } catch {}
 
     let ctx = buildPatientContext(p, dbVitals);
+    // Override with DB health values
+    if (dbHealth) {
+      if (dbHealth.blood_group) ctx = ctx.replace('Blood Group: ', `Blood Group (DB): `);
+      if (dbHealth.allergies) ctx += `
+DB Allergies: ${dbHealth.allergies}`;
+      if (dbHealth.conditions) ctx += `
+DB Conditions: ${dbHealth.conditions}`;
+    }
     if (lastRx) {
       const meds = (lastRx.medicines||[]).slice(0,5).map((m:any)=>`${m.name} ${m.dose} ${m.frequency}`).join(', ');
       ctx += `
@@ -349,6 +358,7 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
   };
 
   const patientHealth = selectedPatient ? getHealth(patientKey(selectedPatient.name)) : null;
+  const [dbHealth, setDbHealth] = useState<any>(null);
   const patientVitals = selectedPatient ? getLatestVitals(patientKey(selectedPatient.name)) : null;
 
   const startRecording = () => {
