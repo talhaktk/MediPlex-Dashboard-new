@@ -67,6 +67,8 @@ export default function Sidebar() {
             <div className="text-white font-display font-semibold text-[15px] leading-tight tracking-wide">MediPlex</div>
             {doctorName && <div className="text-[11px] mt-0.5" style={{color:'#c9a84c'}}>{doctorName}</div>}
             {clinicName && <div className="text-[10px] text-white/50">{clinicName}</div>}
+            {doctorName && <div className="text-[11px] mt-0.5" style={{color:'#c9a84c'}}>{doctorName}</div>}
+            {clinicName && <div className="text-[10px] text-white/50">{clinicName}</div>}
             {speciality && <div className="text-gold text-[10px] tracking-widest uppercase font-light mt-0.5">{speciality}</div>}
           </div>
         </div>
