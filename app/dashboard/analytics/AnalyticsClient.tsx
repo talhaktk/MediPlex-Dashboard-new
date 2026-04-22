@@ -88,7 +88,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const [rangeFrom,    setRangeFrom]    = useState('');
   const [rangeTo,      setRangeTo]      = useState('');
   const [activePreset, setActivePreset] = useState('all');
-  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'>('overview');
+  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'|'aging'>('overview');
   const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
 
   const applyPreset = (key: string) => {
