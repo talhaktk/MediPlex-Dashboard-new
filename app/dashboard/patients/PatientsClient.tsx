@@ -204,8 +204,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
   }, [localRx, dbRx]);
 
   const allVitals = useMemo(() => {
-    const fromPatientVitals = dbVitals.map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, weight_percentile:dv.weight_percentile, height_percentile:dv.height_percentile, _source:'record' }));
-    const fromApt = aptVitals.filter(av => av.visit_weight||av.visit_bp||av.visit_height||av.visit_pulse||av.visit_temperature).map(av => ({ weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, _source:'visit' }));
+    const fromPatientVitals = dbVitals.map(dv => ({ weight:dv.weight, height:dv.height, bp:dv.bp, pulse:dv.pulse, temperature:dv.temperature, recordedAt:dv.recorded_at, createdAt:dv.created_at||dv.recorded_at, _source:'record' }));
+    const fromApt = aptVitals.filter(av => av.visit_weight||av.visit_bp||av.visit_height||av.visit_pulse||av.visit_temperature).map(av => ({ weight:av.visit_weight||'', height:av.visit_height||'', bp:av.visit_bp||'', pulse:av.visit_pulse||'', temperature:av.visit_temperature||'', recordedAt:av.appointment_date, createdAt:av.created_at||av.appointment_date, _source:'visit' }));
     return [...fromPatientVitals, ...fromApt].sort((a,b) => (b.recordedAt||'').localeCompare(a.recordedAt||''));
   }, [dbVitals, aptVitals]);
 
@@ -443,7 +443,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                         {allVitals.map((v,i)=>(
                           <div key={i} className="rounded-lg p-3 flex flex-wrap gap-3 text-[12px]" style={{background:'#f9f7f3',border:'1px solid rgba(201,168,76,0.1)'}}>
                             <span className="font-medium text-navy">{formatUSDate(v.recordedAt)}</span>
-                            {v.recordedAt === allVitals.reduce((max, x) => (x.recordedAt||'') > (max.recordedAt||'') ? x : max, allVitals[0])?.recordedAt && (
+                            {(v as any).createdAt === allVitals.reduce((max,x) => ((x as any).createdAt||'') > ((max as any).createdAt||'') ? x : max, allVitals[0])?.createdAt && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{background:'#dbeafe',color:'#1d4ed8'}}>⭐ Latest</span>
                             )}
                             {v.weight && <span className="text-gray-600">⚖ {v.weight}kg</span>}
