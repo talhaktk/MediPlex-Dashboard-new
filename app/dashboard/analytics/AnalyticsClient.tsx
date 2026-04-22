@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Appointment, MonthlyStats, ReasonStat, AgeStat, DashboardStats } from '@/types';
 import { filterAppointments, computeMonthlyStats, exportToCSV, formatUSDate } from '@/lib/sheets';
 import { supabase } from '@/lib/supabase';
+import AgingReport from '@/components/ui/AgingReport';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, PieChart, Pie, Cell, AreaChart, Area, Legend,
@@ -252,8 +253,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     setTimeout(() => w.print(), 600);
   };
 
-  const tabs = ['overview','monthly','patients','trends','billing'] as const;
-  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing' };
+  const tabs = ['overview','monthly','patients','trends','billing','aging'] as const;
+  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues' };
   const safeReasons = reasons||[];
   const safeAges    = ages||[];
 
@@ -837,6 +838,11 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               </div>
             </div>);
           })()}
+      )}
+      {activeTab==='aging' && (
+        <div className="space-y-5">
+          <AgingReport/>
+        </div>
       )}
     </div>
   );
