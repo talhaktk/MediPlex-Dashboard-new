@@ -115,8 +115,8 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     }
 
     const aq = selected.mrNumber
-      ? supabase.from('appointments').select('id,appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', selected.mrNumber)
-      : supabase.from('appointments').select('id,appointment_date,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').ilike('child_name', selected.name);
+      ? supabase.from('appointments').select('id,appointment_date,created_at,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').eq('mr_number', selected.mrNumber)
+      : supabase.from('appointments').select('id,appointment_date,created_at,visit_weight,visit_height,visit_bp,visit_pulse,visit_temperature').ilike('child_name', selected.name);
     aq.order('appointment_date', { ascending: false }).then(({ data: rows }) => {
       if (rows) setAptVitals(rows.filter(r => r.visit_weight || r.visit_bp || r.visit_height || r.visit_pulse || r.visit_temperature));
     });
