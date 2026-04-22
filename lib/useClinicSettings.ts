@@ -25,6 +25,7 @@ const DEFAULT: ClinicSettings = {
 // Cache in memory
 let cached: ClinicSettings | null = null;
 
+
 export async function getClinicSettings(): Promise<ClinicSettings> {
   if (cached) return cached;
   try {
@@ -35,7 +36,7 @@ export async function getClinicSettings(): Promise<ClinicSettings> {
     );
     const { data } = await sb.from('clinic_settings').select('*').eq('id', 1).maybeSingle();
     cached = data ? { ...DEFAULT, ...data } : DEFAULT;
-    return cached;
+    return cached as ClinicSettings;
   } catch {
     return DEFAULT;
   }
