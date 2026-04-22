@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -24,6 +25,22 @@ const NAV = [
 ];
 
 export default function Sidebar() {
+  const [clinicName, setClinicName] = React.useState('');
+  const [doctorName, setDoctorName] = React.useState('');
+  const [speciality, setSpeciality] = React.useState('');
+
+  React.useEffect(() => {
+    import('@/lib/supabase').then(({ supabase }) => {
+      supabase.from('clinic_settings').select('clinic_name,doctor_name,speciality').eq('id',1).maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            setClinicName(data.clinic_name || '');
+            setDoctorName(data.doctor_name || '');
+            setSpeciality(data.speciality || '');
+          }
+        });
+    });
+  }, []);
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Topbar from '@/components/layout/Topbar';
 import { useSession } from 'next-auth/react';
 import { Plus, Trash2, RefreshCw, Shield, UserCheck, Users, Eye, Save, X } from 'lucide-react';
+import ClinicSettingsTab from '@/components/ui/ClinicSettingsTab';
 import toast from 'react-hot-toast';
 
 interface UserRow {
@@ -122,6 +123,7 @@ export default function SettingsPage() {
     { key:'users',  label:'User Management' },
     { key:'roles',  label:'Role Permissions' },
     { key:'clinic', label:'Clinic Info' },
+    { key:'clinicsettings', label:'Clinic Settings' },
     { key:'sheet',  label:'Google Sheets' },
   ] as const;
 
@@ -392,6 +394,9 @@ onChange={e => {
               </div>
             </div>
           )}
+
+          {/* ── CLINIC SETTINGS ── */}
+          {tab === 'clinicsettings' && <ClinicSettingsTab/>}
 
         </div>
       </main>
