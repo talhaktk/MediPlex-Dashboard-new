@@ -54,7 +54,8 @@ export default function Sidebar() {
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
   const name = user?.name || doctorName || 'Doctor';
   const role = user?.role ?? 'admin';
-  const initials = user?.initials ?? (doctorName || name).replace(/^Dr\.?\s*/i,'').split(' ').map((n:string) => n[0]||'').join('').toUpperCase().slice(0,2) || 'DR';
+  const dbInitials = (doctorName || name).replace(/^Dr\.?\s*/i,'').split(' ').map((n:string) => n[0]||'').join('').toUpperCase().slice(0,2) || 'DR';
+  const initials = user?.initials ?? dbInitials;
   const roleLabel = role === 'admin' ? 'Admin' : role === 'doctor' ? 'Doctor' : role === 'receptionist' ? 'Receptionist' : 'Staff';
   const roleColor = role === 'admin' ? '#c9a84c' : role === 'doctor' ? '#1a7f5e' : '#2b6cb0';
   const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/login'); };
