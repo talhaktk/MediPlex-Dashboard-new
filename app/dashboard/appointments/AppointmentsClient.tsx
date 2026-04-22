@@ -72,6 +72,53 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm,      setAddForm]      = useState({ ...EMPTY_FORM });
   const [addLoading,   setAddLoading]   = useState(false);
+  const [schedule, setSchedule] = useState<any>(null);
+  const [slotConflict, setSlotConflict] = useState<string>('');
+
+  // Fetch schedule settings once
+  useEffect(() => {
+    supabase.from('clinic_settings').select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days').eq('id',1).maybeSingle()
+      .then(({ data }) => { if (data) setSchedule(data); });
+  }, []);
+
+  // Generate time slots from schedule
+  const generateTimeSlots = (sch: any) => {
+    if (!sch) return [];
+    const slots: string[] = [];
+    const addSlots = (start: string, end: string) => {
+      const [sh,sm] = start.split(':').map(Number);
+      const [eh,em] = end.split(':').map(Number);
+      let mins = sh*60+sm;
+      const endM = eh*60+em;
+      while (mins < endM) {
+        const h = Math.floor(mins/60);
+        const m = mins%60;
+        const ampm = h>=12?'PM':'AM';
+        const h12 = h>12?h-12:h===0?12:h;
+        slots.push(`${h12}:${m.toString().padStart(2,'0')} ${ampm}`);
+        mins += sch.slot_duration||15;
+      }
+    };
+    addSlots(sch.morning_start||'09:00', sch.morning_end||'12:00');
+    addSlots(sch.evening_start||'14:00', sch.evening_end||'17:00');
+    return slots;
+  };
+
+  // Check slot conflict
+  const checkSlotConflict = (date: string, time: string) => {
+    if (!date || !time) { setSlotConflict(''); return; }
+    const conflicts = data.filter(a =>
+      a.appointmentDate === date &&
+      a.appointmentTime === time &&
+      !['Cancelled','No-Show'].includes(a.status)
+    );
+    const maxPerSlot = schedule?.max_per_slot || 1;
+    if (conflicts.length >= maxPerSlot) {
+      setSlotConflict(`⚠ Slot taken by: ${conflicts.map(a=>a.childName).join(', ')}`);
+    } else {
+      setSlotConflict('');
+    }
+  };
 
   // ── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
@@ -202,6 +249,17 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
     if (!addForm.parent_name.trim())      { toast.error('Parent name is required');       return; }
     if (!addForm.appointment_date)        { toast.error('Appointment date is required');  return; }
     if (!addForm.appointment_time.trim()) { toast.error('Appointment time is required');  return; }
+    // Check slot conflict
+    const conflicts = data.filter(a =>
+      a.appointmentDate === addForm.appointment_date &&
+      a.appointmentTime === addForm.appointment_time &&
+      !['Cancelled','No-Show'].includes(a.status)
+    );
+    const maxPerSlot = schedule?.max_per_slot || 1;
+    if (conflicts.length >= maxPerSlot) {
+      const names = conflicts.map(a=>a.childName).join(', ');
+      if (!confirm(`⚠ This slot is already booked by: ${names}\n\nBook anyway as emergency?`)) return;
+    }
 
     setAddLoading(true);
 const result = await createAppointmentFull(addForm);
@@ -620,10 +678,23 @@ const result = await createAppointmentFull(addForm);
                   </div>
                   <div>
                     <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Time *</label>
-                    <input type="time"
-                      value={addForm.appointment_time}
-                      onChange={e => setAddForm(p => ({ ...p, appointment_time: e.target.value }))}
-                      className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                    {schedule ? (
+                      <select value={addForm.appointment_time}
+                        onChange={e => { setAddForm(p => ({...p, appointment_time: e.target.value})); checkSlotConflict(addForm.appointment_date, e.target.value); }}
+                        className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
+                        <option value="">Select time slot...</option>
+                        {generateTimeSlots(schedule).map(slot => {
+                          const taken = data.filter(a=>a.appointmentDate===addForm.appointment_date&&a.appointmentTime===slot&&!['Cancelled','No-Show'].includes(a.status)).length;
+                          const full = taken >= (schedule.max_per_slot||1);
+                          return <option key={slot} value={slot} style={{color:full?'#dc2626':'inherit'}}>{slot}{full?' ⚠ Full':taken>0?` (${taken}/${schedule.max_per_slot})`  :''}</option>;
+                        })}
+                      </select>
+                    ) : (
+                      <input type="time" value={addForm.appointment_time}
+                        onChange={e => setAddForm(p => ({...p, appointment_time: e.target.value}))}
+                        className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold"/>
+                    )}
+                    {slotConflict && <div className="text-[11px] text-red-500 mt-1">{slotConflict}</div>}
                   </div>
                   <div className="col-span-2">
                     <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Reason for Visit</label>
