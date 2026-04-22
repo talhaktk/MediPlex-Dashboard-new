@@ -74,8 +74,8 @@ export default function WHOGrowthChart({ vitals, gender, ageMonths }: Props) {
   const weightChartData = useMemo(() => buildChartData(weightData, weightPoints), [weightData, weightPoints]);
   const heightChartData = useMemo(() => buildChartData(heightData, heightPoints), [heightData, heightPoints]);
 
-  const latestWeight = weightPoints[weightPoints.length-1]?.y;
-  const latestHeight = heightPoints[heightPoints.length-1]?.y;
+  const latestWeight = weightPoints[0]?.y;
+  const latestHeight = heightPoints[0]?.y;
   const nearestMonth = ageMonths ? Object.keys(weightData).map(Number).reduce((a,b) => Math.abs(b-ageMonths)<Math.abs(a-ageMonths)?b:a) : null;
   const weightPct = latestWeight && nearestMonth ? getPercentile(latestWeight, weightData[nearestMonth]) : null;
   const heightPct = latestHeight && nearestMonth ? getPercentile(latestHeight, heightData[nearestMonth]) : null;
