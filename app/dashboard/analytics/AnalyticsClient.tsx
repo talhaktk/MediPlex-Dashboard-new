@@ -853,7 +853,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                   const mExp = expenses.filter(e=>{
                     if(!e.date) return false;
                     const ym = e.date.slice(0,7);
-                    return (m as any).monthKey === ym;
+                    return monthKey(m.month) === ym;
                   }).reduce((s,e)=>s+Number(e.amount),0);
                   return {...m, expenses: mExp, profit: m.revenue - mExp};
                 })}>
