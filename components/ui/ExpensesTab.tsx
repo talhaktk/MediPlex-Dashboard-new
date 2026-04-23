@@ -84,27 +84,6 @@ export default function ExpensesTab() {
 
   return (
     <div className="space-y-5">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="card p-4">
-          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Total Expenses</div>
-          <div className="text-[24px] font-semibold text-red-600">PKR {totalExpenses.toLocaleString()}</div>
-        </div>
-        <div className="card p-4">
-          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">This Month</div>
-          <div className="text-[24px] font-semibold text-red-500">
-            PKR {expenses.filter(e=>e.date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s,e)=>s+Number(e.amount),0).toLocaleString()}
-          </div>
-        </div>
-        <div className="card p-4">
-          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Categories</div>
-          <div className="text-[24px] font-semibold text-navy">{byCat.length}</div>
-        </div>
-        <div className="card p-4">
-          <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">Records</div>
-          <div className="text-[24px] font-semibold text-navy">{expenses.length}</div>
-        </div>
-      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
