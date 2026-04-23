@@ -38,7 +38,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Topbar
-        title={`Good morning, ${doctorName || "Doctor"} 👋`}
+        title={`${(() => { const h = new Date().toLocaleString("en-US", {timeZone:"Asia/Karachi", hour:"numeric", hour12:false}); const hr = parseInt(h); return hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening"; })()}, ${doctorName || "Doctor"} 👋`}
         subtitle="Here's your clinic overview for today"
       />
 

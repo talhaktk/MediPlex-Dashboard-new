@@ -42,7 +42,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
 
       <div className="flex items-center gap-3">
         <div className="text-[12px] text-gray-400 font-light hidden md:block">
-          {format(now, "EEE, MMM d, yyyy · h:mm a")} ET
+          {now.toLocaleString("en-US", {timeZone:"Asia/Karachi", weekday:"short", month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit"})} PKT
         </div>
 
         <button
