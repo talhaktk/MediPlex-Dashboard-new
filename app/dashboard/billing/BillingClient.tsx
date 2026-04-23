@@ -331,33 +331,6 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
       {billingTab==='invoices' && <div className="space-y-5">
 
 
-      {/* Sub-summary: consultations vs procedures */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="card p-3 flex items-center gap-3" style={{ border: '1px solid rgba(3,105,161,0.2)' }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#e0f2fe' }}>
-            <FileText size={14} style={{ color: '#0369a1' }} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Consultations</div>
-            <div className="text-[15px] font-semibold text-navy">
-              {consultInvoices.length} &nbsp;·&nbsp;
-              <span style={{ color: '#1a7f5e' }}>PKR {consultInvoices.reduce((s, i) => s + i.paid, 0).toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-        <div className="card p-3 flex items-center gap-3" style={{ border: '1px solid rgba(109,40,217,0.2)' }}>
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#ede9fe' }}>
-            <Stethoscope size={14} style={{ color: '#6d28d9' }} />
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Procedures</div>
-            <div className="text-[15px] font-semibold text-navy">
-              {procedureInvoices.length} &nbsp;·&nbsp;
-              <span style={{ color: '#6d28d9' }}>PKR {procedureInvoices.reduce((s, i) => s + i.paid, 0).toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
