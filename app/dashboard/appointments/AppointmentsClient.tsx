@@ -38,7 +38,6 @@ const EMPTY_FORM = {
 export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
   const { clinicId, isSuperAdmin } = useClinic();
-  console.log('DEBUG clinicId:', clinicId, 'isSuperAdmin:', isSuperAdmin);
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [status,      setStatus]      = useState('all');
@@ -265,7 +264,8 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
     }
 
     setAddLoading(true);
-const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as any);
+toast.success('clinicId: ' + clinicId);
+    const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as any);
     setAddLoading(false);
 
     if (result.success) {
