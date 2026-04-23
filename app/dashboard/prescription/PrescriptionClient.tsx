@@ -304,6 +304,7 @@ export default function PrescriptionClient({
   clinicName: string; doctorName: string;
   clinicPhone: string; clinicAddress: string;
 }) {
+  const { clinicId, isSuperAdmin } = useClinic();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [drugSearch, setDrugSearch] = useState<Record<string,string>>({});
