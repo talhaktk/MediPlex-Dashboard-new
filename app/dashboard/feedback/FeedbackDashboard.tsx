@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import { Star, MessageCircle, TrendingUp, Users, ThumbsUp } from 'lucide-react';
 
 function StarDisplay({ value }: { value: number }) {
@@ -16,6 +17,7 @@ function StarDisplay({ value }: { value: number }) {
 
 export default function FeedbackDashboard() {
   const [feedback, setFeedback] = useState<any[]>([]);
+  const { clinicId, isSuperAdmin } = useClinic();
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all'|'submitted'|'pending'>('all');
 

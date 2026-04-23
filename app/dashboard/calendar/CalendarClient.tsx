@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Appointment } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import { formatUSDate } from '@/lib/sheets';
 import StatusPill from '@/components/ui/StatusPill';
 import { ChevronLeft, ChevronRight, Plus, X, Save } from 'lucide-react';
@@ -37,6 +38,7 @@ const EMPTY_FORM: NewAptForm = {
 
 export default function CalendarClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
+  const { clinicId, isSuperAdmin } = useClinic();
   const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);

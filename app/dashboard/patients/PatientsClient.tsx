@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Appointment } from '@/types';
 import { formatUSDate, syncHealthToDb, syncVitalsToDb } from '@/lib/sheets';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import { Search, X, Phone, Mail, Calendar, User, Heart, Activity, FileText, Plus, Save, Bot } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getHealth, setHealth, addVitals, getLatestVitals, getPrescriptionsByPatient, patientKey, HealthRecord, VitalSigns } from '@/lib/store';

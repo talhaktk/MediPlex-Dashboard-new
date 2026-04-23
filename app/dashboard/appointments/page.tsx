@@ -1,5 +1,7 @@
 // Change the import path to match your filename 'sheets'
-import { fetchAppointmentsFromDb } from '@/lib/sheets'; 
+import { fetchAppointmentsFromDb } from '@/lib/sheets';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth'; 
 import Topbar from '@/components/layout/Topbar';
 import AppointmentsClient from './AppointmentsClient';
 
@@ -7,7 +9,9 @@ export const revalidate = 0;
 
 export default async function AppointmentsPage() {
   // Use the new function name you created
-  const data = await fetchAppointmentsFromDb();
+  const session = await getServerSession(authOptions);
+  const clinicId = (session?.user as any)?.clinicId || null;
+  const data = await fetchAppointmentsFromDb(clinicId);
 
   return (
     <>

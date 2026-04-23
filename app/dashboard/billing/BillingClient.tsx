@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import ExpensesTab from '@/components/ui/ExpensesTab';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
@@ -87,6 +88,7 @@ function TypeBadge({ type }: { type: RecordType }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function BillingClient({ data }: { data: Appointment[] }) {
   const [invoices,   setInvoices]   = useState<Invoice[]>([]);
+  const { clinicId, isSuperAdmin } = useClinic();
   const [search,     setSearch]     = useState('');
   const [filterPay,  setFilterPay]  = useState('all');
   const [filterType, setFilterType] = useState('all');   // 'all' | 'consultation' | 'procedure'

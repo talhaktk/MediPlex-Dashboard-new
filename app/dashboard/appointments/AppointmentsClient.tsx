@@ -1,6 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { filterAppointments, exportToCSV, formatUSDate, createAppointmentFull, softDeleteAppointment } from '@/lib/sheets';import StatusPill from '@/components/ui/StatusPill';
@@ -36,6 +37,7 @@ const EMPTY_FORM = {
 
 export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
+  const { clinicId, isSuperAdmin } = useClinic();
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [status,      setStatus]      = useState('all');

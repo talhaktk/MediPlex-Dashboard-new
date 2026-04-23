@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import { formatUSDate } from '@/lib/sheets';
 import { Search, Plus, Upload, X, FileText, Image, Eye, Trash2, Save, Loader2, CheckCircle, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';

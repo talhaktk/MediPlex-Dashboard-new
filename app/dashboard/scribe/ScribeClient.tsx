@@ -11,6 +11,7 @@ import { Appointment } from '@/types';
 import { getHealth, setHealth, getLatestVitals, patientKey } from '@/lib/store';
 import { saveScribeOutput } from '@/lib/scribeStore';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 
 type Mode = 'soap' | 'prescription' | 'discharge' | 'referral';
 type Status = 'idle' | 'recording' | 'processing' | 'done';

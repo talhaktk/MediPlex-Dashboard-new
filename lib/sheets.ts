@@ -31,13 +31,15 @@ function rowToAppointment(row: any): Appointment {
   } as Appointment;
 }
 
-export async function fetchAppointmentsFromDb(): Promise<Appointment[]> {
+export async function fetchAppointmentsFromDb(clinicId?: string): Promise<Appointment[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('appointments')
       .select('*')
       .order('appointment_date', { ascending: false })
       .limit(500);
+    if (clinicId) query = query.eq('clinic_id', clinicId);
+    const { data, error } = await query;
     if (error) throw error;
     return (data || []).map(rowToAppointment);
   } catch (err) {

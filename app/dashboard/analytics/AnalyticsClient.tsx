@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Appointment, MonthlyStats, ReasonStat, AgeStat, DashboardStats } from '@/types';
 import { filterAppointments, computeMonthlyStats, exportToCSV, formatUSDate } from '@/lib/sheets';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 import AgingReport from '@/components/ui/AgingReport';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -98,6 +99,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   // ── Billing from Supabase ─────────────────────────────────────────────────
   const [invoices, setInvoices] = useState<ReturnType<typeof mapDbInvoice>[]>([]);
+  const { clinicId, isSuperAdmin } = useClinic();
 
   useEffect(() => {
     const fetchBilling = async () => {

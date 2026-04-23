@@ -18,6 +18,7 @@ import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeSt
 import LabInvestigations, { LabRequest } from '@/components/ui/LabInvestigations';
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
+import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 
 // ── WhatsApp send helper ─────────────────────────────────────────────────────
 function sendWA(phone: string, msg: string) {
