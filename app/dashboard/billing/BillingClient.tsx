@@ -433,6 +433,26 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
               </div>
             )}
 
+            {/* MR Number with auto-fetch */}
+            <div className="col-span-2">
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">MR Number</label>
+              <div className="flex gap-2">
+                <input type="text" placeholder="e.g. A0000000001" value={form.mr_number||''}
+                  onChange={e => setForm(prev => ({...prev, mr_number: e.target.value}))}
+                  className="flex-1 border border-black/10 rounded-lg px-3 py-2 text-[13px] font-mono text-navy bg-white outline-none focus:border-gold"/>
+                <button onClick={async () => {
+                  if (!form.mr_number) return;
+                  const { data: p } = await supabase.from('patients').select('child_name,parent_name').eq('mr_number', form.mr_number).maybeSingle();
+                  if (p) {
+                    setForm(prev => ({...prev, childName: p.child_name||prev.childName, parentName: p.parent_name||prev.parentName}));
+                    toast.success('Patient loaded: ' + p.child_name);
+                  } else {
+                    toast.error('Patient not found for MR#: ' + form.mr_number);
+                  }
+                }} className="btn-gold text-[11px] py-2 px-3">Fetch</button>
+              </div>
+            </div>
+
             {[
               { label: 'Patient Name', key: 'childName',  type: 'text' },
               { label: 'Parent Name',  key: 'parentName', type: 'text' },
