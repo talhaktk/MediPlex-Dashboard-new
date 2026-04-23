@@ -112,6 +112,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
+  const filteredData = useMemo(() => data.filter(a => {
+    if (rangeFrom && a.appointmentDate < rangeFrom) return false;
+    if (rangeTo   && a.appointmentDate > rangeTo)   return false;
+    return true;
+  }), [data, rangeFrom, rangeTo]);
+
   const filteredInvoices = useMemo(() => invoices.filter(inv => {
     if (rangeFrom && inv.date < rangeFrom) return false;
     if (rangeTo   && inv.date > rangeTo)   return false;
@@ -655,7 +661,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               {label:'Avg / Month',       val:monthly.length?Math.round(data.length/monthly.length):0,                                              color:GOLD},
               {label:'Peak Month',        val:[...monthly].sort((a,b)=>b.total-a.total)[0]?.month||'—',                                             color:GREEN},
               {label:'Best Confirm Rate', val:monthly.length?`${Math.max(...monthly.map(m=>m.total?Math.round(m.confirmed/m.total*100):0))}%`:'—',  color:BLUE},
-              {label:'Total Patients',    val:new Set(data.map(a=>a.childName?.toLowerCase()).filter(Boolean)).size,                                 color:'#7c3aed'},
+              {label:'Total Patients',    val:new Set(filteredData.map(a=>a.childName?.toLowerCase()).filter(Boolean)).size,                                 color:'#7c3aed'},
             ].map(s=>(
               <div key={s.label} className="kpi-card animate-in">
                 <div className="text-[10px] tracking-widest uppercase text-gray-400 font-medium mb-2">{s.label}</div>
