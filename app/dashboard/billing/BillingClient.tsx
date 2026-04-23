@@ -330,27 +330,6 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
       {billingTab==='expenses' && <ExpensesTab/>}
       {billingTab==='invoices' && <div className="space-y-5">
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Revenue',   value: `PKR ${totalRevenue.toLocaleString()}`, color: '#1a7f5e', bg: '#e8f7f2' },
-          { label: 'Pending Amount',  value: `PKR ${totalPending.toLocaleString()}`, color: '#c53030', bg: '#fff0f0' },
-          { label: 'Paid Invoices',   value: paidCount,                              color: '#1a7f5e', bg: '#f0fdf4' },
-          { label: 'Unpaid Invoices', value: unpaidCount,                            color: '#c53030', bg: '#fef2f2' },
-        ].map(s => (
-          <div key={s.label} className="card p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
-              <span className="text-[18px] font-bold" style={{ color: s.color }}>
-                {typeof s.value === 'number' ? s.value : '₨'}
-              </span>
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
-              <div className="text-[18px] font-semibold text-navy leading-tight">{s.value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {/* Sub-summary: consultations vs procedures */}
       <div className="grid grid-cols-2 gap-3">
