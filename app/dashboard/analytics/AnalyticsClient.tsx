@@ -736,11 +736,9 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
               <div className="p-5" style={{height:260}}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={monthlyBilling.map(m => {
-                    const monthExp = expenses.filter(e=>e.date?.startsWith(m.month.replace(/\s/g,'-').toLowerCase())||false).reduce((s,e)=>s+Number(e.amount),0);
                     const mExp = filteredExpenses.filter(e=>{
-                      const d = new Date(e.date);
-                      const label = d.toLocaleString('en-US',{month:'short',year:'2-digit'});
-                      return label === m.month;
+                      if(!e.date) return false;
+                      return monthKey(m.month) === e.date.slice(0,7);
                     }).reduce((s,e)=>s+Number(e.amount),0);
                     return {...m, expenses: mExp, profit: m.revenue - mExp};
                   })}>
