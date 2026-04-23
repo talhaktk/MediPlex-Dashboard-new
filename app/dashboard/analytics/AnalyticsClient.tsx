@@ -104,7 +104,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   useEffect(() => {
     const fetchBilling = async () => {
       const { data: rows, error } = await supabase
-        .from('billing').select('*').order('created_at', { ascending: false });
+.from('billing').select('*').order('created_at', { ascending: false });
+      if (clinicId && !isSuperAdmin) { const fq = supabase.from('billing').select('*').eq('clinic_id', clinicId).order('created_at',{ascending:false}); const {data:fr} = await fq; if(fr) setInvoices(fr.map(mapDbInvoice)); return; }
       if (!error && rows) setInvoices(rows.map(mapDbInvoice));
     };
     fetchBilling();

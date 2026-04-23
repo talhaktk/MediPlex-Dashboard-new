@@ -212,7 +212,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     if ((form as any).dbId != null) payload.id = (form as any).dbId;
 
     try {
-      const { error } = await supabase.from('billing').upsert([payload], { onConflict: 'invoice_number' });
+      const { error } = await supabase.from('billing').upsert([{...payload, clinic_id: clinicId||null}], { onConflict: 'invoice_number' });
       if (error) throw error;
       setShowForm(false);
       toast.success(`${formType === 'procedure' ? 'Procedure' : 'Invoice'} ${invoiceId} saved!`);

@@ -264,7 +264,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
     }
 
     setAddLoading(true);
-const result = await createAppointmentFull(addForm);
+const result = await createAppointmentFull({...addForm, clinic_id: clinicId || undefined});
     setAddLoading(false);
 
     if (result.success) {

@@ -156,6 +156,7 @@ export default function CalendarClient({ data: initialData }: { data: Appointmen
         appointment_date: newAptForm.appointment_date,
         appointment_time: newAptForm.appointment_time,
         status: 'Confirmed',
+        clinic_id: clinicId || null,
       }]).select();
       if (error) throw error;
       toast.success('Appointment booked!');
