@@ -38,6 +38,7 @@ const EMPTY_FORM = {
 export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
   const { clinicId, isSuperAdmin } = useClinic();
+  console.log('DEBUG clinicId:', clinicId, 'isSuperAdmin:', isSuperAdmin);
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [status,      setStatus]      = useState('all');
