@@ -400,6 +400,20 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       {/* ── OVERVIEW ── */}
       {activeTab==='overview' && (
         <div className="space-y-5">
+          {/* Financial Summary Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {label:'Total Revenue',  val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#f0fdf4'},
+              {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+              {label:'Net Profit',     val:`PKR ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
+              {label:'Outstanding',    val:`PKR ${totalPending.toLocaleString()}`,  color:'#d97706', bg:'#fefce8'},
+            ].map(s=>(
+              <div key={s.label} className="card p-4">
+                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
+                <div className="text-[20px] font-bold" style={{color:s.color}}>{s.val}</div>
+              </div>
+            ))}
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Volume</div>
