@@ -361,7 +361,7 @@ export default function PrescriptionClient({
 
   useEffect(() => {
     setPrescriptions(loadRx());
-    supabase.from('prescriptions').select('*').order('created_at', { ascending: false }).then(({ data: rows }) => {
+    const pq = clinicId && !isSuperAdmin ? supabase.from('prescriptions').select('*').eq('clinic_id', clinicId).order('created_at',{ascending:false}) : supabase.from('prescriptions').select('*').order('created_at',{ascending:false}); pq.then(({ data: rows }) => {
       if (rows && rows.length > 0) {
         const dbRx = rows.map((r:any) => ({
           id: r.id, appointmentId: r.appointment_id || '',
@@ -633,7 +633,7 @@ export default function PrescriptionClient({
     try {
       const apt = data.find((a:any) => a.id === rx.appointmentId || a.childName.toLowerCase() === rx.childName.toLowerCase());
       const mrNumber = (apt as any)?.mr_number || null;
-      await supabase.from('prescriptions').upsert([{
+      await supabase.from('prescriptions').upsert([{ clinic_id: clinicId || null,
         id: rx.id, mr_number: mrNumber,
         child_name: rx.childName, parent_name: rx.parentName,
         child_age: rx.childAge || '', date: rx.date || '',
@@ -642,7 +642,7 @@ export default function PrescriptionClient({
       }], { onConflict: 'id' });
       // Save to rx_public for patient link
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      await supabase.from('rx_public').upsert([{
+      await supabase.from('rx_public').upsert([{ clinic_id: clinicId || null,
         id: rx.id,
         rx_data: rx,
         clinic_name: clinicName,
