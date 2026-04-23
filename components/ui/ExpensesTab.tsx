@@ -159,39 +159,6 @@ export default function ExpensesTab() {
         </div>
       )}
 
-      {/* Category breakdown */}
-      {byCat.length > 0 && (
-        <div className="card p-5">
-          <div className="font-medium text-navy text-[14px] mb-4">Expenses by Category</div>
-          <div className="space-y-3">
-            {byCat.map(([cat, amt]) => (
-              <div key={cat} className="flex items-center gap-3">
-                <div className="text-[12px] text-gray-600 w-40 flex-shrink-0 truncate">{cat}</div>
-                <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                  <div className="h-full rounded-full" style={{width:`${(amt/maxCat)*100}%`,background:'#dc2626'}}/>
-                </div>
-                <div className="text-[12px] font-medium text-red-600 w-28 text-right">PKR {amt.toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Monthly breakdown */}
-      {byMonth.length > 0 && (
-        <div className="card p-5">
-          <div className="font-medium text-navy text-[14px] mb-4">Monthly Expenses</div>
-          <div className="space-y-2">
-            {byMonth.map(([month, amt]) => (
-              <div key={month} className="flex items-center justify-between px-3 py-2 rounded-xl" style={{background:'#fef2f2'}}>
-                <div className="text-[13px] font-medium text-navy">{new Date(month+'-01').toLocaleString('en-US',{month:'long',year:'numeric'})}</div>
-                <div className="text-[13px] font-semibold text-red-600">PKR {amt.toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Expenses list */}
       <div className="card overflow-hidden">
         <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">All Expenses</div>
