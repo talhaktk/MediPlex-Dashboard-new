@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   const reasons = computeReasonStats(data);
 
   // Today's appointments
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleString('en-CA', {timeZone:'Asia/Karachi'}).split(',')[0].trim();
   const todayApts = data.filter(a => a.appointmentDate === today);
 
   // Upcoming (next 7 days, not cancelled)
