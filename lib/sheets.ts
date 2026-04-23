@@ -389,6 +389,7 @@ export async function createAppointmentFull(payload: {
       appointment_time: payload.appointment_time,
       reason_for_visit: payload.reason_for_visit,
       visit_type:       payload.visit_type,
+      clinic_id:        (payload as any).clinic_id || null,
       appointment_status: 'Confirmed',
       status: 'Confirmed',
     };
