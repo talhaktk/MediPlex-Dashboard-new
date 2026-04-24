@@ -1,4 +1,6 @@
 import { fetchAppointmentsFromSheet, computeStats, computeReasonStats, formatUSDate } from '@/lib/sheets';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
 import StatCard from '@/components/ui/StatCard';
 import StatusPill from '@/components/ui/StatusPill';
