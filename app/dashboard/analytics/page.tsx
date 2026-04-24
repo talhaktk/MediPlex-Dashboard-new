@@ -1,3 +1,5 @@
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { fetchAppointmentsFromDb, computeMonthlyStats, computeReasonStats, computeAgeStats, computeStats } from '@/lib/sheets';
 import Topbar from '@/components/layout/Topbar';
 import AnalyticsClient from './AnalyticsClient';
@@ -5,7 +7,10 @@ import AnalyticsClient from './AnalyticsClient';
 export const revalidate = 0;
 
 export default async function AnalyticsPage() {
-  const data = await fetchAppointmentsFromDb();
+  const session = await getServerSession(authOptions);
+  const clinicId = (session?.user as any)?.clinicId || null;
+
+  const data = await fetchAppointmentsFromDb(clinicId);
 
   const stats   = computeStats(data);
   const monthly = computeMonthlyStats(data);

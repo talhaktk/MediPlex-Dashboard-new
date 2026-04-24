@@ -103,17 +103,17 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   useEffect(() => {
     const fetchBilling = async () => {
-      const { data: rows, error } = await supabase
-.from('billing').select('*').order('created_at', { ascending: false });
-      if (clinicId && !isSuperAdmin) { const fq = supabase.from('billing').select('*').eq('clinic_id', clinicId).order('created_at',{ascending:false}); const {data:fr} = await fq; if(fr) setInvoices(fr.map(mapDbInvoice)); return; }
-      if (!error && rows) setInvoices(rows.map(mapDbInvoice));
+      let q = supabase.from('billing').select('*').order('created_at', { ascending: false });
+      if (clinicId && !isSuperAdmin) q = (q as any).eq('clinic_id', clinicId);
+      const { data, error } = await q;
+      if (!error && data) setInvoices(data.map(mapDbInvoice));
     };
     fetchBilling();
     const ch = supabase.channel('analytics-billing')
       .on('postgres_changes', { event:'*', schema:'public', table:'billing' }, fetchBilling)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [clinicId, isSuperAdmin]);
 
   const filteredData = useMemo(() => data.filter(a => {
     if (rangeFrom && a.appointmentDate < rangeFrom) return false;
@@ -131,9 +131,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   // Fetch expenses
   useEffect(() => {
-    const eq = clinicId && !isSuperAdmin ? supabase.from('expenses').select('*').eq('clinic_id',clinicId).order('date',{ascending:false}) : supabase.from('expenses').select('*').order('date',{ascending:false});
-    eq.then(({data}) => { if(data) setExpenses(data); });
-  }, []);
+    let q = supabase.from('expenses').select('*').order('date', { ascending: false });
+    if (clinicId && !isSuperAdmin) q = (q as any).eq('clinic_id', clinicId);
+    q.then(({ data }) => { if (data) setExpenses(data); });
+  }, [clinicId, isSuperAdmin]);
 
   const filteredExpenses = useMemo(() => expenses.filter(e => {
     if (rangeFrom && e.date < rangeFrom) return false;
@@ -144,18 +145,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const totalExpenses = filteredExpenses.reduce((s,e) => s + Number(e.amount), 0);
   const netProfit = filteredInvoices.reduce((s,i) => s + i.paid, 0) - totalExpenses;
 
-  const totalRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
-  const totalPending = filteredInvoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
-  const paidCount    = filteredInvoices.filter(i => i.paymentStatus==='Paid').length;
-  const unpaidCount  = filteredInvoices.filter(i => i.paymentStatus==='Unpaid').length;
-
-  const filteredRevenue = filteredInvoices.reduce((s,i) => s + i.paid, 0);
-  const filteredPending = filteredInvoices.reduce((s,i) => s + Math.max(0,i.feeAmount-i.discount-i.paid), 0);
-
+  const totalRevenue      = filteredInvoices.reduce((s,i) => s + i.paid, 0);
+  const totalPending      = filteredInvoices.reduce((s,i) => s + Math.max(0, i.feeAmount-i.discount-i.paid), 0);
   const consultInvoices   = filteredInvoices.filter(i => i.recordType !== 'procedure');
   const procedureInvoices = filteredInvoices.filter(i => i.recordType === 'procedure');
-  const filteredConsult   = filteredInvoices.filter(i => i.recordType !== 'procedure');
-  const filteredProcedure = filteredInvoices.filter(i => i.recordType === 'procedure');
 
   const monthlyBilling = useMemo(() => {
     const map: Record<string,{
@@ -177,7 +170,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       else                              { map[label].consultRevenue+=inv.paid;   map[label].consultCount++; }
     });
     return Object.values(map).sort((a,b) => a.month.localeCompare(b.month));
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   // ── Appointment data ──────────────────────────────────────────────────────
   const rangeFiltered  = useMemo(() => filterAppointments(data,{dateFrom:rangeFrom,dateTo:rangeTo}), [data,rangeFrom,rangeTo]);
@@ -368,8 +361,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Billing</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               {[
-                {label:'Revenue (Period)',val:`PKR ${filteredRevenue.toLocaleString()}`,color:'#1a7f5e'},
-                {label:'Pending (Period)',val:`PKR ${filteredPending.toLocaleString()}`,color:RED},
+                {label:'Revenue (Period)',val:`PKR ${totalRevenue.toLocaleString()}`,color:'#1a7f5e'},
+                {label:'Pending (Period)',val:`PKR ${totalPending.toLocaleString()}`,color:RED},
                 {label:'Paid Invoices',val:filteredInvoices.filter(i=>i.paymentStatus==='Paid').length,color:'#1a7f5e'},
                 {label:'Unpaid Invoices',val:filteredInvoices.filter(i=>i.paymentStatus==='Unpaid').length,color:RED},
               ].map(s=>(
@@ -382,13 +375,13 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-black/5">
               <div className="rounded-xl px-4 py-3" style={{background:'#e0f2fe',border:'1px solid rgba(3,105,161,0.15)'}}>
                 <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:'#0369a1'}}>Consultations</div>
-                <div className="text-[15px] font-bold" style={{color:'#0369a1'}}>PKR {filteredConsult.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
-                <div className="text-[10px] text-blue-600">{filteredConsult.length} invoices</div>
+                <div className="text-[15px] font-bold" style={{color:'#0369a1'}}>PKR {consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+                <div className="text-[10px] text-blue-600">{consultInvoices.length} invoices</div>
               </div>
               <div className="rounded-xl px-4 py-3" style={{background:'#ede9fe',border:'1px solid rgba(109,40,217,0.15)'}}>
                 <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:PURPLE}}>Procedures</div>
-                <div className="text-[15px] font-bold" style={{color:PURPLE}}>PKR {filteredProcedure.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
-                <div className="text-[10px] text-purple-600">{filteredProcedure.length} invoices</div>
+                <div className="text-[15px] font-bold" style={{color:PURPLE}}>PKR {procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+                <div className="text-[10px] text-purple-600">{procedureInvoices.length} invoices</div>
               </div>
             </div>
           </div>
