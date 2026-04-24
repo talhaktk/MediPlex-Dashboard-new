@@ -39,7 +39,7 @@ const MODULES = [
 ];
 
 const SPECIALITIES = ['Pediatrics','General Practice','Orthopedics','Gynecology','Cardiology','Dermatology','ENT','Neurology','Other'];
-const ROLES = ['org_owner','admin','doctor','receptionist'];
+const ROLES = ['org_owner','doctor_admin','admin','doctor','receptionist'];
 
 function StatusPill({ active }: { active: boolean }) {
   return (

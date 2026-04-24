@@ -8,20 +8,22 @@ import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, Lo
 import { Star as StarIcon } from 'lucide-react';
 import { FolderOpen } from 'lucide-react';
 
-const NAV = [
-  { label:'Overview',      href:'/dashboard',               icon:LayoutDashboard },
-  { label:'Appointments',  href:'/dashboard/appointments',  icon:CalendarDays    },
-  { label:'Patients',      href:'/dashboard/patients',      icon:Users           },
-  { label:'Patient Portal', href:'/dashboard/portal',         icon:FolderOpen      },
-  { label:'Prescription',  href:'/dashboard/prescription',  icon:FileText        },
-  { label:'Clinical',      href:'/dashboard/clinical',      icon:Stethoscope     },
-{ label:'AI Scribe', href:'/dashboard/scribe', icon:Bot },
-  { label:'Billing',       href:'/dashboard/billing',       icon:Receipt         },
-  { label:'Reminders',     href:'/dashboard/reminders',     icon:MessageCircle   },
-  { label:'Analytics',     href:'/dashboard/analytics',     icon:BarChart3       },
-  { label:'Calendar',      href:'/dashboard/calendar',      icon:Calendar        },
-  { label:'Feedback', href:'/dashboard/feedback', icon:StarIcon },
-  { label:'Settings',      href:'/dashboard/settings',      icon:Settings        },
+// Role-based navigation
+const ALL_NAV = [
+  { label:'Overview',       href:'/dashboard',              icon:LayoutDashboard, roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
+  { label:'Appointments',   href:'/dashboard/appointments', icon:CalendarDays,    roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
+  { label:'Calendar',       href:'/dashboard/calendar',     icon:Calendar,        roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
+  { label:'Patients',       href:'/dashboard/patients',     icon:Users,           roles:['super_admin','doctor_admin','admin','doctor'] },
+  { label:'Patient Portal', href:'/dashboard/portal',       icon:FolderOpen,      roles:['super_admin','doctor_admin','admin','doctor'] },
+  { label:'Prescription',   href:'/dashboard/prescription', icon:FileText,        roles:['super_admin','doctor_admin','doctor'] },
+  { label:'Clinical',       href:'/dashboard/clinical',     icon:Stethoscope,     roles:['super_admin','doctor_admin','doctor'] },
+  { label:'AI Scribe',      href:'/dashboard/scribe',       icon:Bot,             roles:['super_admin','doctor_admin','doctor'] },
+  { label:'Telehealth',     href:'/dashboard/telehealth',   icon:MessageCircle,   roles:['super_admin','doctor_admin','doctor','receptionist'] },
+  { label:'Billing',        href:'/dashboard/billing',      icon:Receipt,         roles:['super_admin','org_owner','doctor_admin','admin','receptionist'] },
+  { label:'Reminders',      href:'/dashboard/reminders',    icon:MessageCircle,   roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
+  { label:'Analytics',      href:'/dashboard/analytics',    icon:BarChart3,       roles:['super_admin','org_owner','doctor_admin','admin','doctor'] },
+  { label:'Feedback',       href:'/dashboard/feedback',     icon:StarIcon,        roles:['super_admin','org_owner','doctor_admin','admin','doctor'] },
+  { label:'Settings',       href:'/dashboard/settings',     icon:Settings,        roles:['super_admin','doctor_admin','admin'] },
 ];
 
 export default function Sidebar() {
@@ -84,7 +86,7 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 pt-2 overflow-y-auto">
         <div className="text-[10px] text-white/25 tracking-widest uppercase px-3 mb-2 font-medium">Main Menu</div>
         <ul className="space-y-0.5">
-          {NAV.map(({ label, href, icon: Icon }) => {
+          {ALL_NAV.filter(n => n.roles.includes(role || 'receptionist')).map(({ label, href, icon: Icon }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
             return (
               <li key={href}>
