@@ -187,7 +187,7 @@ const [search, setSearch] = useState('');
     setNewVitals({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt:new Date().toISOString().split('T')[0] });
     setShowVitalsForm(false);
     toast.success('Vitals recorded');
-    await syncVitalsToDb(selected.mrNumber, selected.name, {...vitalsRecord, pain_scale:vitalsForm.pain_scale||null, rom_flexion:vitalsForm.rom_flexion||null, rom_extension:vitalsForm.rom_extension||null, fundal_height:vitalsForm.fundal_height||null, fhr:vitalsForm.fhr||null}, clinicId || undefined);
+    await syncVitalsToDb(selected.mrNumber, selected.name, {...vitalsRecord, pain_scale:(newVitals as any).pain_scale||null, rom_flexion:(newVitals as any).rom_flexion||null, rom_extension:(newVitals as any).rom_extension||null, fundal_height:(newVitals as any).fundal_height||null, fhr:(newVitals as any).fhr||null}, clinicId || undefined);
     const vq = selected.mrNumber
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
