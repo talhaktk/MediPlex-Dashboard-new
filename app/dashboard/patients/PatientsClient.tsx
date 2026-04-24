@@ -230,6 +230,16 @@ const [search, setSearch] = useState('');
       abpi_left: assessForm.abpi_left ? Number(assessForm.abpi_left) : null,
       skin_score: assessForm.skin_score || null,
       cbc_summary: assessForm.cbc_summary || null,
+      surgical_history: assessForm.surgical_history || null,
+      implant_type: assessForm.implant_type || null,
+      implant_date: assessForm.implant_date || null,
+      lmp_date: assessForm.lmp_date || null,
+      edd_date: assessForm.edd_date || null,
+      gpa: assessForm.gpa || null,
+      obstetric_history: assessForm.obstetric_history || null,
+      chronic_conditions: assessForm.chronic_conditions || null,
+      bp_reading: assessForm.bp_reading || null,
+      family_history: assessForm.family_history || null,
     }]);
     if (error) { toast.error('Failed: ' + error.message); return; }
     toast.success('Assessment saved');
@@ -493,7 +503,7 @@ const [search, setSearch] = useState('');
                   <div className="flex items-center justify-between">
                     <div className="text-[13px] font-medium text-navy">Growth & Vital Signs</div>
                     <button onClick={()=>setShowVitalsForm(!showVitalsForm)} className="btn-gold text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Record Vitals</button>
-                    {(modules.pain_scale||modules.rom||modules.bmi_calc||modules.anc_record) && (
+                    {(modules.pain_scale||modules.rom||modules.bmi_calc||modules.anc_record||modules.surgical_history||modules.implant_tracking||modules.lmp_edd||modules.obstetric_history||modules.chronic_conditions||modules.family_history||modules.bp_history) && (
                       <button onClick={()=>setShowAssessForm(!showAssessForm)} className="btn-outline text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Clinical Assessment</button>
                     )}
                   </div>
@@ -643,6 +653,91 @@ const [search, setSearch] = useState('');
                               className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
                           </div>
                         </>)}
+                        {/* Orthopedic — Surgical History */}
+                        {modules.surgical_history && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Surgical History</label>
+                            <textarea placeholder="e.g. Right knee ACL repair 2021, Appendectomy 2018..." rows={2} value={assessForm.surgical_history||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,surgical_history:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold resize-none"/>
+                          </div>
+                        )}
+                        {/* Orthopedic — Implant Tracking */}
+                        {modules.implant_tracking && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Implant / Prosthesis Type</label>
+                            <input type="text" placeholder="e.g. Total Knee Replacement, DHS" value={assessForm.implant_type||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,implant_type:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Implant Date</label>
+                            <input type="date" value={assessForm.implant_date||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,implant_date:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+                        {/* Gynecology — LMP / EDD */}
+                        {modules.lmp_edd && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">LMP Date</label>
+                            <input type="date" value={assessForm.lmp_date||''}
+                              onChange={e=>{
+                                const lmp = e.target.value;
+                                const edd = lmp ? new Date(new Date(lmp).getTime() + 280*24*60*60*1000).toISOString().split('T')[0] : '';
+                                setAssessForm((p:any)=>({...p,lmp_date:lmp,edd_date:edd}));
+                              }}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">EDD (auto-calculated)</label>
+                            <input type="date" value={assessForm.edd_date||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,edd_date:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+                        {/* Gynecology — Obstetric History */}
+                        {modules.obstetric_history && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">G / P / A</label>
+                            <input type="text" placeholder="e.g. G3 P2 A1" value={assessForm.gpa||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,gpa:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Obstetric History Details</label>
+                            <input type="text" placeholder="e.g. 2 NVD, 1 LSCS, 1 miscarriage" value={assessForm.obstetric_history||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,obstetric_history:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+                        {/* GP / Medicine — Chronic Conditions */}
+                        {modules.chronic_conditions && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Chronic Conditions</label>
+                            <input type="text" placeholder="e.g. HTN, DM Type 2, CKD Stage 3, Hypothyroidism" value={assessForm.chronic_conditions||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,chronic_conditions:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {/* GP / Medicine — BP History */}
+                        {modules.bp_history && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">BP Reading</label>
+                            <input type="text" placeholder="e.g. 140/90" value={assessForm.bp_reading||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,bp_reading:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {/* GP / Medicine — Family / Social History */}
+                        {modules.family_history && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Family / Social History</label>
+                            <textarea placeholder="e.g. Father: DM, IHD. Mother: HTN. Smoker 10 pack-years. Non-alcoholic." rows={2} value={assessForm.family_history||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,family_history:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold resize-none"/>
+                          </div>
+                        )}
                         {/* Cardiology */}
                         {modules.ecg_findings && (
                           <div className="col-span-2">
