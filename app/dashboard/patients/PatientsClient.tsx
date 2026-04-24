@@ -57,7 +57,7 @@ function emptyHealth(): HealthRecord {
 
 export default function PatientsClient({ data }: { data: Appointment[] }) {
   const router = useRouter();
-    const { clinicId, isSuperAdmin } = useClinic();
+    const { clinicId, isSuperAdmin, modules } = useClinic();
 const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
@@ -229,8 +229,8 @@ const [search, setSearch] = useState('');
     { key:'procedures',    label:`Procedures (${procedures.length})` },
     {key:'labs',label:'Labs & Reports'},
     {key:'consent',label:'Consent Forms'},
-    {key:'telehealth',label:'Telehealth'},
-    {key:'vaccines',label:'Vaccines'},
+    ...(modules.telehealth !== false ? [{key:'telehealth',label:'Telehealth'}] : []),
+    ...(modules.vaccines !== false ? [{key:'vaccines',label:'Vaccines'}] : []),
   ] as const;
 
   return (

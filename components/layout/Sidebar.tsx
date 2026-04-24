@@ -86,7 +86,12 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 pt-2 overflow-y-auto">
         <div className="text-[10px] text-white/25 tracking-widest uppercase px-3 mb-2 font-medium">Main Menu</div>
         <ul className="space-y-0.5">
-          {ALL_NAV.filter(n => n.roles.includes(role || 'receptionist')).map(({ label, href, icon: Icon }) => {
+          {ALL_NAV.filter(n => n.roles.includes(role || 'receptionist')).filter(n => {
+              if (n.href==='/dashboard/scribe' && modules.ai_scribe===false) return false;
+              if (n.href==='/dashboard/telehealth' && modules.telehealth===false) return false;
+              if (n.href==='/dashboard/feedback' && modules.feedback===false) return false;
+              return true;
+            }).map(({ label, href, icon: Icon }) => {
             const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
             return (
               <li key={href}>

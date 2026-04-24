@@ -1,6 +1,8 @@
 'use client';
 
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 import { useSession } from 'next-auth/react';
 
 interface ClinicContextType {
@@ -9,6 +11,7 @@ interface ClinicContextType {
   isSuperAdmin: boolean;
   role: string;
   isOrgOwner: boolean;
+  modules: Record<string, boolean>;
 }
 
 const ClinicContext = createContext<ClinicContextType>({
@@ -17,11 +20,21 @@ const ClinicContext = createContext<ClinicContextType>({
   isSuperAdmin: false,
   role: 'receptionist',
   isOrgOwner: false,
+  modules: {},
 });
 
 export function ClinicProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const user = session?.user as any;
+  const [modules, setModules] = useState<Record<string,boolean>>({});
+
+  useEffect(() => {
+    const clinicId = user?.clinicId;
+    if (!clinicId) { setModules({}); return; }
+    sb.from('clinics').select('modules').eq('id', clinicId).maybeSingle()
+      .then(({ data }) => { if (data?.modules) setModules(data.modules); });
+  }, [user?.clinicId]);
+
   return (
     <ClinicContext.Provider value={{
       clinicId:     user?.clinicId     || null,
@@ -29,6 +42,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       isSuperAdmin: user?.isSuperAdmin || false,
       role:         user?.role         || 'receptionist',
       isOrgOwner:   user?.role === 'org_owner',
+      modules,
     }}>
       {children}
     </ClinicContext.Provider>
