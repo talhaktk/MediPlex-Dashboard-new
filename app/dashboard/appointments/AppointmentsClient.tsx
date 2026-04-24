@@ -264,8 +264,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
     }
 
     setAddLoading(true);
-toast.success('clinicId: ' + clinicId);
-    const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as any);
+const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as any);
     setAddLoading(false);
 
     if (result.success) {
