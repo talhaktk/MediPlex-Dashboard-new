@@ -14,6 +14,7 @@ import toast from 'react-hot-toast';
 type Org = {
   id: string; name: string; owner_name: string;
   email: string; phone: string; status: string; created_at: string;
+  city?: string; province?: string; country?: string;
 };
 
 type Clinic = {
