@@ -33,7 +33,9 @@ export default function Sidebar() {
 
   const fetchSettings = React.useCallback(() => {
     import('@/lib/supabase').then(({ supabase }) => {
-      supabase.from('clinic_settings').select('clinic_name,doctor_name,speciality').eq('clinic_id', (session?.user as any)?.clinicId||'').maybeSingle()
+      const cid = (session?.user as any)?.clinicId || '';
+      if (!cid) return;
+      supabase.from('clinic_settings').select('clinic_name,doctor_name,speciality').eq('clinic_id', cid).maybeSingle()
         .then(({ data }) => {
           if (data) {
             setClinicName(data.clinic_name || '');
@@ -42,7 +44,7 @@ export default function Sidebar() {
           }
         });
     });
-  }, []);
+  }, [session]);
 
   React.useEffect(() => {
     fetchSettings();
