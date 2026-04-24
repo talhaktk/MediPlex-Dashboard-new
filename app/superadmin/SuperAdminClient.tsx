@@ -167,7 +167,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
       await supabase.from('clinic_settings').insert([{
         clinic_id: clinicId,
         clinic_name: clinicForm.name,
-        doctor_name: clinicForm.doctorName || '',
+        doctor_name: '',
         speciality: clinicForm.speciality,
       }]).select();
       toast.success(`Clinic "${clinicForm.name}" created!`);
