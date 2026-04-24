@@ -163,6 +163,13 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
       }]);
       if (cErr) throw cErr;
 
+      // Auto-create clinic settings
+      await supabase.from('clinic_settings').insert([{
+        clinic_id: clinicId,
+        clinic_name: clinicForm.name,
+        doctor_name: clinicForm.doctorName || '',
+        speciality: clinicForm.speciality,
+      }]).select();
       toast.success(`Clinic "${clinicForm.name}" created!`);
       setShowAddClinic(false);
       setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',subscription_expiry:'' });
