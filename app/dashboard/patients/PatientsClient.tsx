@@ -57,7 +57,8 @@ function emptyHealth(): HealthRecord {
 
 export default function PatientsClient({ data }: { data: Appointment[] }) {
   const router = useRouter();
-  const [search, setSearch] = useState('');
+    const { clinicId, isSuperAdmin } = useClinic();
+const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
   const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'|'telehealth'|'vaccines'>('visits');
