@@ -66,6 +66,9 @@ const [search, setSearch] = useState('');
   const [draft, setDraft] = useState<HealthRecord>(emptyHealth());
   const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt: new Date().toISOString().split('T')[0] });
   const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [showAssessForm, setShowAssessForm] = useState(false);
+  const [assessForm, setAssessForm] = useState<Record<string,any>>({});
+  const [assessments, setAssessments] = useState<any[]>([]);
   const [patientInvoices, setPatientInvoices] = useState<any[]>([]);
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [dbVitals, setDbVitals] = useState<any[]>([]);
@@ -176,6 +179,36 @@ const [search, setSearch] = useState('');
     setEditHealth(false);
     toast.success('Health record saved');
     await syncHealthToDb(selected.mrNumber, selected.name, { bloodGroup:draft.bloodGroup, allergies:draft.allergies, conditions:draft.conditions, notes:draft.notes });
+  };
+
+  const saveAssessment = async () => {
+    if (!selected) return;
+    const { error } = await supabase.from('clinical_assessments').insert([{
+      mr_number: selected.mrNumber || null,
+      child_name: selected.name,
+      clinic_id: clinicId || null,
+      recorded_at: assessForm.recorded_at || new Date().toISOString().split('T')[0],
+      pain_scale: assessForm.pain_scale ? Number(assessForm.pain_scale) : null,
+      rom_flexion: assessForm.rom_flexion || null,
+      rom_extension: assessForm.rom_extension || null,
+      affected_joint: assessForm.affected_joint || null,
+      bmi: assessForm.bmi ? Number(assessForm.bmi) : null,
+      smoking_status: assessForm.smoking_status || null,
+      fundal_height: assessForm.fundal_height || null,
+      fhr: assessForm.fhr || null,
+      gestational_age: assessForm.gestational_age || null,
+      notes: assessForm.notes || null,
+    }]);
+    if (error) { toast.error('Failed: ' + error.message); return; }
+    toast.success('Assessment saved');
+    setShowAssessForm(false);
+    setAssessForm({});
+    // Refresh
+    const aQ = selected.mrNumber
+      ? supabase.from('clinical_assessments').select('*').eq('mr_number', selected.mrNumber).order('created_at',{ascending:false})
+      : supabase.from('clinical_assessments').select('*').ilike('child_name', selected.name).order('created_at',{ascending:false});
+    const { data: aRows } = await aQ;
+    setAssessments(aRows || []);
   };
 
   const saveVitals = async () => {
@@ -428,6 +461,9 @@ const [search, setSearch] = useState('');
                   <div className="flex items-center justify-between">
                     <div className="text-[13px] font-medium text-navy">Growth & Vital Signs</div>
                     <button onClick={()=>setShowVitalsForm(!showVitalsForm)} className="btn-gold text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Record Vitals</button>
+                    {(modules.pain_scale||modules.rom||modules.bmi_calc||modules.anc_record) && (
+                      <button onClick={()=>setShowAssessForm(!showAssessForm)} className="btn-outline text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Clinical Assessment</button>
+                    )}
                   </div>
                   {showVitalsForm && (
                     <div className="rounded-xl p-4" style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.25)'}}>
@@ -501,6 +537,118 @@ const [search, setSearch] = useState('');
                       <button onClick={saveVitals} className="btn-gold text-[11px] py-1.5 px-4 gap-1"><Save size={11}/> Save Vitals</button>
                     </div>
                   )}
+                  {/* Clinical Assessment Form */}
+                  {showAssessForm && (
+                    <div className="rounded-xl p-4 mb-3" style={{background:'rgba(43,108,176,0.06)',border:'1px solid rgba(43,108,176,0.2)'}}>
+                      <div className="text-[11px] font-semibold text-blue-700 uppercase tracking-widest mb-3">Clinical Assessment</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Date</label>
+                          <input type="date" value={assessForm.recorded_at||new Date().toISOString().split('T')[0]}
+                            onChange={e=>setAssessForm((p:any)=>({...p,recorded_at:e.target.value}))}
+                            className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                        </div>
+                        {/* Ortho */}
+                        {modules.pain_scale && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Pain Scale (0-10)</label>
+                            <div className="flex items-center gap-2">
+                              <input type="range" min="0" max="10" value={assessForm.pain_scale||0}
+                                onChange={e=>setAssessForm((p:any)=>({...p,pain_scale:e.target.value}))} className="flex-1"/>
+                              <span className="font-bold text-[14px] w-6" style={{color:Number(assessForm.pain_scale||0)>7?'#dc2626':Number(assessForm.pain_scale||0)>4?'#d97706':'#16a34a'}}>{assessForm.pain_scale||0}</span>
+                            </div>
+                          </div>
+                        )}
+                        {modules.rom && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ROM Flexion (°)</label>
+                            <input type="text" placeholder="e.g. 120" value={assessForm.rom_flexion||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,rom_flexion:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ROM Extension (°)</label>
+                            <input type="text" placeholder="e.g. 0" value={assessForm.rom_extension||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,rom_extension:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Affected Joint</label>
+                            <select value={assessForm.affected_joint||''} onChange={e=>setAssessForm((p:any)=>({...p,affected_joint:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold">
+                              <option value="">Select...</option>
+                              {['Right Knee','Left Knee','Both Knees','Right Hip','Left Hip','Right Shoulder','Left Shoulder','Spine (Cervical)','Spine (Lumbar)','Right Ankle','Left Ankle','Other'].map(j=><option key={j}>{j}</option>)}
+                            </select>
+                          </div>
+                        </>)}
+                        {/* GP */}
+                        {modules.bmi_calc && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">BMI</label>
+                            <input type="number" placeholder="e.g. 24.5" value={assessForm.bmi||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,bmi:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {/* Gyne */}
+                        {modules.anc_record && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Fundal Height (cm)</label>
+                            <input type="text" placeholder="e.g. 28" value={assessForm.fundal_height||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,fundal_height:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Fetal Heart Rate (bpm)</label>
+                            <input type="text" placeholder="e.g. 140" value={assessForm.fhr||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,fhr:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Gestational Age</label>
+                            <input type="text" placeholder="e.g. 28 weeks" value={assessForm.gestational_age||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,gestational_age:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+                        <div className="col-span-2">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Notes</label>
+                          <textarea placeholder="Clinical notes..." value={assessForm.notes||''}
+                            onChange={e=>setAssessForm((p:any)=>({...p,notes:e.target.value}))} rows={2}
+                            className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold resize-none"/>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={saveAssessment} className="btn-gold text-[11px] py-1.5 px-4 gap-1"><Save size={11}/> Save Assessment</button>
+                        <button onClick={()=>setShowAssessForm(false)} className="btn-outline text-[11px] py-1.5 px-3">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Assessment History */}
+                  {assessments.length > 0 && (
+                    <div className="mb-3">
+                      <div className="text-[11px] uppercase tracking-widest text-gray-400 font-medium mb-2">Assessment History</div>
+                      <div className="space-y-2">
+                        {assessments.map((a,i)=>(
+                          <div key={i} className="rounded-lg p-3 flex flex-wrap gap-2 text-[11px]" style={{background:'#eff6ff',border:'1px solid rgba(59,130,246,0.15)'}}>
+                            <span className="font-medium text-blue-800">{a.recorded_at}</span>
+                            {i===0 && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium" style={{background:'#dbeafe',color:'#1d4ed8'}}>⭐ Latest</span>}
+                            {a.pain_scale!=null && <span className="text-blue-600">🔴 Pain: {a.pain_scale}/10</span>}
+                            {a.rom_flexion && <span className="text-blue-600">ROM F:{a.rom_flexion}°</span>}
+                            {a.rom_extension && <span className="text-blue-600">E:{a.rom_extension}°</span>}
+                            {a.affected_joint && <span className="text-blue-600">📍 {a.affected_joint}</span>}
+                            {a.bmi && <span className="text-blue-600">BMI: {a.bmi}</span>}
+                            {a.fundal_height && <span className="text-blue-600">FH: {a.fundal_height}cm</span>}
+                            {a.fhr && <span className="text-blue-600">FHR: {a.fhr}bpm</span>}
+                            {a.gestational_age && <span className="text-blue-600">GA: {a.gestational_age}</span>}
+                            {a.notes && <span className="text-gray-500 italic">{a.notes}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {allVitals.length > 0 ? (
                     <div>
                       <div className="text-[11px] uppercase tracking-widest text-gray-400 font-medium mb-2">Vitals History</div>
