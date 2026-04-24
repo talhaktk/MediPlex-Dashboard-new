@@ -78,8 +78,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   
   const [showAddClinic, setShowAddClinic] = useState(false);
   const [clinicForm, setClinicForm] = useState({
-    name:'', speciality:'Pediatrics', city:'', org_id:'',
-    doctorName:'', email:'', password:'', subscription_expiry:'',
+    name:'', speciality:'Pediatrics', city:'', org_id:'', subscription_expiry:'',
   });
 
   const [showAddUser, setShowAddUser] = useState(false);
@@ -121,8 +120,8 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   // Add Clinic
   const addClinic = async () => {
-    if (!clinicForm.name || !clinicForm.email || !clinicForm.password || !clinicForm.org_id) {
-      toast.error('Name, org, email and password are required'); return;
+    if (!clinicForm.name || !clinicForm.org_id) {
+      toast.error('Clinic name and organisation are required'); return;
     }
     try {
       const clinicId = clinicForm.name.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,20) + '_' + Date.now().toString().slice(-4);
@@ -134,18 +133,10 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
         modules: { vaccines:true, who_charts:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
       }]);
       if (cErr) throw cErr;
-      const { error: lErr } = await supabase.from('logins').insert([{
-        name: clinicForm.doctorName || clinicForm.name + ' Admin',
-        email: clinicForm.email.toLowerCase(),
-        password_hash: clinicForm.password,
-        user_role: 'admin', is_active:true, is_super_admin:false,
-        clinic_id: clinicId, org_id: clinicForm.org_id,
-        initials: clinicForm.doctorName?.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2)||'CL',
-      }]);
-      if (lErr) throw lErr;
+
       toast.success(`Clinic "${clinicForm.name}" created!`);
       setShowAddClinic(false);
-      setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',doctorName:'',email:'',password:'',subscription_expiry:'' });
+      setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',subscription_expiry:'' });
       fetchAll();
     } catch (err: any) { toast.error('Failed: ' + err.message); }
   };
@@ -331,9 +322,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                   </div>
                   <Input label="Clinic Name *" value={clinicForm.name} onChange={(v:string)=>setClinicForm(p=>({...p,name:v}))} placeholder="e.g. RMI Pediatrics"/>
                   <Input label="City" value={clinicForm.city} onChange={(v:string)=>setClinicForm(p=>({...p,city:v}))} placeholder="e.g. Peshawar"/>
-                  <Input label="Doctor/Admin Name" value={clinicForm.doctorName} onChange={(v:string)=>setClinicForm(p=>({...p,doctorName:v}))} placeholder="Dr. Ahmed Khan"/>
-                  <Input label="Login Email *" value={clinicForm.email} onChange={(v:string)=>setClinicForm(p=>({...p,email:v}))} type="email" placeholder="dr@clinic.com"/>
-                  <Input label="Password *" value={clinicForm.password} onChange={(v:string)=>setClinicForm(p=>({...p,password:v}))} type="password" placeholder="min 6 chars"/>
+                
                   <div>
                     <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Subscription Expiry</label>
                     <input type="date" value={clinicForm.subscription_expiry} onChange={e=>setClinicForm(p=>({...p,subscription_expiry:e.target.value}))}
