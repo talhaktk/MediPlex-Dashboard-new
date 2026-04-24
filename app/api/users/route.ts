@@ -1,92 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { createClient } from '@supabase/supabase-js';
 
-const SHEET_ID    = process.env.GOOGLE_SHEETS_ID!;
-const APPS_SCRIPT = process.env.APPS_SCRIPT_URL!;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-// ── GET — fetch all users from Logins sheet ───────────────────────────────────
-export async function GET() {
+async function getAdminSession() {
   const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const role = (session.user as { role?: string })?.role;
-  if (role !== 'admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
-
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Logins`;
-    const res = await fetch(url, { next: { revalidate: 0 } });
-    if (!res.ok) throw new Error('Sheet fetch failed');
-
-    const csv  = await res.text();
-    const lines = csv.split('\n').filter(Boolean);
-    if (lines.length < 2) return NextResponse.json({ users: [] });
-
-    const users = lines.slice(1).map((line, i) => {
-      const cols = parseCSVLine(line);
-      return {
-        rowIndex: i + 1,
-        name:     clean(cols[0]),
-        email:    clean(cols[1]),
-        password: clean(cols[2]),
-        role:     clean(cols[3]) || 'receptionist',
-        initials: clean(cols[4]),
-        active:   clean(cols[5])?.toLowerCase() !== 'no',
-      };
-    }).filter(u => u.email);
-
-    return NextResponse.json({ users });
-  } catch {
-    return NextResponse.json({ users: [], error: 'Could not load users — make sure Logins sheet exists' });
-  }
+  if (!session) return null;
+  const user = session.user as any;
+  if (user?.role !== 'admin' && !user?.isSuperAdmin) return null;
+  return user;
 }
 
-// ── POST — add / update / delete user via Apps Script ────────────────────────
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// ── GET — fetch users for this clinic ────────────────────────────────────────
+export async function GET() {
+  const user = await getAdminSession();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const role = (session.user as { role?: string })?.role;
-  if (role !== 'admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 });
+  let q = supabase.from('logins').select('*').order('created_at', { ascending: false });
+  if (!user.isSuperAdmin && user.clinicId) q = q.eq('clinic_id', user.clinicId);
+
+  const { data, error } = await q;
+  if (error) return NextResponse.json({ users: [], error: error.message });
+
+  const users = (data || []).map((r: any) => ({
+    id:       r.id,
+    name:     r.name     || '',
+    email:    r.email    || '',
+    role:     r.user_role || r.role || 'receptionist',
+    initials: r.initials || '',
+    active:   r.is_active ?? true,
+  }));
+
+  return NextResponse.json({ users });
+}
+
+// ── POST — add / toggle / delete user ────────────────────────────────────────
+export async function POST(req: NextRequest) {
+  const admin = await getAdminSession();
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
+  const { action } = body;
 
-  if (!APPS_SCRIPT) {
-    return NextResponse.json({ ok: true, mode: 'env-only', warning: 'Apps Script not configured — changes not saved to sheet' });
-  }
-
-  const res = await fetch(APPS_SCRIPT, {
-    method:   'POST',
-    redirect: 'follow',
-    headers:  { 'Content-Type': 'text/plain' },
-    body:     JSON.stringify({ action: 'users', ...body }),
-  });
-
-  const text = await res.text();
-  try {
-    return NextResponse.json(JSON.parse(text));
-  } catch {
+  if (action === 'add') {
+    const { error } = await supabase.from('logins').insert([{
+      name:          body.name,
+      email:         body.email.toLowerCase(),
+      password_hash: body.password,
+      user_role:     body.role || 'receptionist',
+      initials:      body.initials || body.name.slice(0, 2).toUpperCase(),
+      is_active:     body.active ?? true,
+      is_super_admin: false,
+      clinic_id:     admin.clinicId || null,
+      org_id:        admin.orgId    || null,
+    }]);
+    if (error) return NextResponse.json({ ok: false, error: error.message });
     return NextResponse.json({ ok: true });
   }
-}
 
-function clean(s?: string) {
-  return (s || '').trim().replace(/^"|"$/g, '');
-}
-
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i+1] === '"') { current += '"'; i++; }
-      else inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current); current = '';
-    } else current += char;
+  if (action === 'toggle') {
+    const { error } = await supabase.from('logins').update({ is_active: body.active }).eq('id', body.id);
+    if (error) return NextResponse.json({ ok: false, error: error.message });
+    return NextResponse.json({ ok: true });
   }
-  result.push(current);
-  return result;
+
+  if (action === 'delete') {
+    const { error } = await supabase.from('logins').delete().eq('id', body.id);
+    if (error) return NextResponse.json({ ok: false, error: error.message });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'resetPassword') {
+    const { error } = await supabase.from('logins').update({ password_hash: body.password }).eq('id', body.id);
+    if (error) return NextResponse.json({ ok: false, error: error.message });
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ ok: false, error: 'Unknown action' });
 }

@@ -3,16 +3,15 @@
 import { useState, useEffect } from 'react';
 import Topbar from '@/components/layout/Topbar';
 import { useSession } from 'next-auth/react';
-import { Plus, Trash2, RefreshCw, Shield, UserCheck, Users, Eye, Save, X } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Shield, UserCheck, Users, Save, X, Eye, EyeOff } from 'lucide-react';
 import ClinicSettingsTab from '@/components/ui/ClinicSettingsTab';
 import ScheduleSettings from '@/components/ui/ScheduleSettings';
 import toast from 'react-hot-toast';
 
 interface UserRow {
-  rowIndex: number;
+  id:       string;
   name:     string;
   email:    string;
-  password: string;
   role:     string;
   initials: string;
   active:   boolean;
@@ -41,20 +40,19 @@ const PERMS = [
   { label:'Export PDF',   admin:true,  doctor:true,  receptionist:false },
 ];
 
-const emptyUser = (): Omit<UserRow,'rowIndex'> => ({
-  name:'', email:'', password:'', role:'receptionist', initials:'', active:true,
-});
+const emptyForm = () => ({ name:'', email:'', password:'', role:'receptionist', initials:'' , active:true });
 
 export default function SettingsPage() {
   const { data: session } = useSession();
-  const isAdmin = (session?.user as { role?: string })?.role === 'admin';
+  const isAdmin = (session?.user as any)?.role === 'admin';
 
   const [users,    setUsers]    = useState<UserRow[]>([]);
   const [loading,  setLoading]  = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [form,     setForm]     = useState(emptyUser());
+  const [form,     setForm]     = useState(emptyForm());
   const [saving,   setSaving]   = useState(false);
-  const [tab,      setTab]      = useState<string>('users');
+  const [showPw,   setShowPw]   = useState(false);
+  const [tab,      setTab]      = useState('users');
 
   const loadUsers = async () => {
     if (!isAdmin) return;
@@ -82,12 +80,12 @@ export default function SettingsPage() {
         body:    JSON.stringify({ action: 'add', ...form }),
       });
       const data = await res.json();
-      if (data.ok || data.mode === 'env-only') {
-        toast.success('User added to sheet! They can now log in.');
+      if (data.ok) {
+        toast.success('User added successfully');
         setShowForm(false);
-        setForm(emptyUser());
+        setForm(emptyForm());
         loadUsers();
-      } else toast.error('Failed to save');
+      } else toast.error(data.error || 'Failed to save');
     } catch { toast.error('Error saving user'); }
     setSaving(false);
   };
@@ -97,9 +95,9 @@ export default function SettingsPage() {
       await fetch('/api/users', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ action: 'toggle', rowIndex: u.rowIndex, active: !u.active }),
+        body:    JSON.stringify({ action: 'toggle', id: u.id, active: !u.active }),
       });
-      setUsers(prev => prev.map(x => x.rowIndex === u.rowIndex ? { ...x, active: !x.active } : x));
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: !x.active } : x));
       toast.success(u.active ? `${u.name} deactivated` : `${u.name} activated`);
     } catch { toast.error('Failed to update'); }
   };
@@ -107,13 +105,16 @@ export default function SettingsPage() {
   const handleDelete = async (u: UserRow) => {
     if (!confirm(`Delete ${u.name}? This cannot be undone.`)) return;
     try {
-      await fetch('/api/users', {
+      const res  = await fetch('/api/users', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ action: 'delete', rowIndex: u.rowIndex }),
+        body:    JSON.stringify({ action: 'delete', id: u.id }),
       });
-      setUsers(prev => prev.filter(x => x.rowIndex !== u.rowIndex));
-      toast.success(`${u.name} deleted`);
+      const data = await res.json();
+      if (data.ok) {
+        setUsers(prev => prev.filter(x => x.id !== u.id));
+        toast.success(`${u.name} deleted`);
+      } else toast.error(data.error || 'Failed to delete');
     } catch { toast.error('Failed to delete'); }
   };
 
@@ -121,12 +122,11 @@ export default function SettingsPage() {
     name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   const tabs = [
-    { key:'users',  label:'User Management' },
-    { key:'roles',  label:'Role Permissions' },
-    { key:'clinicsettings', label:'Clinic Settings' },
-    { key:'schedule', label:'Schedule' },
-    { key:'sheet',  label:'Google Sheets' },
-  ] as { key: 'users'|'clinic'|'sheet'|'roles'|'clinicsettings'; label: string }[];
+    { key:'users',         label:'User Management'  },
+    { key:'roles',         label:'Role Permissions' },
+    { key:'clinicsettings',label:'Clinic Settings'  },
+    { key:'schedule',      label:'Schedule'         },
+  ];
 
   return (
     <>
@@ -150,18 +150,6 @@ export default function SettingsPage() {
           {tab === 'users' && isAdmin && (
             <div className="space-y-4">
 
-              {/* Setup notice */}
-              <div className="rounded-xl p-4 text-[12px]"
-                style={{ background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.25)' }}>
-                <div className="font-medium text-amber-800 mb-1">📋 Google Sheet Setup Required</div>
-                <div className="text-amber-700 space-y-1">
-                  <div>1. Open your Google Sheet → click the <strong>+</strong> at the bottom to add a new tab</div>
-                  <div>2. Name it exactly: <code className="bg-amber-100 px-1 rounded font-mono">Logins</code></div>
-                  <div>3. Add these headers in Row 1: <code className="bg-amber-100 px-1 rounded font-mono">Name | Email | Password | Role | Initials | Active</code></div>
-                  <div>4. Make sure your Apps Script is deployed — it will write new users to this sheet</div>
-                </div>
-              </div>
-
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="text-[13px] text-gray-500">
@@ -172,7 +160,7 @@ export default function SettingsPage() {
                     className="btn-outline text-[12px] py-2 px-3 gap-1.5">
                     <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
                   </button>
-                  <button onClick={() => { setShowForm(true); setForm(emptyUser()); }}
+                  <button onClick={() => { setShowForm(true); setForm(emptyForm()); }}
                     className="btn-gold text-[12px] py-2 px-4 gap-1.5">
                     <Plus size={13} /> Add User
                   </button>
@@ -189,27 +177,44 @@ export default function SettingsPage() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    {[
-                      { label:'Full Name',  key:'name',     type:'text',     placeholder:'Dr. Ahmed Khan' },
-                      { label:'Initials',   key:'initials', type:'text',     placeholder:'AK' },
-                      { label:'Email',      key:'email',    type:'email',    placeholder:'dr.ahmed@mediplex.com' },
-                      { label:'Password',   key:'password', type:'password', placeholder:'min 6 characters' },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{f.label}</label>
-                        <input type={f.type} placeholder={f.placeholder}
-value={String((form as Record<string, unknown>)[f.key] ?? '')}
-onChange={e => {
-                            const val = e.target.value;
-                            setForm(prev => ({
-                              ...prev,
-                              [f.key]: val,
-                              ...(f.key === 'name' && !prev.initials ? { initials: autoInitials(val) } : {}),
-                            }));
-                          }}
-                          className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                    <div>
+                      <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Full Name</label>
+                      <input type="text" placeholder="Dr. Ahmed Khan"
+                        value={form.name}
+                        onChange={e => setForm(prev => ({
+                          ...prev,
+                          name: e.target.value,
+                          initials: prev.initials ? prev.initials : autoInitials(e.target.value),
+                        }))}
+                        className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Initials</label>
+                      <input type="text" placeholder="AK"
+                        value={form.initials}
+                        onChange={e => setForm(prev => ({ ...prev, initials: e.target.value }))}
+                        className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Email</label>
+                      <input type="email" placeholder="dr.ahmed@mediplex.com"
+                        value={form.email}
+                        onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Password</label>
+                      <div className="relative">
+                        <input type={showPw ? 'text' : 'password'} placeholder="min 6 characters"
+                          value={form.password}
+                          onChange={e => setForm(prev => ({ ...prev, password: e.target.value }))}
+                          className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold pr-9" />
+                        <button type="button" onClick={() => setShowPw(!showPw)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                          {showPw ? <EyeOff size={14}/> : <Eye size={14}/>}
+                        </button>
                       </div>
-                    ))}
+                    </div>
                     <div>
                       <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Role</label>
                       <select value={form.role} onChange={e => setForm(prev => ({ ...prev, role: e.target.value }))}
@@ -249,11 +254,11 @@ onChange={e => {
                     )}
                     {!loading && users.length === 0 && (
                       <tr><td colSpan={5} className="text-center py-8 text-gray-400 text-[13px]">
-                        No users found — make sure the Logins sheet tab exists
+                        No users found — click "Add User" to create one
                       </td></tr>
                     )}
                     {users.map(u => (
-                      <tr key={u.rowIndex} className={!u.active ? 'opacity-50' : ''}>
+                      <tr key={u.id} className={!u.active ? 'opacity-50' : ''}>
                         <td>
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
@@ -329,76 +334,9 @@ onChange={e => {
             </div>
           )}
 
-          {/* ── CLINIC INFO ──────────────────────────────────────────────────── */}
-          {tab === 'clinic' && (
-            <div className="card p-6 animate-in">
-              <div className="font-medium text-navy text-[15px] mb-5 pb-4 border-b border-black/5">Clinic Information</div>
-              <div className="space-y-4">
-                {[
-                  ['Clinic Name',  process.env.NEXT_PUBLIC_CLINIC_NAME    || 'MediPlex Pediatric Clinic', 'NEXT_PUBLIC_CLINIC_NAME'],
-                  ['Address',      process.env.NEXT_PUBLIC_CLINIC_ADDRESS || '123 Medical Center Drive',  'NEXT_PUBLIC_CLINIC_ADDRESS'],
-                  ['Phone',        process.env.NEXT_PUBLIC_CLINIC_PHONE   || '(212) 555-0190',            'NEXT_PUBLIC_CLINIC_PHONE'],
-                  ['Email',        process.env.NEXT_PUBLIC_CLINIC_EMAIL   || 'appointments@mediplex.com', 'NEXT_PUBLIC_CLINIC_EMAIL'],
-                  ['Doctor Name',  process.env.NEXT_PUBLIC_DOCTOR_NAME    || 'Dr. Talha',                 'NEXT_PUBLIC_DOCTOR_NAME'],
-                ].map(([l, val, envKey]) => (
-                  <div key={l}>
-                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">{l}</label>
-                    <input type="text" defaultValue={val} readOnly
-                      className="w-full border border-black/10 rounded-lg px-3 py-2.5 text-[13px] text-navy bg-gray-50 outline-none" />
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      Edit via <code className="bg-gray-100 px-1 rounded">{envKey}</code> in Vercel Environment Variables
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── GOOGLE SHEETS ────────────────────────────────────────────────── */}
-          {tab === 'sheet' && (
-            <div className="space-y-4 animate-in">
-              <div className="card p-6">
-                <div className="font-medium text-navy text-[15px] mb-5 pb-4 border-b border-black/5">Google Sheets Integration</div>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Spreadsheet ID</label>
-                    <input type="text" defaultValue={process.env.NEXT_PUBLIC_SHEET_ID || 'Configured in Vercel'} readOnly
-                      className="w-full border border-black/10 rounded-lg px-3 py-2.5 text-[12px] text-gray-500 bg-gray-50 outline-none font-mono" />
-                  </div>
-                  <div className="rounded-xl p-4" style={{ background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.2)' }}>
-                    <div className="text-[12px] font-medium text-amber-800 mb-3">Required Sheet Tabs</div>
-                    <div className="space-y-2">
-                      {[
-                        { name:'Records',  desc:'Main appointments data — all patient records',   status:true },
-                        { name:'Logins',   desc:'User accounts — Name, Email, Password, Role',    status:false },
-                      ].map(s => (
-                        <div key={s.name} className="flex items-center gap-3">
-                          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${s.status ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            {s.status ? '✓ Active' : '⚠ Setup needed'}
-                          </span>
-                          <code className="text-[12px] font-mono font-semibold text-navy">{s.name}</code>
-                          <span className="text-[12px] text-gray-500">— {s.desc}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl p-4" style={{ background:'rgba(43,108,176,0.06)', border:'1px solid rgba(43,108,176,0.15)' }}>
-                    <div className="text-[12px] font-medium text-blue-800 mb-2">Logins Sheet Setup</div>
-                    <ol className="text-[12px] text-blue-700 space-y-1 list-decimal list-inside">
-                      <li>Open your Google Sheet → click <strong>+</strong> to add a tab → name it <code className="bg-blue-100 px-1 rounded">Logins</code></li>
-                      <li>Row 1 headers: <code className="bg-blue-100 px-1 rounded">Name | Email | Password | Role | Initials | Active</code></li>
-                      <li>Add users in Row 2 onwards — Role must be admin, doctor, or receptionist</li>
-                      <li>Active column: write <code className="bg-blue-100 px-1 rounded">Yes</code> or <code className="bg-blue-100 px-1 rounded">No</code></li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ── CLINIC SETTINGS ── */}
-          {tab === 'clinicsettings' && <ClinicSettingsTab/>}
-          {tab === 'schedule' && <ScheduleSettings/>}
+          {tab === 'clinicsettings' && <ClinicSettingsTab />}
+          {tab === 'schedule'       && <ScheduleSettings />}
 
         </div>
       </main>
