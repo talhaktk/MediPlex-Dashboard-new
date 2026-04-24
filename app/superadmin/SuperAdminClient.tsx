@@ -134,7 +134,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
       // 1. create org
       const { data: org, error: orgErr } = await supabase
         .from('organisations')
-        .insert([{ name: clinicForm.name }])
+        .insert([{ name: clinicForm.name, owner_name: clinicForm.doctorName, email: clinicForm.email, status: 'active' }])
         .select('id')
         .single();
       if (orgErr) throw orgErr;
@@ -146,9 +146,11 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
           name: clinicForm.name,
           speciality: clinicForm.speciality,
           city: clinicForm.city,
+          status: 'active',
           is_active: true,
+          city: clinicForm.city,
           subscription_expiry: clinicForm.subscription_expiry || null,
-          modules: { vaccines: true, who_charts: true, telehealth: false, ai_scribe: false, lab_results: true, procedures: false, feedback: true },
+          modules: { vaccines: true, who_charts: true, telehealth: true, ai_scribe: true, lab_results: true, procedures: true, feedback: true },
           org_id: org.id,
         }])
         .select('id')
