@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     setLoading(false);
     if (res?.ok) {
-      router.push('/dashboard');
+      const sess = await fetch('/api/auth/session').then(r=>r.json()); if(sess?.user?.isSuperAdmin) { router.push('/superadmin'); } else { router.push('/dashboard'); };
       router.refresh();
     } else {
       setError('Invalid email or password. Please try again.');
