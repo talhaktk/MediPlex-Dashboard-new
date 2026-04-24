@@ -23,6 +23,7 @@ interface ClinicContextType {
   role: string;
   isOrgOwner: boolean;
   modules: Record<string, boolean>;
+  terminology: { patient: string; guardian: string; patientAge: string; };
 }
 
 const ClinicContext = createContext<ClinicContextType>({
@@ -32,12 +33,14 @@ const ClinicContext = createContext<ClinicContextType>({
   role: 'receptionist',
   isOrgOwner: false,
   modules: {},
+  terminology: { patient: 'Child', guardian: 'Parent', patientAge: 'Child Age' },
 });
 
 export function ClinicProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const user = session?.user as any;
   const [modules, setModules] = useState<Record<string,boolean>>({});
+  const [speciality, setSpeciality] = useState<string>('');
 
   useEffect(() => {
     const clinicId = user?.clinicId;
@@ -90,6 +93,19 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     load();
   }, [user?.clinicId]);
 
+  // Derive terminology from speciality
+  const specialityTerms: Record<string, { patient: string; guardian: string; patientAge: string }> = {
+    'Pediatrics':       { patient: 'Child',   guardian: 'Parent',        patientAge: 'Child Age'   },
+    'General Practice': { patient: 'Patient', guardian: 'Guardian',      patientAge: 'Patient Age' },
+    'Internal Medicine':{ patient: 'Patient', guardian: 'Next of Kin',   patientAge: 'Patient Age' },
+    'Orthopedics':      { patient: 'Patient', guardian: 'Next of Kin',   patientAge: 'Patient Age' },
+    'Gynecology':       { patient: 'Patient', guardian: 'Husband/Guardian', patientAge: 'Patient Age' },
+    'Cardiology':       { patient: 'Patient', guardian: 'Next of Kin',   patientAge: 'Patient Age' },
+    'Psychiatry':       { patient: 'Patient', guardian: 'Guardian',      patientAge: 'Patient Age' },
+    'Dentistry':        { patient: 'Patient', guardian: 'Guardian',      patientAge: 'Patient Age' },
+  };
+  const terminology = specialityTerms[speciality] || (speciality ? { patient: 'Patient', guardian: 'Guardian', patientAge: 'Patient Age' } : { patient: 'Child', guardian: 'Parent', patientAge: 'Child Age' });
+
   return (
     <ClinicContext.Provider value={{
       clinicId:     user?.clinicId     || null,
@@ -98,6 +114,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       role:         user?.role         || 'receptionist',
       isOrgOwner:   user?.role === 'org_owner',
       modules,
+      terminology,
     }}>
       {children}
     </ClinicContext.Provider>

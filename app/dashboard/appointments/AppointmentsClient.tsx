@@ -37,7 +37,7 @@ const EMPTY_FORM = {
 
 export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
-  const { clinicId, isSuperAdmin } = useClinic();
+  const { clinicId, isSuperAdmin, terminology } = useClinic();
 
   // ── Filters ────────────────────────────────────────────────────────────────
   const [status,      setStatus]      = useState('all');
@@ -248,8 +248,8 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
 
   // ── Add appointment ────────────────────────────────────────────────────────
   const handleAddAppointment = async () => {
-    if (!addForm.child_name.trim())       { toast.error('Child name is required');        return; }
-    if (!addForm.parent_name.trim())      { toast.error('Parent name is required');       return; }
+    if (!addForm.child_name.trim())       { toast.error(`${terminology.patient} name is required`);        return; }
+    if (!addForm.parent_name.trim())      { toast.error(`${terminology.guardian} name is required`);       return; }
     if (!addForm.appointment_date)        { toast.error('Appointment date is required');  return; }
     if (!addForm.appointment_time.trim()) { toast.error('Appointment time is required');  return; }
     // Check slot conflict
@@ -615,7 +615,7 @@ const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as 
                 <div className="text-[11px] text-gray-400 uppercase tracking-widest font-medium mb-2">Patient Information</div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="col-span-2">
-                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Child Name *</label>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">{terminology.patient} Name *</label>
                     <input type="text" placeholder="Full name"
                       value={addForm.child_name}
                       onChange={e => setAddForm(p => ({ ...p, child_name: e.target.value }))}
