@@ -439,6 +439,65 @@ const [search, setSearch] = useState('');
                           </div>
                         ))}
                       </div>
+                      {/* BMI — GP */}
+                      {modules.bmi_calc && (newVitals as any).weight && (newVitals as any).height && (
+                        <div className="mb-3 px-3 py-2 rounded-lg text-[12px]" style={{background:'rgba(59,130,246,0.08)',border:'1px solid rgba(59,130,246,0.2)'}}>
+                          <span className="font-medium text-blue-700">BMI: </span>
+                          <span className="text-blue-600 font-bold">
+                            {(parseFloat((newVitals as any).weight) / Math.pow(parseFloat((newVitals as any).height)/100, 2)).toFixed(1)}
+                          </span>
+                          <span className="text-blue-500 ml-2 text-[11px]">
+                            {(() => { const bmi = parseFloat((newVitals as any).weight) / Math.pow(parseFloat((newVitals as any).height)/100, 2); return bmi < 18.5 ? '— Underweight' : bmi < 25 ? '— Normal ✅' : bmi < 30 ? '— Overweight ⚠️' : '— Obese 🔴'; })()}
+                          </span>
+                        </div>
+                      )}
+                      {/* Pain Scale — Orthopedics */}
+                      {modules.pain_scale && (
+                        <div className="mb-3">
+                          <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Pain Scale (0-10)</label>
+                          <div className="flex items-center gap-3">
+                            <input type="range" min="0" max="10" value={(newVitals as any).pain_scale||0}
+                              onChange={e=>setNewVitals((p:any)=>({...p,pain_scale:e.target.value}))} className="flex-1"/>
+                            <span className="w-8 text-center font-bold text-[16px]" style={{color:Number((newVitals as any).pain_scale||0)>7?'#dc2626':Number((newVitals as any).pain_scale||0)>4?'#d97706':'#16a34a'}}>
+                              {(newVitals as any).pain_scale||0}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {/* ROM — Orthopedics */}
+                      {modules.rom && (
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ROM Flexion (°)</label>
+                            <input type="text" placeholder="e.g. 120" value={(newVitals as any).rom_flexion||''}
+                              onChange={e=>setNewVitals((p:any)=>({...p,rom_flexion:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ROM Extension (°)</label>
+                            <input type="text" placeholder="e.g. 0" value={(newVitals as any).rom_extension||''}
+                              onChange={e=>setNewVitals((p:any)=>({...p,rom_extension:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </div>
+                      )}
+                      {/* Fundal Height/FHR — Gynecology */}
+                      {modules.anc_record && (
+                        <div className="grid grid-cols-2 gap-3 mb-3">
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Fundal Height (cm)</label>
+                            <input type="text" placeholder="e.g. 28" value={(newVitals as any).fundal_height||''}
+                              onChange={e=>setNewVitals((p:any)=>({...p,fundal_height:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Fetal Heart Rate (bpm)</label>
+                            <input type="text" placeholder="e.g. 140" value={(newVitals as any).fhr||''}
+                              onChange={e=>setNewVitals((p:any)=>({...p,fhr:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </div>
+                      )}
                       <button onClick={saveVitals} className="btn-gold text-[11px] py-1.5 px-4 gap-1"><Save size={11}/> Save Vitals</button>
                     </div>
                   )}
