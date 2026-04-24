@@ -1,4 +1,4 @@
-import { fetchAppointmentsFromSheet, computeStats, computeReasonStats, formatUSDate } from '@/lib/sheets';
+import { fetchAppointmentsFromDb, computeStats, computeReasonStats, formatUSDate } from '@/lib/sheets';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const clinicId = (session2?.user as any)?.clinicId || null;
   const { data: cs } = await sb.from('clinic_settings').select('doctor_name,clinic_name').eq('clinic_id', clinicId||'').maybeSingle();
   const doctorName = cs?.doctor_name || process.env.NEXT_PUBLIC_DOCTOR_NAME || 'Doctor';
-  const data = await fetchAppointmentsFromSheet();
+  const data = await fetchAppointmentsFromDb(clinicId);
   const stats = computeStats(data);
   const reasons = computeReasonStats(data);
 
