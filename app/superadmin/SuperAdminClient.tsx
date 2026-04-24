@@ -310,7 +310,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="Organisation Name" value={orgForm.name} onChange={(v:string)=>setOrgForm(p=>({...p,name:v}))} placeholder="e.g. RMI Medical Group"/>
                   <Input label="Owner Name" value={orgForm.owner_name} onChange={(v:string)=>setOrgForm(p=>({...p,owner_name:v}))} placeholder="Dr. Ahmed"/>
-                  <Input label="Email" value={orgForm.email} onChange={(v:string)=>setOrgForm(p=>({...p,email:v}))} type="email" placeholder="admin@clinic.com"/>
+                  <Input label="Contact Email (display only)" value={orgForm.email} onChange={(v:string)=>setOrgForm(p=>({...p,email:v}))} type="email" placeholder="contact@clinic.com"/>
                   <Input label="Phone" value={orgForm.phone} onChange={(v:string)=>setOrgForm(p=>({...p,phone:v}))} placeholder="+92..."/>
                   <Input label="City" value={orgForm.city} onChange={(v:string)=>setOrgForm(p=>({...p,city:v}))} placeholder="e.g. Peshawar"/>
                   <Input label="Province" value={orgForm.province} onChange={(v:string)=>setOrgForm(p=>({...p,province:v}))} placeholder="e.g. KPK"/>
@@ -407,8 +407,8 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       <div className="text-white/60 text-[12px] font-medium mb-3">Add Organisation Owner — {org.name}</div>
                       <div className="grid grid-cols-3 gap-3 mb-3">
                         <Input label="Full Name" value={ownerForm.name} onChange={(v:string)=>setOwnerForm(p=>({...p,name:v}))} placeholder="Dr. Ahmed"/>
-                        <Input label="Email" value={ownerForm.email} onChange={(v:string)=>setOwnerForm(p=>({...p,email:v}))} type="email" placeholder="owner@clinic.com"/>
-                        <Input label="Password" value={ownerForm.password} onChange={(v:string)=>setOwnerForm(p=>({...p,password:v}))} type="password" placeholder="min 6 chars"/>
+                        <Input label="Login Email" value={ownerForm.email} onChange={(v:string)=>setOwnerForm(p=>({...p,email:v}))} type="email" placeholder="owner@mediplex.com"/>
+                        <Input label="Login Password" value={ownerForm.password} onChange={(v:string)=>setOwnerForm(p=>({...p,password:v}))} type="password" placeholder="min 6 chars"/>
                       </div>
                       <div className="flex gap-2">
                         <button onClick={()=>addOwner(org.id, org.name)}
