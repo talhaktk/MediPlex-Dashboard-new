@@ -101,10 +101,9 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   // ── Fetch + realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
     const fetch = async () => {
-      const { data: rows, error } = await supabase
-        .from('billing')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let bq = supabase.from('billing').select('*').order('created_at', { ascending: false });
+      if (clinicId && !isSuperAdmin) bq = bq.eq('clinic_id', clinicId);
+      const { data: rows, error } = await bq;
       if (error) { toast.error('Could not load invoices: ' + error.message); return; }
       if (rows) setInvoices(rows.map(mapRow));
     };
