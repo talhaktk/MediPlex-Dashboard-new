@@ -5,6 +5,17 @@ import { createClient } from '@supabase/supabase-js';
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 import { useSession } from 'next-auth/react';
 
+// Speciality → default module flags (used as fallback when clinics table has no entry)
+const SPECIALITY_DEFAULTS: Record<string, Record<string, boolean>> = {
+  'pediatrics':       { vaccines:true,  who_charts:true,  weight_based_dose:true,  bmi_calc:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, chronic_conditions:false, bp_history:false, family_history:false, telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+  'general practice': { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:true,  pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, chronic_conditions:true,  bp_history:true,  family_history:true,  telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+  'orthopedics':      { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, pain_scale:true,  rom:true,  surgical_history:true,  implant_tracking:true,  anc_record:false, lmp_edd:false, obstetric_history:false, chronic_conditions:false, bp_history:false, family_history:false, telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+  'gynecology':       { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:true,  pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:true,  lmp_edd:true,  obstetric_history:true,  chronic_conditions:false, bp_history:false, family_history:false, telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+  'cardiology':       { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:true,  pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, chronic_conditions:true,  bp_history:true,  family_history:true,  telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+  'dermatology':      { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, chronic_conditions:false, bp_history:false, family_history:false, telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+  'ent':              { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, pain_scale:true,  rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, chronic_conditions:false, bp_history:false, family_history:false, telehealth:true,  ai_scribe:true,  lab_results:true,  procedures:true,  feedback:true  },
+};
+
 interface ClinicContextType {
   clinicId: string | null;
   orgId: string | null;
@@ -32,7 +43,15 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     const clinicId = user?.clinicId;
     if (!clinicId) { setModules({}); return; }
     sb.from('clinics').select('modules').eq('id', clinicId).maybeSingle()
-      .then(({ data }) => { if (data?.modules) setModules(data.modules); });
+      .then(async ({ data }) => {
+        const m = data?.modules as Record<string, boolean> | null;
+        if (m && Object.keys(m).length > 0) { setModules(m); return; }
+        // Fallback: derive from clinic_settings.speciality
+        const { data: settings } = await sb.from('clinic_settings').select('speciality').eq('clinic_id', clinicId).maybeSingle();
+        const key = (settings?.speciality || '').toLowerCase();
+        const defaults = SPECIALITY_DEFAULTS[key];
+        if (defaults) setModules(defaults);
+      });
   }, [user?.clinicId]);
 
   return (
