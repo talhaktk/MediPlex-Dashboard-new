@@ -198,6 +198,38 @@ const [search, setSearch] = useState('');
       fhr: assessForm.fhr || null,
       gestational_age: assessForm.gestational_age || null,
       notes: assessForm.notes || null,
+      ecg_findings: assessForm.ecg_findings || null,
+      ejection_fraction: assessForm.ejection_fraction ? Number(assessForm.ejection_fraction) : null,
+      cardiac_risk: assessForm.cardiac_risk || null,
+      spo2: assessForm.spo2 ? Number(assessForm.spo2) : null,
+      peak_flow: assessForm.peak_flow ? Number(assessForm.peak_flow) : null,
+      spirometry: assessForm.spirometry || null,
+      gcs_score: assessForm.gcs_score ? Number(assessForm.gcs_score) : null,
+      nihss_score: assessForm.nihss_score ? Number(assessForm.nihss_score) : null,
+      seizure_log: assessForm.seizure_log || null,
+      hba1c: assessForm.hba1c ? Number(assessForm.hba1c) : null,
+      blood_glucose: assessForm.blood_glucose ? Number(assessForm.blood_glucose) : null,
+      phq9: assessForm.phq9 ? Number(assessForm.phq9) : null,
+      gad7: assessForm.gad7 ? Number(assessForm.gad7) : null,
+      egfr: assessForm.egfr ? Number(assessForm.egfr) : null,
+      fluid_balance: assessForm.fluid_balance || null,
+      cancer_stage: assessForm.cancer_stage || null,
+      ecog_status: assessForm.ecog_status || null,
+      das28: assessForm.das28 ? Number(assessForm.das28) : null,
+      va_right: assessForm.va_right || null,
+      va_left: assessForm.va_left || null,
+      iop_right: assessForm.iop_right ? Number(assessForm.iop_right) : null,
+      iop_left: assessForm.iop_left ? Number(assessForm.iop_left) : null,
+      audiogram: assessForm.audiogram || null,
+      tympanometry: assessForm.tympanometry || null,
+      psa: assessForm.psa ? Number(assessForm.psa) : null,
+      urine_flow: assessForm.urine_flow ? Number(assessForm.urine_flow) : null,
+      wound_assessment: assessForm.wound_assessment || null,
+      drain_output: assessForm.drain_output ? Number(assessForm.drain_output) : null,
+      abpi_right: assessForm.abpi_right ? Number(assessForm.abpi_right) : null,
+      abpi_left: assessForm.abpi_left ? Number(assessForm.abpi_left) : null,
+      skin_score: assessForm.skin_score || null,
+      cbc_summary: assessForm.cbc_summary || null,
     }]);
     if (error) { toast.error('Failed: ' + error.message); return; }
     toast.success('Assessment saved');
@@ -611,6 +643,293 @@ const [search, setSearch] = useState('');
                               className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
                           </div>
                         </>)}
+                        {/* Cardiology */}
+                        {modules.ecg_findings && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ECG Findings</label>
+                            <input type="text" placeholder="e.g. Normal sinus rhythm, ST elevation..." value={assessForm.ecg_findings||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,ecg_findings:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.ejection_fraction && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Ejection Fraction (EF%)</label>
+                            <input type="number" placeholder="e.g. 55" value={assessForm.ejection_fraction||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,ejection_fraction:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.cardiac_risk && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Cardiac Risk Score</label>
+                            <input type="text" placeholder="e.g. TIMI 3, GRACE 120" value={assessForm.cardiac_risk||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,cardiac_risk:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Pulmonology */}
+                        {modules.spo2_tracking && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">SpO2 (%)</label>
+                            <input type="number" placeholder="e.g. 98" min="0" max="100" value={assessForm.spo2||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,spo2:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.peak_flow && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Peak Flow Rate (L/min)</label>
+                            <input type="number" placeholder="e.g. 450" value={assessForm.peak_flow||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,peak_flow:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.spirometry && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Spirometry Results</label>
+                            <input type="text" placeholder="e.g. FEV1 2.1L (75%), FVC 2.8L, FEV1/FVC 0.75" value={assessForm.spirometry||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,spirometry:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Neurology */}
+                        {modules.gcs_score && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">GCS Score (3-15)</label>
+                            <input type="number" placeholder="e.g. 15" min="3" max="15" value={assessForm.gcs_score||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,gcs_score:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.nihss_score && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">NIHSS Score</label>
+                            <input type="number" placeholder="e.g. 4" min="0" max="42" value={assessForm.nihss_score||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,nihss_score:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.seizure_log && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Seizure Log</label>
+                            <input type="text" placeholder="e.g. 2 episodes, tonic-clonic, 2 min duration" value={assessForm.seizure_log||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,seizure_log:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Endocrinology */}
+                        {modules.hba1c_tracking && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">HbA1c (%)</label>
+                            <input type="number" placeholder="e.g. 7.2" step="0.1" value={assessForm.hba1c||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,hba1c:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.glucose_log && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Blood Glucose (mg/dL)</label>
+                            <input type="number" placeholder="e.g. 126" value={assessForm.blood_glucose||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,blood_glucose:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Psychiatry */}
+                        {modules.phq9_score && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">PHQ-9 Score (0-27)</label>
+                            <input type="number" placeholder="e.g. 12" min="0" max="27" value={assessForm.phq9||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,phq9:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.gad7_score && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">GAD-7 Score (0-21)</label>
+                            <input type="number" placeholder="e.g. 8" min="0" max="21" value={assessForm.gad7||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,gad7:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Nephrology */}
+                        {modules.gfr_tracking && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">eGFR (mL/min)</label>
+                            <input type="number" placeholder="e.g. 45" value={assessForm.egfr||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,egfr:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.fluid_balance && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Fluid Balance (mL)</label>
+                            <input type="text" placeholder="e.g. +500 / -200" value={assessForm.fluid_balance||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,fluid_balance:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Oncology */}
+                        {modules.cancer_staging && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Cancer Stage (TNM)</label>
+                            <input type="text" placeholder="e.g. T2N1M0 Stage IIB" value={assessForm.cancer_stage||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,cancer_stage:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.ecog_status && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ECOG Status (0-5)</label>
+                            <select value={assessForm.ecog_status||''} onChange={e=>setAssessForm((p:any)=>({...p,ecog_status:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold">
+                              <option value="">Select...</option>
+                              <option value="0">0 — Fully active</option>
+                              <option value="1">1 — Restricted but ambulatory</option>
+                              <option value="2">2 — Ambulatory, self-care only</option>
+                              <option value="3">3 — Limited self-care</option>
+                              <option value="4">4 — Completely disabled</option>
+                              <option value="5">5 — Dead</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {/* Rheumatology */}
+                        {modules.das28_score && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">DAS28 Score</label>
+                            <input type="number" placeholder="e.g. 3.2" step="0.1" value={assessForm.das28||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,das28:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Ophthalmology */}
+                        {modules.visual_acuity && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">VA Right Eye</label>
+                            <input type="text" placeholder="e.g. 6/6" value={assessForm.va_right||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,va_right:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">VA Left Eye</label>
+                            <input type="text" placeholder="e.g. 6/9" value={assessForm.va_left||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,va_left:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+                        {modules.iop_tracking && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">IOP Right (mmHg)</label>
+                            <input type="number" placeholder="e.g. 16" value={assessForm.iop_right||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,iop_right:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">IOP Left (mmHg)</label>
+                            <input type="number" placeholder="e.g. 18" value={assessForm.iop_left||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,iop_left:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+
+                        {/* ENT */}
+                        {modules.audiogram && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Audiogram / PTA Results</label>
+                            <input type="text" placeholder="e.g. Mild SNHL bilateral, 35dB HL" value={assessForm.audiogram||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,audiogram:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.tympanometry && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Tympanometry</label>
+                            <input type="text" placeholder="e.g. Type B bilateral" value={assessForm.tympanometry||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,tympanometry:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Urology */}
+                        {modules.psa_tracking && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">PSA (ng/mL)</label>
+                            <input type="number" placeholder="e.g. 4.5" step="0.1" value={assessForm.psa||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,psa:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.urine_flow && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Urine Flow Rate (mL/s)</label>
+                            <input type="number" placeholder="e.g. 15" value={assessForm.urine_flow||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,urine_flow:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Surgery */}
+                        {modules.wound_care && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Wound Assessment</label>
+                            <input type="text" placeholder="e.g. Clean, healing well, no discharge" value={assessForm.wound_assessment||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,wound_assessment:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+                        {modules.drain_output && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Drain Output (mL)</label>
+                            <input type="number" placeholder="e.g. 50" value={assessForm.drain_output||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,drain_output:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Vascular */}
+                        {modules.abpi && (<>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ABPI Right</label>
+                            <input type="number" placeholder="e.g. 0.9" step="0.01" value={assessForm.abpi_right||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,abpi_right:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">ABPI Left</label>
+                            <input type="number" placeholder="e.g. 0.85" step="0.01" value={assessForm.abpi_left||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,abpi_left:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        </>)}
+
+                        {/* Dermatology */}
+                        {modules.skin_scoring && (
+                          <div>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">PASI / SCORAD Score</label>
+                            <input type="text" placeholder="e.g. PASI 12, SCORAD 45" value={assessForm.skin_score||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,skin_score:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
+                        {/* Hematology */}
+                        {modules.cbc_trend && (
+                          <div className="col-span-2">
+                            <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">CBC Summary</label>
+                            <input type="text" placeholder="e.g. Hb 9.2, WBC 3.2, Plt 120" value={assessForm.cbc_summary||''}
+                              onChange={e=>setAssessForm((p:any)=>({...p,cbc_summary:e.target.value}))}
+                              className="w-full border border-black/10 rounded-lg px-2 py-1.5 text-[12px] text-navy bg-white outline-none focus:border-gold"/>
+                          </div>
+                        )}
+
                         <div className="col-span-2">
                           <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Notes</label>
                           <textarea placeholder="Clinical notes..." value={assessForm.notes||''}
@@ -642,6 +961,27 @@ const [search, setSearch] = useState('');
                             {a.fundal_height && <span className="text-blue-600">FH: {a.fundal_height}cm</span>}
                             {a.fhr && <span className="text-blue-600">FHR: {a.fhr}bpm</span>}
                             {a.gestational_age && <span className="text-blue-600">GA: {a.gestational_age}</span>}
+                            {a.ecg_findings && <span className="text-blue-600">ECG: {a.ecg_findings}</span>}
+                            {a.ejection_fraction!=null && <span className="text-blue-600">EF: {a.ejection_fraction}%</span>}
+                            {a.spo2!=null && <span className="text-blue-600">SpO2: {a.spo2}%</span>}
+                            {a.peak_flow!=null && <span className="text-blue-600">PFR: {a.peak_flow}L/min</span>}
+                            {a.gcs_score!=null && <span className="text-blue-600">GCS: {a.gcs_score}/15</span>}
+                            {a.nihss_score!=null && <span className="text-blue-600">NIHSS: {a.nihss_score}</span>}
+                            {a.hba1c!=null && <span className="text-blue-600">HbA1c: {a.hba1c}%</span>}
+                            {a.blood_glucose!=null && <span className="text-blue-600">Glucose: {a.blood_glucose}mg/dL</span>}
+                            {a.phq9!=null && <span className="text-blue-600">PHQ-9: {a.phq9}</span>}
+                            {a.gad7!=null && <span className="text-blue-600">GAD-7: {a.gad7}</span>}
+                            {a.egfr!=null && <span className="text-blue-600">eGFR: {a.egfr}</span>}
+                            {a.cancer_stage && <span className="text-blue-600">Stage: {a.cancer_stage}</span>}
+                            {a.das28!=null && <span className="text-blue-600">DAS28: {a.das28}</span>}
+                            {a.va_right && <span className="text-blue-600">VA R:{a.va_right} L:{a.va_left}</span>}
+                            {a.iop_right!=null && <span className="text-blue-600">IOP R:{a.iop_right} L:{a.iop_left}mmHg</span>}
+                            {a.audiogram && <span className="text-blue-600">Audio: {a.audiogram}</span>}
+                            {a.psa!=null && <span className="text-blue-600">PSA: {a.psa}ng/mL</span>}
+                            {a.wound_assessment && <span className="text-blue-600">Wound: {a.wound_assessment}</span>}
+                            {a.abpi_right!=null && <span className="text-blue-600">ABPI R:{a.abpi_right} L:{a.abpi_left}</span>}
+                            {a.skin_score && <span className="text-blue-600">Skin: {a.skin_score}</span>}
+                            {a.cbc_summary && <span className="text-blue-600">CBC: {a.cbc_summary}</span>}
                             {a.notes && <span className="text-gray-500 italic">{a.notes}</span>}
                           </div>
                         ))}
