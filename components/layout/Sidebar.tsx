@@ -13,16 +13,15 @@ import { FolderOpen } from 'lucide-react';
 const ALL_NAV = [
   { label:'Overview',       href:'/dashboard',              icon:LayoutDashboard, roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
   { label:'Appointments',   href:'/dashboard/appointments', icon:CalendarDays,    roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
-  { label:'Calendar',       href:'/dashboard/calendar',     icon:Calendar,        roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
   { label:'Patients',       href:'/dashboard/patients',     icon:Users,           roles:['super_admin','doctor_admin','admin','doctor'] },
   { label:'Patient Portal', href:'/dashboard/portal',       icon:FolderOpen,      roles:['super_admin','doctor_admin','admin','doctor'] },
   { label:'Prescription',   href:'/dashboard/prescription', icon:FileText,        roles:['super_admin','doctor_admin','doctor'] },
   { label:'Clinical',       href:'/dashboard/clinical',     icon:Stethoscope,     roles:['super_admin','doctor_admin','doctor'] },
   { label:'AI Scribe',      href:'/dashboard/scribe',       icon:Bot,             roles:['super_admin','doctor_admin','doctor'] },
-  { label:'Telehealth',     href:'/dashboard/telehealth',   icon:MessageCircle,   roles:['super_admin','doctor_admin','doctor','receptionist'] },
   { label:'Billing',        href:'/dashboard/billing',      icon:Receipt,         roles:['super_admin','org_owner','doctor_admin','admin','receptionist'] },
   { label:'Reminders',      href:'/dashboard/reminders',    icon:MessageCircle,   roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
   { label:'Analytics',      href:'/dashboard/analytics',    icon:BarChart3,       roles:['super_admin','org_owner','doctor_admin','admin','doctor'] },
+  { label:'Calendar',       href:'/dashboard/calendar',     icon:Calendar,        roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
   { label:'Feedback',       href:'/dashboard/feedback',     icon:StarIcon,        roles:['super_admin','org_owner','doctor_admin','admin','doctor'] },
   { label:'Settings',       href:'/dashboard/settings',     icon:Settings,        roles:['super_admin','doctor_admin','admin'] },
 ];
