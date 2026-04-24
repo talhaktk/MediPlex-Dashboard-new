@@ -24,11 +24,13 @@ export default function ClinicSettingsTab() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    clinicId ? supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle() : supabase.from('clinic_settings').select('*').eq('id', 1).maybeSingle()
-      .then(({ data }) => {
-        if (data) setForm(data);
-        setLoading(false);
-      });
+    const query = clinicId
+      ? supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle()
+      : supabase.from('clinic_settings').select('*').eq('id', 1).maybeSingle();
+    query.then(({ data }) => {
+      if (data) setForm(data);
+      setLoading(false);
+    });
   }, [clinicId]);
 
   const handleSave = async () => {

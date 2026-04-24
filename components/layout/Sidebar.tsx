@@ -27,15 +27,20 @@ const ALL_NAV = [
 ];
 
 export default function Sidebar() {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const router   = useRouter();
+
   const [clinicName, setClinicName] = React.useState('');
   const [doctorName, setDoctorName] = React.useState('');
   const [speciality, setSpeciality] = React.useState('');
 
+  const clinicId = (session?.user as any)?.clinicId || '';
+
   const fetchSettings = React.useCallback(() => {
+    if (!clinicId) return;
     import('@/lib/supabase').then(({ supabase }) => {
-      const cid = (session?.user as any)?.clinicId || '';
-      if (!cid) return;
-      supabase.from('clinic_settings').select('clinic_name,doctor_name,speciality').eq('clinic_id', cid).maybeSingle()
+      supabase.from('clinic_settings').select('clinic_name,doctor_name,speciality').eq('clinic_id', clinicId).maybeSingle()
         .then(({ data }) => {
           if (data) {
             setClinicName(data.clinic_name || '');
@@ -44,18 +49,19 @@ export default function Sidebar() {
           }
         });
     });
-  }, [(session?.user as any)?.clinicId]);
+  }, [clinicId]);
 
   React.useEffect(() => {
     fetchSettings();
-    // Refetch when settings are saved
     window.addEventListener('clinic-settings-saved', fetchSettings);
     return () => window.removeEventListener('clinic-settings-saved', fetchSettings);
   }, [fetchSettings]);
+
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
   const name = user?.name || doctorName || 'Doctor';
   const role = user?.role ?? 'admin';
-  const { modules } = useClinic();
+  const clinicCtx = useClinic();
+  const modules: Record<string, boolean> = (clinicCtx as any).modules || {};
   const dbInitials = (doctorName || name).replace(/^Dr\.?\s*/i,'').split(' ').map((n:string) => n[0]||'').join('').toUpperCase().slice(0,2) || 'DR';
   const initials = user?.initials ?? dbInitials;
   const roleLabel = role === 'admin' ? 'Admin' : role === 'doctor' ? 'Doctor' : role === 'receptionist' ? 'Receptionist' : 'Staff';
