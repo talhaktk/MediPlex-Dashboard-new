@@ -61,7 +61,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
 const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<PatientRecord | null>(null);
   const [health, setHealthState] = useState<HealthRecord>(emptyHealth());
-  const [activeTab, setActiveTab] = useState<'visits'|'health'|'growth'|'billing'|'prescriptions'|'scribe'|'procedures'|'labs'|'consent'|'telehealth'|'vaccines'>('visits');
+  const [activeTab, setActiveTab] = useState<string>('visits');
   const [editHealth, setEditHealth] = useState(false);
   const [draft, setDraft] = useState<HealthRecord>(emptyHealth());
   const [newVitals, setNewVitals] = useState<Partial<VitalSigns>>({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt: new Date().toISOString().split('T')[0] });
