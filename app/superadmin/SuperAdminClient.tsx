@@ -133,7 +133,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     try {
       // 1. create org
       const { data: org, error: orgErr } = await supabase
-        .from('orgs')
+        .from('organisations')
         .insert([{ name: clinicForm.name }])
         .select('id')
         .single();
