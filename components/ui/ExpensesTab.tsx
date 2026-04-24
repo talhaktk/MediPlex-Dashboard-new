@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useClinic } from '@/lib/clinicContext';
 import { Plus, Trash2, Save, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -24,14 +25,14 @@ export default function ExpensesTab() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({...EMPTY});
+  const { clinicId } = useClinic();
   const [saving, setSaving] = useState(false);
   const [filterCat, setFilterCat] = useState('all');
   const [filterMonth, setFilterMonth] = useState('all');
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    supabase.from('expenses').select('*').order('date', { ascending: false })
-      .then(({ data }) => { setExpenses(data || []); setLoading(false); });
+    const eq = clinicId ? supabase.from('expenses').select('*').eq('clinic_id',clinicId).order('date',{ascending:false}) : supabase.from('expenses').select('*').order('date',{ascending:false}); eq.then(({data})=>{setExpenses(data||[]);setLoading(false);});
   }, []);
 
   const filteredExpenses = expenses.filter(e => {
@@ -62,7 +63,7 @@ export default function ExpensesTab() {
     setSaving(true);
     const { error } = await supabase.from('expenses').insert([{
       category: form.category, amount: Number(form.amount),
-      date: form.date, description: form.description, payment_method: form.payment_method
+      date: form.date, description: form.description, payment_method: form.payment_method, clinic_id: clinicId || null
     }]);
     if (error) { toast.error('Failed: ' + error.message); setSaving(false); return; }
     const { data } = await supabase.from('expenses').select('*').order('date', { ascending: false });

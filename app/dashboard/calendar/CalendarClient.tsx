@@ -162,7 +162,7 @@ export default function CalendarClient({ data: initialData }: { data: Appointmen
       toast.success('Appointment booked!');
       setShowNewApt(false);
       // Refresh
-      const { data: rows } = await supabase.from('appointments').select('*').order('appointment_date',{ascending:false});
+      let rq = supabase.from('appointments').select('*').order('appointment_date',{ascending:false}); if(clinicId && !isSuperAdmin) rq = rq.eq('clinic_id',clinicId); const { data: rows } = await rq;
       if (rows) setData(rows.map((row:any) => ({
         id: row.id.toString(), childName: row.child_name||'', parentName: row.parent_name||'',
         childAge: row.child_age||'', whatsapp: row.whatsapp_number||'', email: row.email_address||'',

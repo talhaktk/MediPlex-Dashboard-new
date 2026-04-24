@@ -42,6 +42,7 @@ function getConsentContent(key: string, patient: string, parent: string, age: st
 }
 
 export default function PatientPortalPage({ appointments }: { appointments: any[] }) {
+  const { clinicId, isSuperAdmin } = useClinic();
   const [activeSection, setActiveSection] = useState<'labs'|'consent'>('labs');
   const [search, setSearch] = useState('');
   const [labResults, setLabResults] = useState<LabResult[]>([]);

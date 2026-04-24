@@ -203,6 +203,7 @@ Dr. [Doctor Name]
 
 export default function ScribeClient({ data }: { data: Appointment[] }) {
   const router = useRouter();
+  const { clinicId, isSuperAdmin } = useClinic();
   const [mode, setMode] = useState<Mode>('soap');
   const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
@@ -412,6 +413,7 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       const { error } = await supabase.from('scribe_outputs').insert([{
         mr_number:    selectedPatient.mrNumber || null,
         child_name:   selectedPatient.name,
+        clinic_id:    clinicId || null,
         parent_name:  selectedPatient.parentName,
         mode,
         output,

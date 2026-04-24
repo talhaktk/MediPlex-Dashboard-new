@@ -131,8 +131,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   // Fetch expenses
   useEffect(() => {
-    supabase.from('expenses').select('*').order('date',{ascending:false})
-      .then(({data}) => { if(data) setExpenses(data); });
+    const eq = clinicId && !isSuperAdmin ? supabase.from('expenses').select('*').eq('clinic_id',clinicId).order('date',{ascending:false}) : supabase.from('expenses').select('*').order('date',{ascending:false});
+    eq.then(({data}) => { if(data) setExpenses(data); });
   }, []);
 
   const filteredExpenses = useMemo(() => expenses.filter(e => {

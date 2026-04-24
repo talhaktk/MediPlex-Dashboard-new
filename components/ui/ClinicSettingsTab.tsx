@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useClinic } from '@/lib/clinicContext';
 import { Save, Loader2, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -17,12 +18,13 @@ const FIELDS = [
 
 export default function ClinicSettingsTab() {
   const [form, setForm] = useState<Record<string,string>>({});
+  const { clinicId } = useClinic();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    supabase.from('clinic_settings').select('*').eq('id', 1).maybeSingle()
+    clinicId ? supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle() : supabase.from('clinic_settings').select('*').eq('id', 1).maybeSingle()
       .then(({ data }) => {
         if (data) setForm(data);
         setLoading(false);
@@ -31,7 +33,7 @@ export default function ClinicSettingsTab() {
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase.from('clinic_settings').upsert([{ id:1, ...form, updated_at: new Date().toISOString() }], { onConflict:'id' });
+    const { error } = await supabase.from('clinic_settings').upsert([{ id: clinicId ? undefined : 1, clinic_id: clinicId || null, ...form, updated_at: new Date().toISOString() }], { onConflict: clinicId ? 'clinic_id' : 'id' });
     setSaving(false);
     if (error) { toast.error('Failed to save: ' + error.message); return; }
     setSaved(true);

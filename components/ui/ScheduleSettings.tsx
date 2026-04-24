@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useClinic } from '@/lib/clinicContext';
 import { Save, Loader2, CheckCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -9,6 +10,7 @@ const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const DURATIONS = [10, 15, 20, 30, 45, 60];
 
 export default function ScheduleSettings() {
+  const { clinicId } = useClinic();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
