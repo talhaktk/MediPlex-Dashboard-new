@@ -44,7 +44,7 @@ export default function Sidebar() {
           }
         });
     });
-  }, [session]);
+  }, [(session?.user as any)?.clinicId]);
 
   React.useEffect(() => {
     fetchSettings();
