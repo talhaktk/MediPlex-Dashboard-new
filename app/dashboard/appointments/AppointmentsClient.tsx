@@ -137,7 +137,8 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
     const { data: rows } = await supabase
       .from('appointments')
       .select('*')
-      .order('appointment_date', { ascending: false });
+      .order('appointment_date', { ascending: false })
+      .eq('clinic_id', clinicId||'');
     if (rows) {
       setData(rows.map((row: any) => ({
         id:               row.id.toString(),
