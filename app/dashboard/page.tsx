@@ -60,7 +60,7 @@ export default async function DashboardPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
           <StatCard label="Today's Patients" value={stats.todayCount}
-            sub={`${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'})}`}
+            sub={`${new Date().toLocaleDateString('en-US',{timeZone:'Asia/Karachi',month:'short',day:'numeric'})}`}
             icon={Activity} iconColor="#7c3aed" delay={0} />
           <StatCard label="Upcoming (7d)" value={stats.upcomingCount}
             sub="Confirmed + Rescheduled" icon={TrendingUp} iconColor="#0369a1" delay={50} />
