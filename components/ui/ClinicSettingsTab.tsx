@@ -29,7 +29,7 @@ export default function ClinicSettingsTab() {
         if (data) setForm(data);
         setLoading(false);
       });
-  }, []);
+  }, [clinicId]);
 
   const handleSave = async () => {
     setSaving(true);

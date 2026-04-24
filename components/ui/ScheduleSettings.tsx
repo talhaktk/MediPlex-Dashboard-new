@@ -30,7 +30,7 @@ export default function ScheduleSettings() {
         if (data) setForm(p => ({...p, ...data}));
         setLoading(false);
       });
-  }, []);
+  }, [clinicId]);
 
   const workingDays = form.working_days ? form.working_days.split(',') : [];
 
