@@ -42,16 +42,52 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const clinicId = user?.clinicId;
     if (!clinicId) { setModules({}); return; }
-    sb.from('clinics').select('modules').eq('id', clinicId).maybeSingle()
-      .then(async ({ data }) => {
-        const m = data?.modules as Record<string, boolean> | null;
-        if (m && Object.keys(m).length > 0) { setModules(m); return; }
-        // Fallback: derive from clinic_settings.speciality
-        const { data: settings } = await sb.from('clinic_settings').select('speciality').eq('clinic_id', clinicId).maybeSingle();
-        const key = (settings?.speciality || '').toLowerCase();
-        const defaults = SPECIALITY_DEFAULTS[key];
-        if (defaults) setModules(defaults);
-      });
+
+    const load = async () => {
+      // 1. clinic_settings.modules — most reliable: clinic_settings.clinic_id = logins.clinic_id (JWT)
+      //    Uses select('*') so it gracefully handles the case where modules column doesn't exist yet
+      const { data: settings } = await sb
+        .from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle();
+      if (settings?.modules && Object.keys(settings.modules).length > 0) {
+        setModules(settings.modules); return;
+      }
+
+      // 2. Direct match: clinics.id = clinicId (works for new-style clinics)
+      const { data: direct } = await sb.from('clinics').select('modules').eq('id', clinicId).maybeSingle();
+      if (direct?.modules && Object.keys(direct.modules).length > 0) {
+        setModules(direct.modules); return;
+      }
+
+      // 3. Name-based match: clinic_settings.clinic_name → clinics.name
+      //    Handles legacy clinics where logins.clinic_id != clinics.id
+      if (settings?.clinic_name) {
+        const { data: byName } = await sb
+          .from('clinics').select('modules').ilike('name', `%${settings.clinic_name}%`).maybeSingle();
+        if (byName?.modules && Object.keys(byName.modules).length > 0) {
+          setModules(byName.modules); return;
+        }
+        // 3b. Reverse match: clinics.name contained in clinic_settings.clinic_name
+        const { data: allClinics } = await sb.from('clinics').select('modules, name');
+        if (allClinics) {
+          const match = allClinics.find((c: any) =>
+            c.name && (
+              settings.clinic_name.toLowerCase().includes(c.name.toLowerCase()) ||
+              c.name.toLowerCase().includes(settings.clinic_name.toLowerCase())
+            )
+          );
+          if (match?.modules && Object.keys(match.modules).length > 0) {
+            setModules(match.modules); return;
+          }
+        }
+      }
+
+      // 4. Last resort: SPECIALITY_DEFAULTS keyed by speciality
+      const key = (settings?.speciality || '').toLowerCase();
+      const defaults = SPECIALITY_DEFAULTS[key];
+      if (defaults) setModules(defaults);
+    };
+
+    load();
   }, [user?.clinicId]);
 
   return (

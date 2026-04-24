@@ -1,13 +1,13 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
   Building2, Users, ToggleLeft, BarChart3, Plus, X, Save,
-  LogOut, CheckCircle, XCircle, RefreshCw, Eye, EyeOff,
-  Calendar, UserCheck, Shield, ChevronRight, ChevronDown,
+  LogOut, CheckCircle, XCircle,
+  UserCheck, Shield, ChevronRight, ChevronDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -193,8 +193,6 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [users, setUsers] = useState<ClinicUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedOrg, setSelectedOrg] = useState<Org|null>(null);
   const [selectedClinic, setSelectedClinic] = useState<Clinic|null>(null);
   const [expandedOrgs, setExpandedOrgs] = useState<Set<string>>(new Set());
 
@@ -211,18 +209,15 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   const [showAddUser, setShowAddUser] = useState(false);
   const [userForm, setUserForm] = useState({ name:'', email:'', password:'', user_role:'doctor', clinic_id:'' });
-  const [showPw, setShowPw] = useState(false);
 
   // Fetch all data
   const fetchAll = async () => {
-    setLoading(true);
     const [{ data: orgData }, { data: clinicData }, { data: userData }] = await Promise.all([
       supabase.from('organisations').select('*').order('created_at', { ascending: false }),
       supabase.from('clinics').select('*').order('created_at', { ascending: false }),
       supabase.from('logins').select('*').order('created_at', { ascending: false }),
     ]);
     setOrgs(orgData || []);
-    // Enrich clinics with counts
     const enriched = await Promise.all((clinicData || []).map(async (c: any) => {
       const [{ count: pc }, { count: ac }] = await Promise.all([
         supabase.from('patients').select('*', { count:'exact', head:true }).eq('clinic_id', c.id),
@@ -232,7 +227,6 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     }));
     setClinics(enriched as Clinic[]);
     setUsers((userData||[]).filter((u:any) => !u.is_super_admin) as ClinicUser[]);
-    setLoading(false);
   };
 
   useEffect(() => { fetchAll(); }, []);
@@ -251,7 +245,6 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     if (!ownerForm.name || !ownerForm.email || !ownerForm.password) {
       toast.error('Name, email and password required'); return;
     }
-    const org = orgs.find(o => o.id === orgId);
     const { error } = await supabase.from('logins').insert([{
       name: ownerForm.name,
       email: ownerForm.email.toLowerCase(),
@@ -284,16 +277,17 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
         speciality: clinicForm.speciality, city: clinicForm.city,
         status:'active', is_active:true,
         subscription_expiry: clinicForm.subscription_expiry || null,
-        modules: { vaccines:true, who_charts:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+        modules: SPECIALITY_DEFAULTS[clinicForm.speciality] || { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
       }]);
       if (cErr) throw cErr;
 
-      // Auto-create clinic settings
+      const defaultModules = SPECIALITY_DEFAULTS[clinicForm.speciality] || { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true };
       await supabase.from('clinic_settings').insert([{
         clinic_id: clinicId,
         clinic_name: clinicForm.name,
         doctor_name: '',
         speciality: clinicForm.speciality,
+        modules: defaultModules,
       }]).select();
       toast.success(`Clinic "${clinicForm.name}" created!`);
       setShowAddClinic(false);
@@ -328,9 +322,17 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   const toggleModule = async (clinic: Clinic, key: string) => {
     const updated = { ...clinic.modules, [key]: !clinic.modules[key] };
+    // Save to clinics table (primary source)
     await supabase.from('clinics').update({ modules: updated }).eq('id', clinic.id);
+    // Sync to clinic_settings — strategy 1: direct clinic_id match (new-style clinics)
+    await supabase.from('clinic_settings').update({ modules: updated }).eq('clinic_id', clinic.id);
+    // Sync to clinic_settings — strategy 2: exact name match (legacy clinics with ID mismatch)
+    await supabase.from('clinic_settings').update({ modules: updated }).eq('clinic_name', clinic.name);
+    // Sync to clinic_settings — strategy 3: partial name match as last resort
+    await supabase.from('clinic_settings').update({ modules: updated }).ilike('clinic_name', `%${clinic.name}%`);
     setClinics(prev => prev.map(c => c.id===clinic.id ? {...c,modules:updated} : c));
     if (selectedClinic?.id===clinic.id) setSelectedClinic(prev => prev ? {...prev,modules:updated} : prev);
+    toast.success('Module updated');
   };
 
   const toggleUser = async (u: ClinicUser) => {
@@ -358,7 +360,6 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   };
 
   const orgClinics = (orgId: string) => clinics.filter(c => c.org_id === orgId);
-  const clinicUsers = (clinicId: string) => users.filter(u => u.clinic_id === clinicId);
 
   const NAV = [
     { id:'orgs',      label:'Organisations', icon: Building2  },

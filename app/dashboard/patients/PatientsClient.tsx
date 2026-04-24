@@ -503,7 +503,7 @@ const [search, setSearch] = useState('');
                   <div className="flex items-center justify-between">
                     <div className="text-[13px] font-medium text-navy">Growth & Vital Signs</div>
                     <button onClick={()=>setShowVitalsForm(!showVitalsForm)} className="btn-gold text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Record Vitals</button>
-                    {(modules.pain_scale||modules.rom||modules.bmi_calc||modules.anc_record||modules.surgical_history||modules.implant_tracking||modules.lmp_edd||modules.obstetric_history||modules.chronic_conditions||modules.family_history||modules.bp_history) && (
+                    {(['pain_scale','rom','bmi_calc','anc_record','surgical_history','implant_tracking','lmp_edd','obstetric_history','chronic_conditions','family_history','bp_history','ecg_findings','ejection_fraction','cardiac_risk','spo2_tracking','peak_flow','spirometry','gcs_score','nihss_score','seizure_log','hba1c_tracking','glucose_log','insulin_adjustment','phq9_score','gad7_score','session_notes','gfr_tracking','fluid_balance','cancer_staging','ecog_status','cbc_trend','das28_score','joint_map','visual_acuity','iop_tracking','audiogram','tympanometry','psa_tracking','urine_flow','abpi','skin_scoring','wound_care','drain_output','drug_compliance','device_tracking','dialysis_record'].some(k=>modules[k])) && (
                       <button onClick={()=>setShowAssessForm(!showAssessForm)} className="btn-outline text-[11px] py-1.5 px-3 gap-1"><Plus size={11}/> Clinical Assessment</button>
                     )}
                   </div>
