@@ -74,7 +74,9 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   // Forms
   const [showAddOrg, setShowAddOrg] = useState(false);
-  const [orgForm, setOrgForm] = useState({ name:'', owner_name:'', email:'', phone:'' });
+  const [orgForm, setOrgForm] = useState({ name:'', owner_name:'', email:'', phone:'', city:'', province:'', country:'Pakistan' });
+  const [showAddOwner, setShowAddOwner] = useState<string|null>(null);
+  const [ownerForm, setOwnerForm] = useState({ name:'', email:'', password:'' });
   
   const [showAddClinic, setShowAddClinic] = useState(false);
   const [clinicForm, setClinicForm] = useState({
@@ -113,9 +115,35 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const addOrg = async () => {
     if (!orgForm.name) { toast.error('Organisation name required'); return; }
     const id = orgForm.name.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,20) + '_' + Date.now().toString().slice(-4);
-    const { error } = await supabase.from('organisations').insert([{ id, ...orgForm, status:'active' }]);
+    const { error } = await supabase.from('organisations').insert([{ id, name:orgForm.name, owner_name:orgForm.owner_name, email:orgForm.email, phone:orgForm.phone, city:orgForm.city, province:orgForm.province, country:orgForm.country||'Pakistan', status:'active' }]);
     if (error) toast.error('Failed: ' + error.message);
-    else { toast.success('Organisation created!'); setShowAddOrg(false); setOrgForm({name:'',owner_name:'',email:'',phone:''}); fetchAll(); }
+    else { toast.success('Organisation created!'); setShowAddOrg(false); setOrgForm({name:'',owner_name:'',email:'',phone:'',city:'',province:'',country:'Pakistan'}); fetchAll(); }
+  };
+
+  // Add Org Owner
+  const addOwner = async (orgId: string, orgName: string) => {
+    if (!ownerForm.name || !ownerForm.email || !ownerForm.password) {
+      toast.error('Name, email and password required'); return;
+    }
+    const org = orgs.find(o => o.id === orgId);
+    const { error } = await supabase.from('logins').insert([{
+      name: ownerForm.name,
+      email: ownerForm.email.toLowerCase(),
+      password_hash: ownerForm.password,
+      user_role: 'org_owner',
+      is_active: true,
+      is_super_admin: false,
+      clinic_id: null,
+      org_id: orgId,
+      initials: ownerForm.name.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2),
+    }]);
+    if (error) toast.error('Failed: ' + error.message);
+    else {
+      toast.success(`Owner added to ${orgName}`);
+      setShowAddOwner(null);
+      setOwnerForm({ name:'', email:'', password:'' });
+      fetchAll();
+    }
   };
 
   // Add Clinic
@@ -283,6 +311,9 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                   <Input label="Owner Name" value={orgForm.owner_name} onChange={(v:string)=>setOrgForm(p=>({...p,owner_name:v}))} placeholder="Dr. Ahmed"/>
                   <Input label="Email" value={orgForm.email} onChange={(v:string)=>setOrgForm(p=>({...p,email:v}))} type="email" placeholder="admin@clinic.com"/>
                   <Input label="Phone" value={orgForm.phone} onChange={(v:string)=>setOrgForm(p=>({...p,phone:v}))} placeholder="+92..."/>
+                  <Input label="City" value={orgForm.city} onChange={(v:string)=>setOrgForm(p=>({...p,city:v}))} placeholder="e.g. Peshawar"/>
+                  <Input label="Province" value={orgForm.province} onChange={(v:string)=>setOrgForm(p=>({...p,province:v}))} placeholder="e.g. KPK"/>
+                  <Input label="Country" value={orgForm.country} onChange={(v:string)=>setOrgForm(p=>({...p,country:v}))} placeholder="Pakistan"/>
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button onClick={addOrg} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold"
@@ -356,14 +387,39 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       </div>
                       <div className="text-left">
                         <div className="text-white font-semibold text-[14px]">{org.name}</div>
-                        <div className="text-white/40 text-[11px]">{org.owner_name} · {org.email} · {oClinics.length} clinic{oClinics.length!==1?'s':''}</div>
+                        <div className="text-white/40 text-[11px]">{org.owner_name} · {org.email} · {org.city}{org.province?', '+org.province:''} · {oClinics.length} clinic{oClinics.length!==1?'s':''}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3" onClick={e=>e.stopPropagation()}>
+                      <button onClick={()=>setShowAddOwner(showAddOwner===org.id?null:org.id)}
+                        className="px-2 py-1 rounded-lg text-[10px] font-medium flex items-center gap-1"
+                        style={{ background:'rgba(201,168,76,0.15)', color:'#c9a84c', border:'1px solid rgba(201,168,76,0.3)' }}>
+                        <Plus size={10}/> Add Owner
+                      </button>
                       <StatusPill active={org.status==='active'}/>
                       {expanded ? <ChevronDown size={14} className="text-white/40"/> : <ChevronRight size={14} className="text-white/40"/>}
                     </div>
                   </button>
+
+                  {showAddOwner===org.id && (
+                    <div className="px-5 py-4 border-t" style={{ borderColor:'rgba(201,168,76,0.2)', background:'rgba(201,168,76,0.05)' }}>
+                      <div className="text-white/60 text-[12px] font-medium mb-3">Add Organisation Owner — {org.name}</div>
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <Input label="Full Name" value={ownerForm.name} onChange={(v:string)=>setOwnerForm(p=>({...p,name:v}))} placeholder="Dr. Ahmed"/>
+                        <Input label="Email" value={ownerForm.email} onChange={(v:string)=>setOwnerForm(p=>({...p,email:v}))} type="email" placeholder="owner@clinic.com"/>
+                        <Input label="Password" value={ownerForm.password} onChange={(v:string)=>setOwnerForm(p=>({...p,password:v}))} type="password" placeholder="min 6 chars"/>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={()=>addOwner(org.id, org.name)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                          style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)', color:'#0a1628' }}>
+                          <Save size={11}/> Create Owner Login
+                        </button>
+                        <button onClick={()=>setShowAddOwner(null)} className="px-3 py-1.5 rounded-lg text-[11px] text-white/40"
+                          style={{ background:'rgba(255,255,255,0.05)' }}>Cancel</button>
+                      </div>
+                    </div>
+                  )}
 
                   {expanded && (
                     <div className="border-t" style={{ borderColor:'rgba(255,255,255,0.06)' }}>
@@ -654,7 +710,8 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
         {tab==='analytics' && (
           <div className="space-y-5">
             <h1 className="text-white text-[20px] font-semibold">Analytics</h1>
-            <div className="grid grid-cols-4 gap-3">
+            {/* Summary */}
+        <div className="grid grid-cols-4 gap-3">
               {[
                 { label:'Organisations', value:orgs.length, color:'#c9a84c' },
                 { label:'Total Clinics', value:clinics.length, color:'#1a7f5e' },
@@ -667,6 +724,41 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                 </div>
               ))}
             </div>
+            {/* By Speciality */}
+            <div className="rounded-2xl p-5" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+              <div className="text-white font-semibold text-[14px] mb-4">Clinics by Speciality</div>
+              <div className="space-y-2">
+                {Object.entries(clinics.reduce((m:any,c)=>{m[c.speciality]=(m[c.speciality]||0)+1;return m;},{}))
+                  .sort((a:any,b:any)=>b[1]-a[1]).map(([spec,count]:any)=>(
+                  <div key={spec} className="flex items-center gap-3">
+                    <div className="text-[12px] text-white/60 w-36 flex-shrink-0">{spec}</div>
+                    <div className="flex-1 h-2 rounded-full" style={{ background:'rgba(255,255,255,0.06)' }}>
+                      <div className="h-full rounded-full" style={{ width:`${(count/clinics.length)*100}%`, background:'#c9a84c' }}/>
+                    </div>
+                    <div className="text-[12px] font-medium text-white/80 w-8 text-right">{count}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* By City */}
+            <div className="rounded-2xl p-5" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+              <div className="text-white font-semibold text-[14px] mb-4">Clinics by Location</div>
+              <div className="space-y-2">
+                {Object.entries(clinics.reduce((m:any,c)=>{const loc=c.city||'Unknown';m[loc]=(m[loc]||0)+1;return m;},{}))
+                  .sort((a:any,b:any)=>b[1]-a[1]).map(([city,count]:any)=>(
+                  <div key={city} className="flex items-center gap-3">
+                    <div className="text-[12px] text-white/60 w-36 flex-shrink-0">{city}</div>
+                    <div className="flex-1 h-2 rounded-full" style={{ background:'rgba(255,255,255,0.06)' }}>
+                      <div className="h-full rounded-full" style={{ width:`${(count/clinics.length)*100}%`, background:'#2b6cb0' }}/>
+                    </div>
+                    <div className="text-[12px] font-medium text-white/80 w-8 text-right">{count}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Per clinic */}
             {clinics.map(c=>{
               const org = orgs.find(o=>o.id===c.org_id);
               const cUsers = users.filter(u=>u.clinic_id===c.id);
