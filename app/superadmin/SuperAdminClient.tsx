@@ -30,39 +30,141 @@ type ClinicUser = {
 };
 
 const MODULES = [
-  { key: 'vaccines',           label: 'Vaccination Schedule',  group: 'Pediatric'    },
-  { key: 'who_charts',         label: 'WHO Growth Charts',     group: 'Pediatric'    },
-  { key: 'weight_based_dose',  label: 'Weight-based Dosing',   group: 'Pediatric'    },
-  { key: 'bmi_calc',           label: 'BMI Calculator',        group: 'GP'           },
-  { key: 'chronic_conditions', label: 'Chronic Conditions',    group: 'GP'           },
-  { key: 'bp_history',         label: 'BP History Graph',      group: 'GP'           },
-  { key: 'family_history',     label: 'Family/Social History', group: 'GP'           },
-  { key: 'pain_scale',         label: 'Pain Scale (0-10)',     group: 'Orthopedic'   },
-  { key: 'rom',                label: 'Range of Motion',       group: 'Orthopedic'   },
-  { key: 'surgical_history',   label: 'Surgical History',      group: 'Orthopedic'   },
-  { key: 'implant_tracking',   label: 'Implant Tracking',      group: 'Orthopedic'   },
-  { key: 'anc_record',         label: 'ANC Record',            group: 'Gynecology'   },
-  { key: 'lmp_edd',            label: 'LMP/EDD Calculator',    group: 'Gynecology'   },
-  { key: 'obstetric_history',  label: 'Obstetric History',     group: 'Gynecology'   },
-  { key: 'telehealth',         label: 'Telehealth',            group: 'Base'         },
-  { key: 'ai_scribe',          label: 'AI Scribe',             group: 'Base'         },
-  { key: 'lab_results',        label: 'Lab Results',           group: 'Base'         },
-  { key: 'procedures',         label: 'Procedures',            group: 'Base'         },
-  { key: 'feedback',           label: 'Feedback System',       group: 'Base'         },
+  // Base
+  { key: 'telehealth',          label: 'Telehealth',              group: 'Base'          },
+  { key: 'ai_scribe',           label: 'AI Scribe',               group: 'Base'          },
+  { key: 'lab_results',         label: 'Lab Results',             group: 'Base'          },
+  { key: 'procedures',          label: 'Procedures',              group: 'Base'          },
+  { key: 'feedback',            label: 'Feedback System',         group: 'Base'          },
+  // Pediatric
+  { key: 'vaccines',            label: 'Vaccination Schedule',    group: 'Pediatric'     },
+  { key: 'who_charts',          label: 'WHO Growth Charts',       group: 'Pediatric'     },
+  { key: 'weight_based_dose',   label: 'Weight-based Dosing',     group: 'Pediatric'     },
+  // GP / Internal Medicine
+  { key: 'bmi_calc',            label: 'BMI Calculator',          group: 'Medicine'      },
+  { key: 'chronic_conditions',  label: 'Chronic Conditions',      group: 'Medicine'      },
+  { key: 'bp_history',          label: 'BP History Graph',        group: 'Medicine'      },
+  { key: 'family_history',      label: 'Family/Social History',   group: 'Medicine'      },
+  { key: 'drug_compliance',     label: 'Drug Compliance',         group: 'Medicine'      },
+  // Cardiology
+  { key: 'ecg_findings',        label: 'ECG Findings',            group: 'Cardiology'    },
+  { key: 'ejection_fraction',   label: 'Ejection Fraction (EF%)', group: 'Cardiology'    },
+  { key: 'cardiac_risk',        label: 'Cardiac Risk Score',      group: 'Cardiology'    },
+  { key: 'device_tracking',     label: 'Pacemaker/Device Track',  group: 'Cardiology'    },
+  // Pulmonology
+  { key: 'peak_flow',           label: 'Peak Flow Rate',          group: 'Pulmonology'   },
+  { key: 'spo2_tracking',       label: 'SpO2 Tracking',           group: 'Pulmonology'   },
+  { key: 'spirometry',          label: 'Spirometry Results',      group: 'Pulmonology'   },
+  // Neurology
+  { key: 'gcs_score',           label: 'GCS Score',               group: 'Neurology'     },
+  { key: 'nihss_score',         label: 'NIHSS Stroke Score',      group: 'Neurology'     },
+  { key: 'seizure_log',         label: 'Seizure Log',             group: 'Neurology'     },
+  // Gastroenterology
+  { key: 'endoscopy_findings',  label: 'Endoscopy Findings',      group: 'Gastro'        },
+  { key: 'liver_function',      label: 'Liver Function Track',    group: 'Gastro'        },
+  // Nephrology
+  { key: 'gfr_tracking',        label: 'GFR Tracking',            group: 'Nephrology'    },
+  { key: 'dialysis_record',     label: 'Dialysis Record',         group: 'Nephrology'    },
+  { key: 'fluid_balance',       label: 'Fluid Balance',           group: 'Nephrology'    },
+  // Endocrinology
+  { key: 'hba1c_tracking',      label: 'HbA1c Tracking',         group: 'Endocrinology' },
+  { key: 'glucose_log',         label: 'Blood Glucose Log',       group: 'Endocrinology' },
+  { key: 'insulin_adjustment',  label: 'Insulin Dose Adjust',     group: 'Endocrinology' },
+  // Psychiatry
+  { key: 'phq9_score',          label: 'PHQ-9 Depression Score',  group: 'Psychiatry'    },
+  { key: 'gad7_score',          label: 'GAD-7 Anxiety Score',     group: 'Psychiatry'    },
+  { key: 'session_notes',       label: 'Session Notes',           group: 'Psychiatry'    },
+  // Dermatology
+  { key: 'skin_scoring',        label: 'PASI/SCORAD Score',       group: 'Dermatology'   },
+  { key: 'patch_test',          label: 'Patch Test Results',      group: 'Dermatology'   },
+  { key: 'phototherapy',        label: 'Phototherapy Record',     group: 'Dermatology'   },
+  // Oncology
+  { key: 'cancer_staging',      label: 'Cancer Staging (TNM)',    group: 'Oncology'      },
+  { key: 'chemo_cycles',        label: 'Chemo Cycles',            group: 'Oncology'      },
+  { key: 'tumor_markers',       label: 'Tumor Markers',           group: 'Oncology'      },
+  { key: 'ecog_status',         label: 'ECOG Performance Status', group: 'Oncology'      },
+  // Hematology
+  { key: 'cbc_trend',           label: 'CBC Trend',               group: 'Hematology'    },
+  { key: 'transfusion_record',  label: 'Transfusion Record',      group: 'Hematology'    },
+  { key: 'coagulation',         label: 'Coagulation Profile',     group: 'Hematology'    },
+  // Rheumatology
+  { key: 'das28_score',         label: 'DAS28 Score',             group: 'Rheumatology'  },
+  { key: 'joint_map',           label: 'Joint Involvement Map',   group: 'Rheumatology'  },
+  { key: 'biologic_therapy',    label: 'Biologic Therapy',        group: 'Rheumatology'  },
+  // Orthopedic
+  { key: 'pain_scale',          label: 'Pain Scale (0-10)',       group: 'Orthopedic'    },
+  { key: 'rom',                 label: 'Range of Motion',         group: 'Orthopedic'    },
+  { key: 'surgical_history',    label: 'Surgical History',        group: 'Orthopedic'    },
+  { key: 'implant_tracking',    label: 'Implant Tracking',        group: 'Orthopedic'    },
+  // General Surgery
+  { key: 'preop_assessment',    label: 'Pre-op Assessment',       group: 'Surgery'       },
+  { key: 'operative_findings',  label: 'Operative Findings',      group: 'Surgery'       },
+  { key: 'wound_care',          label: 'Wound Care Notes',        group: 'Surgery'       },
+  { key: 'drain_output',        label: 'Drain Output',            group: 'Surgery'       },
+  // Urology
+  { key: 'psa_tracking',        label: 'PSA Tracking',            group: 'Urology'       },
+  { key: 'urine_flow',          label: 'Urine Flow Rate',         group: 'Urology'       },
+  { key: 'stone_tracking',      label: 'Stone Size/Location',     group: 'Urology'       },
+  { key: 'cystoscopy',          label: 'Cystoscopy Findings',     group: 'Urology'       },
+  // Ophthalmology
+  { key: 'visual_acuity',       label: 'Visual Acuity',           group: 'Ophthalmology' },
+  { key: 'iop_tracking',        label: 'IOP Tracking',            group: 'Ophthalmology' },
+  { key: 'refraction',          label: 'Refraction Details',      group: 'Ophthalmology' },
+  { key: 'fundus_findings',     label: 'Fundus Findings',         group: 'Ophthalmology' },
+  // ENT
+  { key: 'audiogram',           label: 'Audiogram Results',       group: 'ENT'           },
+  { key: 'pta',                 label: 'Pure Tone Audiometry',    group: 'ENT'           },
+  { key: 'tympanometry',        label: 'Tympanometry',            group: 'ENT'           },
+  { key: 'ent_endoscopy',       label: 'ENT Endoscopy',           group: 'ENT'           },
+  // Gynecology
+  { key: 'anc_record',          label: 'ANC Record',              group: 'Gynecology'    },
+  { key: 'lmp_edd',             label: 'LMP/EDD Calculator',      group: 'Gynecology'    },
+  { key: 'obstetric_history',   label: 'Obstetric History',       group: 'Gynecology'    },
+  { key: 'gyne_endoscopy',      label: 'Gynae Endoscopy',         group: 'Gynecology'    },
+  // Neurosurgery
+  { key: 'icp_monitoring',      label: 'ICP Monitoring',          group: 'Neurosurgery'  },
+  { key: 'shunt_details',       label: 'Shunt Details',           group: 'Neurosurgery'  },
+  // Vascular Surgery
+  { key: 'abpi',                label: 'ABPI',                    group: 'Vascular'      },
+  { key: 'doppler_findings',    label: 'Doppler Findings',        group: 'Vascular'      },
+  { key: 'wound_grading',       label: 'Wound Grading',           group: 'Vascular'      },
+  // Dentistry
+  { key: 'dental_chart',        label: 'Dental Chart (32 teeth)', group: 'Dentistry'     },
+  { key: 'perio_charting',      label: 'Periodontal Charting',    group: 'Dentistry'     },
+  { key: 'treatment_plan',      label: 'Treatment Plan per Tooth',group: 'Dentistry'     },
 ];
 
 // Default modules per speciality
 const SPECIALITY_DEFAULTS: Record<string, Record<string,boolean>> = {
-  'Pediatrics':       { vaccines:true, who_charts:true, weight_based_dose:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, bmi_calc:false, chronic_conditions:false, bp_history:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
-  'General Practice': { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:true, chronic_conditions:true, bp_history:true, family_history:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false },
-  'Orthopedics':      { pain_scale:true, rom:true, surgical_history:true, implant_tracking:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, chronic_conditions:false, bp_history:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
-  'Gynecology':       { anc_record:true, lmp_edd:true, obstetric_history:true, bmi_calc:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, chronic_conditions:false, bp_history:false, family_history:false },
-  'Cardiology':       { bp_history:true, chronic_conditions:true, bmi_calc:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:true },
-  'Dermatology':      { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, chronic_conditions:false, bp_history:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
-  'ENT':              { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, chronic_conditions:false, bp_history:false, pain_scale:true, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
+  'Pediatrics':        { vaccines:true, who_charts:true, weight_based_dose:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'General Practice':  { bmi_calc:true, chronic_conditions:true, bp_history:true, family_history:true, drug_compliance:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Internal Medicine': { bmi_calc:true, chronic_conditions:true, bp_history:true, family_history:true, drug_compliance:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Cardiology':        { ecg_findings:true, ejection_fraction:true, cardiac_risk:true, device_tracking:true, bp_history:true, chronic_conditions:true, bmi_calc:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Pulmonology':       { peak_flow:true, spo2_tracking:true, spirometry:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Neurology':         { gcs_score:true, nihss_score:true, seizure_log:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Gastroenterology':  { endoscopy_findings:true, liver_function:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Nephrology':        { gfr_tracking:true, dialysis_record:true, fluid_balance:true, bp_history:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Endocrinology':     { hba1c_tracking:true, glucose_log:true, insulin_adjustment:true, bmi_calc:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Psychiatry':        { phq9_score:true, gad7_score:true, session_notes:true, telehealth:true, ai_scribe:true, feedback:true },
+  'Dermatology':       { skin_scoring:true, patch_test:true, phototherapy:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Oncology':          { cancer_staging:true, chemo_cycles:true, tumor_markers:true, ecog_status:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Hematology':        { cbc_trend:true, transfusion_record:true, coagulation:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Rheumatology':      { das28_score:true, joint_map:true, biologic_therapy:true, chronic_conditions:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
+  'Orthopedics':       { pain_scale:true, rom:true, surgical_history:true, implant_tracking:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true },
+  'General Surgery':   { preop_assessment:true, operative_findings:true, wound_care:true, drain_output:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Neurosurgery':      { gcs_score:true, icp_monitoring:true, shunt_details:true, preop_assessment:true, operative_findings:true, procedures:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Urology':           { psa_tracking:true, urine_flow:true, stone_tracking:true, cystoscopy:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Ophthalmology':     { visual_acuity:true, iop_tracking:true, refraction:true, fundus_findings:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true },
+  'ENT':               { audiogram:true, pta:true, tympanometry:true, ent_endoscopy:true, pain_scale:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Gynecology':        { anc_record:true, lmp_edd:true, obstetric_history:true, gyne_endoscopy:true, bmi_calc:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Cardiothoracic':    { ecg_findings:true, ejection_fraction:true, preop_assessment:true, operative_findings:true, procedures:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Vascular Surgery':  { abpi:true, doppler_findings:true, wound_grading:true, pain_scale:true, procedures:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Plastic Surgery':   { wound_care:true, preop_assessment:true, operative_findings:true, procedures:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Dentistry':         { dental_chart:true, perio_charting:true, treatment_plan:true, procedures:true, ai_scribe:true, lab_results:true, feedback:true },
+  'Other':             { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
 };
 
-const SPECIALITIES = ['Pediatrics','General Practice','Orthopedics','Gynecology','Cardiology','Dermatology','ENT','Neurology','Other'];
+const SPECIALITIES = ['Pediatrics','General Practice','Internal Medicine','Cardiology','Pulmonology','Neurology','Gastroenterology','Nephrology','Endocrinology','Psychiatry','Dermatology','Oncology','Hematology','Rheumatology','Orthopedics','General Surgery','Neurosurgery','Cardiothoracic','Urology','Ophthalmology','ENT','Gynecology','Vascular Surgery','Plastic Surgery','Dentistry','Other'];
 const ROLES = ['org_owner','doctor_admin','admin','doctor','receptionist'];
 
 function StatusPill({ active }: { active: boolean }) {
@@ -714,7 +816,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                     <div className="text-white/40 text-[12px]">{selectedClinic.speciality}</div>
                   </div>
                 </div>
-                {['Pediatric','GP','Orthopedic','Gynecology','Base'].map(group=>(
+                {['Base','Pediatric','Medicine','Cardiology','Pulmonology','Neurology','Gastro','Nephrology','Endocrinology','Psychiatry','Dermatology','Oncology','Hematology','Rheumatology','Orthopedic','Surgery','Urology','Ophthalmology','ENT','Gynecology','Neurosurgery','Vascular','Dentistry'].map(group=>(
                   <div key={group} className="mb-4">
                     <div className="text-[10px] text-white/30 uppercase tracking-widest font-medium mb-2 px-1">{group==='GP'?'General Practice':group} Features</div>
                     <div className="grid grid-cols-2 gap-2">
