@@ -99,7 +99,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   // ── Billing from Supabase ─────────────────────────────────────────────────
   const [invoices, setInvoices] = useState<ReturnType<typeof mapDbInvoice>[]>([]);
-  const { clinicId, isSuperAdmin } = useClinic();
+  const { clinicId, isSuperAdmin, role } = useClinic();
 
   useEffect(() => {
     const fetchBilling = async () => {
@@ -272,8 +272,15 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     setTimeout(() => w.print(), 600);
   };
 
-  const tabs = ['overview','monthly','patients','trends','billing','aging','expenses'] as const;
-  const tabLabels = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues', expenses:'Expenses' };
+  // Revenue & financial tabs restricted to super_admin, org_owner, doctor_admin, doctor
+  const canSeeFinancials = ['super_admin','org_owner','doctor_admin','doctor'].includes(role);
+  const allTabs = ['overview','monthly','patients','trends','billing','aging','expenses'] as const;
+  const tabs = allTabs.filter(t => {
+    if ((t === 'billing' || t === 'expenses') && !canSeeFinancials) return false;
+    return true;
+  });
+  type TabKey = typeof allTabs[number];
+  const tabLabels: Record<TabKey, string> = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues', expenses:'Expenses' };
   const safeReasons = reasons||[];
   const safeAges    = ages||[];
 
@@ -357,7 +364,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             </div>
           </div>
 
-          <div>
+          {canSeeFinancials && <div>
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Billing</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               {[
@@ -384,7 +391,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                 <div className="text-[10px] text-purple-600">{procedureInvoices.length} invoices</div>
               </div>
             </div>
-          </div>
+          </div>}
 
         </div>
       </div>
@@ -402,20 +409,22 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       {/* ── OVERVIEW ── */}
       {activeTab==='overview' && (
         <div className="space-y-5">
-          {/* Financial Summary Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {label:'Total Revenue',  val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#f0fdf4'},
-              {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
-              {label:'Net Profit',     val:`PKR ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
-              {label:'Outstanding',    val:`PKR ${totalPending.toLocaleString()}`,  color:'#d97706', bg:'#fefce8'},
-            ].map(s=>(
-              <div key={s.label} className="card p-4">
-                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
-                <div className="text-[20px] font-bold" style={{color:s.color}}>{s.val}</div>
-              </div>
-            ))}
-          </div>
+          {/* Financial Summary Row — only for roles with financial access */}
+          {canSeeFinancials && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                {label:'Total Revenue',  val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#f0fdf4'},
+                {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+                {label:'Net Profit',     val:`PKR ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
+                {label:'Outstanding',    val:`PKR ${totalPending.toLocaleString()}`,  color:'#d97706', bg:'#fefce8'},
+              ].map(s=>(
+                <div key={s.label} className="card p-4">
+                  <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
+                  <div className="text-[20px] font-bold" style={{color:s.color}}>{s.val}</div>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="card animate-in">
               <div className="px-5 py-4 border-b border-black/5 font-medium text-navy text-[14px]">Monthly Volume</div>

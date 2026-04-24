@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Topbar from '@/components/layout/Topbar';
 import { useSession } from 'next-auth/react';
 import { Plus, Trash2, RefreshCw, Shield, UserCheck, Users, Save, X, Eye, EyeOff } from 'lucide-react';
@@ -42,9 +43,17 @@ const PERMS = [
 
 const emptyForm = () => ({ name:'', email:'', password:'', role:'receptionist', initials:'' , active:true });
 
+const ALLOWED = ['super_admin','org_owner','doctor_admin','doctor'];
+
 export default function SettingsPage() {
+  const router = useRouter();
   const { data: session } = useSession();
-  const isAdmin = (session?.user as any)?.role === 'admin';
+  const role    = (session?.user as any)?.role;
+  const isAdmin = role === 'admin';
+
+  useEffect(() => {
+    if (session && !ALLOWED.includes(role)) router.replace('/dashboard');
+  }, [session, role, router]);
 
   const [users,    setUsers]    = useState<UserRow[]>([]);
   const [loading,  setLoading]  = useState(false);
