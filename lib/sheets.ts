@@ -309,7 +309,7 @@ export async function syncHealthToDb(
 export async function syncVitalsToDb(
   mrNumber: string,
   childName: string,
-  vitals: { weight?: string; height?: string; bp?: string; pulse?: string; temperature?: string; recordedAt?: string },
+  vitals: { weight?: string; height?: string; bp?: string; pulse?: string; temperature?: string; recordedAt?: string; pain_scale?: any; rom_flexion?: any; rom_extension?: any; fundal_height?: any; fhr?: any; [key: string]: any },
   clinicId?: string
 ): Promise<void> {
   try {
