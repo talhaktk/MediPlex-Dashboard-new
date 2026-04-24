@@ -622,7 +622,7 @@ const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as 
                       className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Parent / Guardian Name *</label>
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">{terminology.guardian} Name *</label>
                     <input type="text" placeholder="Parent name"
                       value={addForm.parent_name}
                       onChange={e => setAddForm(p => ({ ...p, parent_name: e.target.value }))}
