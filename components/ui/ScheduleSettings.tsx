@@ -25,7 +25,7 @@ export default function ScheduleSettings() {
   });
 
   useEffect(() => {
-    supabase.from('clinic_settings').select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days').eq('id',1).maybeSingle()
+    supabase.from('clinic_settings').select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days').eq('clinic_id', clinicId||'').maybeSingle()
       .then(({ data }) => {
         if (data) setForm(p => ({...p, ...data}));
         setLoading(false);
@@ -64,7 +64,8 @@ export default function ScheduleSettings() {
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase.from('clinic_settings').update({
+    const { data: ex } = await supabase.from('clinic_settings').select('id').eq('clinic_id',clinicId||'').maybeSingle();
+    let serr; if(ex?.id) { ({error: serr} = await supabase.from('clinic_settings').update({
       morning_start: form.morning_start,
       morning_end: form.morning_end,
       evening_start: form.evening_start,
@@ -73,7 +74,8 @@ export default function ScheduleSettings() {
       max_per_slot: form.max_per_slot,
       working_days: form.working_days,
       updated_at: new Date().toISOString(),
-    }).eq('id', 1);
+    }).eq('id', ex.id)); } else { ({error: serr} = await supabase.from('clinic_settings').insert([{clinic_id:clinicId||null, ...form, updated_at:new Date().toISOString()}])); }
+    const error = serr;
     setSaving(false);
     if (error) { toast.error('Failed: ' + error.message); return; }
     setSaved(true);

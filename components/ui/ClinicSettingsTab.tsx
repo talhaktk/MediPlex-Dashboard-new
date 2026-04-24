@@ -33,7 +33,14 @@ export default function ClinicSettingsTab() {
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase.from('clinic_settings').upsert([{ id: clinicId ? undefined : 1, clinic_id: clinicId || null, ...form, updated_at: new Date().toISOString() }], { onConflict: clinicId ? 'clinic_id' : 'id' });
+    // Check if settings exist for this clinic
+    const { data: existing } = await supabase.from('clinic_settings').select('id').eq('clinic_id', clinicId||'').maybeSingle();
+    let error;
+    if (existing?.id) {
+      ({ error } = await supabase.from('clinic_settings').update({ ...form, updated_at: new Date().toISOString() }).eq('id', existing.id));
+    } else {
+      ({ error } = await supabase.from('clinic_settings').insert([{ clinic_id: clinicId||null, ...form, updated_at: new Date().toISOString() }]));
+    }
     setSaving(false);
     if (error) { toast.error('Failed to save: ' + error.message); return; }
     setSaved(true);
