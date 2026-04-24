@@ -44,19 +44,21 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const clinicId = user?.clinicId;
-    if (!clinicId) { setModules({}); return; }
+    if (!clinicId) { setModules({}); setSpeciality(''); return; }
 
     const load = async () => {
       // 1. clinic_settings.modules — most reliable: clinic_settings.clinic_id = logins.clinic_id (JWT)
       //    Uses select('*') so it gracefully handles the case where modules column doesn't exist yet
       const { data: settings } = await sb
         .from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle();
+      if (settings?.speciality) setSpeciality(settings.speciality);
       if (settings?.modules && Object.keys(settings.modules).length > 0) {
         setModules(settings.modules); return;
       }
 
       // 2. Direct match: clinics.id = clinicId (works for new-style clinics)
-      const { data: direct } = await sb.from('clinics').select('modules').eq('id', clinicId).maybeSingle();
+      const { data: direct } = await sb.from('clinics').select('modules, speciality').eq('id', clinicId).maybeSingle();
+      if (direct?.speciality && !speciality) setSpeciality(direct.speciality);
       if (direct?.modules && Object.keys(direct.modules).length > 0) {
         setModules(direct.modules); return;
       }
@@ -85,7 +87,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       }
 
       // 4. Last resort: SPECIALITY_DEFAULTS keyed by speciality
-      const key = (settings?.speciality || '').toLowerCase();
+      const spec = settings?.speciality || '';
+      if (spec && !speciality) setSpeciality(spec);
+      const key = spec.toLowerCase();
       const defaults = SPECIALITY_DEFAULTS[key];
       if (defaults) setModules(defaults);
     };
