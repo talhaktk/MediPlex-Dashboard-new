@@ -1,10 +1,14 @@
-import { fetchAppointmentsFromSheet } from '@/lib/sheets';
+import { fetchAppointmentsFromDb } from '@/lib/sheets';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
 
 export const revalidate = 60;
 
 export default async function RemindersPage() {
-  const data       = await fetchAppointmentsFromSheet();
+  const session = await getServerSession(authOptions);
+  const clinicId = (session?.user as any)?.clinicId || null;
+  const data = await fetchAppointmentsFromDb(clinicId);
   const clinicName = process.env.NEXT_PUBLIC_CLINIC_NAME || 'MediPlex Pediatric Clinic';
   const { createClient } = await import('@supabase/supabase-js');
   const sb2 = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {auth:{persistSession:false}});

@@ -1,4 +1,6 @@
-import { fetchAppointmentsFromSheet } from '@/lib/sheets';
+import { fetchAppointmentsFromDb } from '@/lib/sheets';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
 import PrescriptionClient from './PrescriptionClient';
 
@@ -8,7 +10,9 @@ export default async function PrescriptionPage() {
   const { createClient } = await import('@supabase/supabase-js');
   const sb3 = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {auth:{persistSession:false}});
   const { data: cs3 } = await sb3.from('clinic_settings').select('doctor_name,clinic_name,clinic_phone,clinic_address').eq('id',1).maybeSingle();
-  const data = await fetchAppointmentsFromSheet();
+  const session = await getServerSession(authOptions);
+  const clinicId = (session?.user as any)?.clinicId || null;
+  const data = await fetchAppointmentsFromDb(clinicId);
   return (
     <>
       <Topbar title="Prescription Pad" subtitle="Write and print digital prescriptions" />
