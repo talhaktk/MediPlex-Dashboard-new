@@ -30,14 +30,37 @@ type ClinicUser = {
 };
 
 const MODULES = [
-  { key: 'vaccines',    label: 'Vaccination Schedule' },
-  { key: 'who_charts',  label: 'WHO Growth Charts'    },
-  { key: 'telehealth',  label: 'Telehealth'           },
-  { key: 'ai_scribe',   label: 'AI Scribe'            },
-  { key: 'lab_results', label: 'Lab Results'          },
-  { key: 'procedures',  label: 'Procedures'           },
-  { key: 'feedback',    label: 'Feedback System'      },
+  { key: 'vaccines',           label: 'Vaccination Schedule',  group: 'Pediatric'    },
+  { key: 'who_charts',         label: 'WHO Growth Charts',     group: 'Pediatric'    },
+  { key: 'weight_based_dose',  label: 'Weight-based Dosing',   group: 'Pediatric'    },
+  { key: 'bmi_calc',           label: 'BMI Calculator',        group: 'GP'           },
+  { key: 'chronic_conditions', label: 'Chronic Conditions',    group: 'GP'           },
+  { key: 'bp_history',         label: 'BP History Graph',      group: 'GP'           },
+  { key: 'family_history',     label: 'Family/Social History', group: 'GP'           },
+  { key: 'pain_scale',         label: 'Pain Scale (0-10)',     group: 'Orthopedic'   },
+  { key: 'rom',                label: 'Range of Motion',       group: 'Orthopedic'   },
+  { key: 'surgical_history',   label: 'Surgical History',      group: 'Orthopedic'   },
+  { key: 'implant_tracking',   label: 'Implant Tracking',      group: 'Orthopedic'   },
+  { key: 'anc_record',         label: 'ANC Record',            group: 'Gynecology'   },
+  { key: 'lmp_edd',            label: 'LMP/EDD Calculator',    group: 'Gynecology'   },
+  { key: 'obstetric_history',  label: 'Obstetric History',     group: 'Gynecology'   },
+  { key: 'telehealth',         label: 'Telehealth',            group: 'Base'         },
+  { key: 'ai_scribe',          label: 'AI Scribe',             group: 'Base'         },
+  { key: 'lab_results',        label: 'Lab Results',           group: 'Base'         },
+  { key: 'procedures',         label: 'Procedures',            group: 'Base'         },
+  { key: 'feedback',           label: 'Feedback System',       group: 'Base'         },
 ];
+
+// Default modules per speciality
+const SPECIALITY_DEFAULTS: Record<string, Record<string,boolean>> = {
+  'Pediatrics':       { vaccines:true, who_charts:true, weight_based_dose:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, bmi_calc:false, chronic_conditions:false, bp_history:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
+  'General Practice': { vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:true, chronic_conditions:true, bp_history:true, family_history:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false },
+  'Orthopedics':      { pain_scale:true, rom:true, surgical_history:true, implant_tracking:true, procedures:true, telehealth:true, ai_scribe:true, lab_results:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, chronic_conditions:false, bp_history:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
+  'Gynecology':       { anc_record:true, lmp_edd:true, obstetric_history:true, bmi_calc:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, chronic_conditions:false, bp_history:false, family_history:false },
+  'Cardiology':       { bp_history:true, chronic_conditions:true, bmi_calc:true, telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:true },
+  'Dermatology':      { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, chronic_conditions:false, bp_history:false, pain_scale:false, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
+  'ENT':              { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true, vaccines:false, who_charts:false, weight_based_dose:false, bmi_calc:false, chronic_conditions:false, bp_history:false, pain_scale:true, rom:false, surgical_history:false, implant_tracking:false, anc_record:false, lmp_edd:false, obstetric_history:false, family_history:false },
+};
 
 const SPECIALITIES = ['Pediatrics','General Practice','Orthopedics','Gynecology','Cardiology','Dermatology','ENT','Neurology','Other'];
 const ROLES = ['org_owner','doctor_admin','admin','doctor','receptionist'];
@@ -691,8 +714,11 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                     <div className="text-white/40 text-[12px]">{selectedClinic.speciality}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {MODULES.map(mod=>{
+                {['Pediatric','GP','Orthopedic','Gynecology','Base'].map(group=>(
+                  <div key={group} className="mb-4">
+                    <div className="text-[10px] text-white/30 uppercase tracking-widest font-medium mb-2 px-1">{group==='GP'?'General Practice':group} Features</div>
+                    <div className="grid grid-cols-2 gap-2">
+                  {MODULES.filter(m=>m.group===group).map(mod=>{
                     const enabled = selectedClinic.modules?.[mod.key]??false;
                     return (
                       <button key={mod.key} onClick={()=>toggleModule(selectedClinic,mod.key)}
@@ -708,7 +734,9 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       </button>
                     );
                   })}
-                </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
