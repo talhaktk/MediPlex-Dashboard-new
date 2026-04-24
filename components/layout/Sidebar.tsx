@@ -56,6 +56,7 @@ export default function Sidebar() {
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
   const name = user?.name || doctorName || 'Doctor';
   const role = user?.role ?? 'admin';
+  const { modules } = useClinic();
   const dbInitials = (doctorName || name).replace(/^Dr\.?\s*/i,'').split(' ').map((n:string) => n[0]||'').join('').toUpperCase().slice(0,2) || 'DR';
   const initials = user?.initials ?? dbInitials;
   const roleLabel = role === 'admin' ? 'Admin' : role === 'doctor' ? 'Doctor' : role === 'receptionist' ? 'Receptionist' : 'Staff';
