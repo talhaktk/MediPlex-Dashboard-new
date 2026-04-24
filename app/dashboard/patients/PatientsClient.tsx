@@ -186,7 +186,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
     setNewVitals({ weight:'', height:'', bp:'', pulse:'', temperature:'', recordedAt:new Date().toISOString().split('T')[0] });
     setShowVitalsForm(false);
     toast.success('Vitals recorded');
-    await syncVitalsToDb(selected.mrNumber, selected.name, vitalsRecord);
+    await syncVitalsToDb(selected.mrNumber, selected.name, vitalsRecord, clinicId || undefined);
     const vq = selected.mrNumber
       ? supabase.from('patient_vitals').select('*').eq('mr_number', selected.mrNumber)
       : supabase.from('patient_vitals').select('*').ilike('child_name', selected.name);
@@ -613,7 +613,7 @@ export default function PatientsClient({ data }: { data: Appointment[] }) {
                               const apt=selected.visits.find(v=>v.appointmentDate===procedureForm.date);
                               const row:Record<string,any>={id,mr_number:selected.mrNumber||null,child_name:selected.name,parent_name:selected.parentName,appointment_id:apt?.id||null,appointment_date:procedureForm.date,date:procedureForm.date};
                               ['procedure_name','procedure_type','tier','indication','site','laterality','anaesthesia_type','anaesthesia_agent','equipment','technique','specimen_collected','consent_obtained','start_time','end_time','ebl','cpt_code','icd10_code','immediate_outcome','complications','patient_tolerance','performed_by','notes','additional_notes','status'].forEach(k=>{if(procedureForm[k])row[k]=procedureForm[k];});
-                              await supabase.from('procedures').insert([row]);
+                              await supabase.from('procedures').insert([{...row, clinic_id: clinicId || null}]);
                               setProcedures(prev=>[{...row,created_at:new Date().toISOString()},...prev]);
                               setShowProcedureForm(false);toast.success('Procedure saved');
                             }catch(err:any){toast.error('Failed: '+err.message);}
