@@ -52,9 +52,6 @@ export default function Sidebar() {
     window.addEventListener('clinic-settings-saved', fetchSettings);
     return () => window.removeEventListener('clinic-settings-saved', fetchSettings);
   }, [fetchSettings]);
-  const pathname = usePathname();
-  const router = useRouter();
-  const { data: session } = useSession();
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
   const name = user?.name || doctorName || 'Doctor';
   const role = user?.role ?? 'admin';
