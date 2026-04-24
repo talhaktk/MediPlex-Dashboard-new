@@ -8,6 +8,7 @@ interface ClinicContextType {
   orgId: string | null;
   isSuperAdmin: boolean;
   role: string;
+  isOrgOwner: boolean;
 }
 
 const ClinicContext = createContext<ClinicContextType>({
@@ -15,6 +16,7 @@ const ClinicContext = createContext<ClinicContextType>({
   orgId: null,
   isSuperAdmin: false,
   role: 'receptionist',
+  isOrgOwner: false,
 });
 
 export function ClinicProvider({ children }: { children: ReactNode }) {
@@ -26,6 +28,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       orgId:        user?.orgId        || null,
       isSuperAdmin: user?.isSuperAdmin || false,
       role:         user?.role         || 'receptionist',
+      isOrgOwner:   user?.role === 'org_owner',
     }}>
       {children}
     </ClinicContext.Provider>
@@ -35,8 +38,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 export const useClinic = () => useContext(ClinicContext);
 
 // Helper to add clinic_id filter to any supabase query
-export function withClinicFilter(query: any, clinicId: string | null, isSuperAdmin: boolean) {
-  if (isSuperAdmin || !clinicId) return query;
+export function withClinicFilter(query: any, clinicId: string | null, isSuperAdmin: boolean, role?: string, orgId?: string | null) {
+  if (isSuperAdmin) return query; // sees everything
+  if (role === 'org_owner' && orgId) return query; // org owner sees all their clinics - filter by org_id separately
+  if (!clinicId) return query;
   return query.eq('clinic_id', clinicId);
 }
 
