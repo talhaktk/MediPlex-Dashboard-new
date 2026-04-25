@@ -1,11 +1,52 @@
 'use client';
 
 import { Bell, Search, RefreshCw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useSession } from 'next-auth/react';
+
 import { format } from 'date-fns';
 
 export default function Topbar({ title, subtitle }: { title: string; subtitle?: string }) {
   const [now, setNow] = useState(new Date());
+  const { data: session } = useSession();
+  const clinicId = (session?.user as any)?.clinicId;
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    const fetchNotifs = () => {
+      supabase.from('notifications').select('*').eq('clinic_id', clinicId).eq('is_read', false)
+        .order('created_at',{ascending:false}).limit(10)
+        .then(({data}) => setNotifications(data||[]));
+    };
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 60000);
+    return () => clearInterval(interval);
+  }, [clinicId]);
+
+  const markRead = async (id: number) => {
+    await supabase.from('notifications').update({is_read:true}).eq('id', id);
+    setNotifications(prev => prev.filter(n=>n.id!==id));
+  };
+
+  const markAllRead = async () => {
+    if (!clinicId) return;
+    await supabase.from('notifications').update({is_read:true}).eq('clinic_id', clinicId);
+    setNotifications([]);
+    setShowNotifs(false);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
   const [doctorName, setDoctorName] = useState('Doctor');
   const [initials, setInitials] = useState('DR');
 

@@ -204,7 +204,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const [mediplexExpenses, setMediplexExpenses] = useState<any[]>([]);
   const [showAddSub, setShowAddSub] = useState<string|null>(null);
   const [showAddMExp, setShowAddMExp] = useState(false);
-  const [subForm, setSubForm] = useState({plan_name:'Standard',price_monthly:'15000',currency:'PKR',start_date:'',next_billing:'',notes:''});
+  const [subForm, setSubForm] = useState({plan_name:'Standard',price_monthly:'15000',currency:'PKR',start_date:'',next_billing:'',notes:'',ai_scribe_limit:'100'});
   const [mexpForm, setMexpForm] = useState({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''});
   const [ownerForm, setOwnerForm] = useState({ name:'', email:'', password:'' });
   
@@ -977,6 +977,8 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
               {[
                 { label:'Monthly Recurring Revenue', value:`PKR ${subscriptions.filter(s=>s.status==='active'&&s.currency==='PKR').reduce((s,sub)=>s+Number(sub.price_monthly||0),0).toLocaleString()}`, color:'#1a7f5e' },
                 { label:'Active Subscriptions', value:subscriptions.filter(s=>s.status==='active').length, color:'#c9a84c' },
+                { label:'Near Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=(s.ai_scribe_limit*0.8)&&s.ai_scribe_used<s.ai_scribe_limit).length, color:'#d97706' },
+                { label:'Over Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=s.ai_scribe_limit&&s.ai_scribe_limit>0).length, color:'#dc2626' },
                 { label:'Total Clients', value:clinics.length, color:'#2b6cb0' },
               ].map(s=>(
                 <div key={s.label} className="rounded-xl p-4" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)'}}>
@@ -1041,7 +1043,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
               <table className="w-full">
                 <thead>
                   <tr style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
-                    {['Clinic','Plan','Price/Month','Currency','Next Billing','Status','Actions'].map(h=>(
+                    {['Clinic','Plan','Price/Month','Currency','Next Billing','AI Usage','Status','Actions'].map(h=>(
                       <th key={h} className="px-4 py-3 text-left text-[10px] text-white/30 uppercase tracking-widest">{h}</th>
                     ))}
                   </tr>
@@ -1060,16 +1062,41 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                         <td className="px-4 py-3 text-[13px] font-semibold" style={{color:sub?'#c9a84c':'rgba(255,255,255,0.3)'}}>{sub?Number(sub.price_monthly).toLocaleString():'Not set'}</td>
                         <td className="px-4 py-3 text-[12px] text-white/50">{sub?.currency||'—'}</td>
                         <td className="px-4 py-3 text-[12px]" style={{color:expired?'#fc8181':'rgba(255,255,255,0.5)'}}>{sub?.next_billing||'—'}</td>
+                        <td className="px-4 py-3 text-[12px]">
+                          {sub?.ai_scribe_limit ? (
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span style={{color: sub.ai_scribe_used>=sub.ai_scribe_limit?'#fc8181':sub.ai_scribe_used>=sub.ai_scribe_limit*0.8?'#fbbf24':'#4ade80'}} className="text-[11px] font-medium">
+                                  {sub.ai_scribe_used||0}/{sub.ai_scribe_limit}
+                                </span>
+                              </div>
+                              <div className="h-1 rounded-full bg-white/10 w-24 overflow-hidden">
+                                <div className="h-full rounded-full" style={{width:`${Math.min(((sub.ai_scribe_used||0)/sub.ai_scribe_limit)*100,100)}%`,background:sub.ai_scribe_used>=sub.ai_scribe_limit?'#dc2626':sub.ai_scribe_used>=sub.ai_scribe_limit*0.8?'#d97706':'#1a7f5e'}}/>
+                              </div>
+                            </div>
+                          ) : <span className="text-white/20 text-[11px]">Unlimited</span>}
+                        </td>
                         <td className="px-4 py-3">
                           {sub ? <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{background:sub.status==='active'?'rgba(26,127,94,0.2)':'rgba(197,48,48,0.2)',color:sub.status==='active'?'#4ade80':'#fc8181'}}>{sub.status}</span>
                           : <span className="text-[10px] text-white/20">No subscription</span>}
                         </td>
                         <td className="px-4 py-3">
-                          <button onClick={()=>setShowAddSub(showAddSub===clinic.id?null:clinic.id)}
-                            className="px-2 py-1 rounded-lg text-[10px] font-medium"
-                            style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c'}}>
-                            {sub?'Update':'+ Add'}
-                          </button>
+                          <div className="flex gap-1">
+                            <button onClick={()=>setShowAddSub(showAddSub===clinic.id?null:clinic.id)}
+                              className="px-2 py-1 rounded-lg text-[10px] font-medium"
+                              style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c'}}>
+                              {sub?'Update':'+ Add'}
+                            </button>
+                            {sub && <button onClick={async()=>{
+                              if(!confirm('Reset AI scribe usage to 0?')) return;
+                              await supabase.from('subscriptions').update({ai_scribe_used:0}).eq('clinic_id',clinic.id);
+                              toast.success('Usage reset');
+                              fetchAll();
+                            }} className="px-2 py-1 rounded-lg text-[10px] font-medium"
+                              style={{background:'rgba(59,130,246,0.15)',color:'#63b3ed'}}>
+                              Reset
+                            </button>}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1087,6 +1114,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                             </select>
                           </div>
                           <Input label="Price/Month" value={subForm.price_monthly} onChange={(v:string)=>setSubForm(p=>({...p,price_monthly:v}))} placeholder="15000"/>
+                          <Input label="AI Scribe Limit/Month" value={subForm.ai_scribe_limit||'100'} onChange={(v:string)=>setSubForm(p=>({...p,ai_scribe_limit:v}))} placeholder="100"/>
                           <Input label="Start Date" value={subForm.start_date} onChange={(v:string)=>setSubForm(p=>({...p,start_date:v}))} type="date"/>
                           <Input label="Next Billing" value={subForm.next_billing} onChange={(v:string)=>setSubForm(p=>({...p,next_billing:v}))} type="date"/>
                         </div>
