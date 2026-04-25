@@ -68,8 +68,6 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
     appointments: selectedClinic==='all' ? appointments : appointments.filter(a=>a.clinic_id===selectedClinic),
     invoices: selectedClinic==='all' ? invoices : invoices.filter(i=>i.clinic_id===selectedClinic),
     expenses: selectedClinic==='all' ? expenses : expenses.filter(e=>e.clinic_id===selectedClinic),
-    expenses: selectedClinic==='all' ? expenses : expenses.filter(e=>e.clinic_id===selectedClinic),
-    expenses: selectedClinic==='all' ? expenses : expenses.filter(e=>e.clinic_id===selectedClinic),
     stats: selectedClinic==='all' ? stats : stats.filter(s=>s.clinicId===selectedClinic),
   }), [selectedClinic, appointments, invoices, stats]);
 
