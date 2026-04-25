@@ -43,10 +43,10 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
       const [{ count: pc }, { count: ac }, { data: inv }] = await Promise.all([
         supabase.from('patients').select('*', { count:'exact', head:true }).eq('clinic_id', clinic.id),
         supabase.from('appointments').select('*', { count:'exact', head:true }).eq('clinic_id', clinic.id),
-        supabase.from('billing').select('paid,fee_amount,discount,payment_status').eq('clinic_id', clinic.id),
+        supabase.from('billing').select('amount_paid,consultation_fee,discount,payment_status').eq('clinic_id', clinic.id),
       ]);
-      const revenue = (inv||[]).reduce((s:number,i:any)=>s+(Number(i.paid)||0),0);
-      const pending = (inv||[]).reduce((s:number,i:any)=>s+Math.max(0,(Number(i.fee_amount)||0)-(Number(i.discount)||0)-(Number(i.paid)||0)),0);
+      const revenue = (inv||[]).reduce((s:number,i:any)=>s+(Number(i.amount_paid)||0),0);
+      const pending = (inv||[]).reduce((s:number,i:any)=>s+Math.max(0,(Number(i.consultation_fee)||0)-(Number(i.discount)||0)-(Number(i.amount_paid)||0)),0);
       statsArr.push({ clinicId: clinic.id, clinicName: clinic.name, speciality: clinic.speciality, patients: pc||0, appointments: ac||0, revenue, pending });
     }
     setStats(statsArr);
@@ -159,10 +159,6 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
                 {label:'Total Appointments', val:totalApts, icon:Calendar, color:'#7c3aed', bg:'#f5f3ff'},
                 {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, icon:Receipt, color:'#dc2626', bg:'#fef2f2'},
                 {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, icon:TrendingUp, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
-                {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, icon:Receipt, color:'#dc2626', bg:'#fef2f2'},
-                {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, icon:TrendingUp, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
-                {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, icon:Receipt, color:'#dc2626', bg:'#fef2f2'},
-                {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, icon:TrendingUp, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
               ].map(s=>(
                 <div key={s.label} className="bg-white rounded-2xl p-5 border border-black/5">
                   <div className="flex items-center gap-3 mb-2">
@@ -192,6 +188,50 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
                   <div className="text-[28px] font-bold text-red-600">{filtered.appointments.filter(a=>a.attendance_status==='No-Show').length}</div>
                   <div className="text-[11px] text-red-500 mt-1">No-Shows (All Time)</div>
                 </div>
+              </div>
+            </div>
+
+            {/* Upcoming Appointments */}
+            <div className="bg-white rounded-2xl border border-black/5 overflow-hidden">
+              <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
+                <div className="font-semibold text-navy text-[15px]">Upcoming Appointments</div>
+                <div className="text-[12px] text-gray-400">{upcoming.length} total</div>
+              </div>
+              {/* Per-clinic upcoming counts */}
+              <div className="px-5 py-3 flex gap-3 flex-wrap border-b border-black/5">
+                {clinics.map((c,i)=>{
+                  const count = upcoming.filter(a=>a.clinic_id===c.id).length;
+                  return (
+                    <div key={c.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium"
+                      style={{background:`${clinicColors[i%clinicColors.length]}18`,color:clinicColors[i%clinicColors.length]}}>
+                      {c.name}: {count}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Upcoming list */}
+              <div className="divide-y divide-black/5 max-h-72 overflow-y-auto">
+                {upcoming.slice(0,20).map(a=>{
+                  const clinic = clinics.find(c=>c.id===a.clinic_id);
+                  const ci = clinics.findIndex(c=>c.id===a.clinic_id);
+                  return (
+                    <div key={a.id} className="px-5 py-3 flex items-center gap-4 hover:bg-gray-50">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{background:clinicColors[ci%clinicColors.length]||'#ccc'}}/>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium text-navy truncate">{a.child_name||'—'}</div>
+                        <div className="text-[11px] text-gray-400">{a.parent_name||''}</div>
+                      </div>
+                      <div className="text-[11px] text-gray-500 flex-shrink-0">{clinic?.name||'—'}</div>
+                      <div className="text-[12px] font-medium text-navy flex-shrink-0">{a.appointment_date}</div>
+                      <div className="text-[11px] text-gray-400 flex-shrink-0">{a.appointment_time||''}</div>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0"
+                        style={{background:a.status==='Confirmed'?'#f0fdf4':'#fefce8',color:a.status==='Confirmed'?'#16a34a':'#d97706'}}>
+                        {a.status}
+                      </span>
+                    </div>
+                  );
+                })}
+                {upcoming.length===0 && <div className="px-5 py-6 text-center text-gray-400 text-[13px]">No upcoming appointments</div>}
               </div>
             </div>
 
@@ -374,82 +414,6 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
               </div>
             </div>
 
-            {/* Expenses by clinic */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl p-5 border border-black/5">
-                <div className="font-semibold text-navy text-[14px] mb-4">Expenses by Clinic</div>
-                <div className="space-y-3">
-                  {clinics.map((clinic,i)=>{
-                    const clinicExp = (filtered as any).expenses?.filter((e:any)=>e.clinic_id===clinic.id).reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
-                    return (
-                      <div key={clinic.id} className="flex items-center gap-3">
-                        <div className="text-[12px] text-gray-600 w-36 flex-shrink-0 truncate">{clinic.name}</div>
-                        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full rounded-full" style={{width:`${totalExpenses?((clinicExp/totalExpenses)*100):0}%`,background:'#dc2626'}}/>
-                        </div>
-                        <div className="text-[12px] font-medium text-red-600 w-28 text-right">PKR {clinicExp.toLocaleString()}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-5 border border-black/5">
-                <div className="font-semibold text-navy text-[14px] mb-4">Net Profit by Clinic</div>
-                <div className="space-y-3">
-                  {filtered.stats.map((s,i)=>{
-                    const clinicExp = (filtered as any).expenses?.filter((e:any)=>e.clinic_id===s.clinicId).reduce((sum:number,e:any)=>sum+Number(e.amount||0),0)||0;
-                    const profit = s.revenue - clinicExp;
-                    return (
-                      <div key={s.clinicId} className="flex items-center justify-between p-3 rounded-xl" style={{background:'#f9f7f3'}}>
-                        <div className="text-[13px] font-medium text-navy">{s.clinicName}</div>
-                        <div className="text-[13px] font-bold" style={{color:profit>=0?'#1a7f5e':'#dc2626'}}>
-                          PKR {profit.toLocaleString()}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Expenses by clinic */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white rounded-2xl p-5 border border-black/5">
-                <div className="font-semibold text-navy text-[14px] mb-4">Expenses by Clinic</div>
-                <div className="space-y-3">
-                  {clinics.map((clinic,i)=>{
-                    const clinicExp = (filtered as any).expenses?.filter((e:any)=>e.clinic_id===clinic.id).reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
-                    return (
-                      <div key={clinic.id} className="flex items-center gap-3">
-                        <div className="text-[12px] text-gray-600 w-36 flex-shrink-0 truncate">{clinic.name}</div>
-                        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full rounded-full" style={{width:`${totalExpenses?((clinicExp/totalExpenses)*100):0}%`,background:'#dc2626'}}/>
-                        </div>
-                        <div className="text-[12px] font-medium text-red-600 w-28 text-right">PKR {clinicExp.toLocaleString()}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="bg-white rounded-2xl p-5 border border-black/5">
-                <div className="font-semibold text-navy text-[14px] mb-4">Net Profit by Clinic</div>
-                <div className="space-y-3">
-                  {filtered.stats.map((s,i)=>{
-                    const clinicExp = (filtered as any).expenses?.filter((e:any)=>e.clinic_id===s.clinicId).reduce((sum:number,e:any)=>sum+Number(e.amount||0),0)||0;
-                    const profit = s.revenue - clinicExp;
-                    return (
-                      <div key={s.clinicId} className="flex items-center justify-between p-3 rounded-xl" style={{background:'#f9f7f3'}}>
-                        <div className="text-[13px] font-medium text-navy">{s.clinicName}</div>
-                        <div className="text-[13px] font-bold" style={{color:profit>=0?'#1a7f5e':'#dc2626'}}>
-                          PKR {profit.toLocaleString()}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
             {/* Invoices list */}
             <div className="bg-white rounded-2xl overflow-hidden border border-black/5">
               <div className="px-5 py-4 border-b border-black/5 font-semibold text-navy text-[14px]">Recent Invoices</div>
@@ -469,8 +433,8 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
                         <td className="px-4 py-3 text-[13px] font-medium text-navy">{inv.child_name||'—'}</td>
                         <td className="px-4 py-3 text-[12px] text-gray-500">{clinic?.name||'—'}</td>
                         <td className="px-4 py-3 text-[12px] text-gray-500">{inv.date||inv.created_at?.slice(0,10)||'—'}</td>
-                        <td className="px-4 py-3 text-[12px] font-medium text-navy">PKR {Number(inv.fee_amount||0).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-[12px] font-medium text-green-700">PKR {Number(inv.paid||0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-[12px] font-medium text-navy">PKR {Number(inv.consultation_fee||0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-[12px] font-medium text-green-700">PKR {Number(inv.amount_paid||0).toLocaleString()}</td>
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium"
                             style={{background:inv.payment_status==='Paid'?'#f0fdf4':inv.payment_status==='Unpaid'?'#fef2f2':'#fefce8',
