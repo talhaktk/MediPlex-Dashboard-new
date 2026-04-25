@@ -189,7 +189,7 @@ function Input({ label, value, onChange, type='text', placeholder='' }: any) {
 
 export default function SuperAdminClient({ adminEmail }: { adminEmail: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'orgs'|'clinics'|'users'|'features'|'analytics'>('orgs');
+  const [tab, setTab] = useState<'orgs'|'clinics'|'users'|'features'|'analytics'|'business'>('orgs');
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [users, setUsers] = useState<ClinicUser[]>([]);
@@ -200,6 +200,12 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const [showAddOrg, setShowAddOrg] = useState(false);
   const [orgForm, setOrgForm] = useState({ name:'', owner_name:'', email:'', phone:'', city:'', province:'', country:'Pakistan' });
   const [showAddOwner, setShowAddOwner] = useState<string|null>(null);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [mediplexExpenses, setMediplexExpenses] = useState<any[]>([]);
+  const [showAddSub, setShowAddSub] = useState<string|null>(null);
+  const [showAddMExp, setShowAddMExp] = useState(false);
+  const [subForm, setSubForm] = useState({plan_name:'Standard',price_monthly:'15000',currency:'PKR',start_date:'',next_billing:'',notes:''});
+  const [mexpForm, setMexpForm] = useState({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''});
   const [ownerForm, setOwnerForm] = useState({ name:'', email:'', password:'' });
   
   const [showAddClinic, setShowAddClinic] = useState(false);
@@ -238,6 +244,29 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     const { error } = await supabase.from('organisations').insert([{ id, name:orgForm.name, owner_name:orgForm.owner_name, email:orgForm.email, phone:orgForm.phone, city:orgForm.city, province:orgForm.province, country:orgForm.country||'Pakistan', status:'active' }]);
     if (error) toast.error('Failed: ' + error.message);
     else { toast.success('Organisation created!'); setShowAddOrg(false); setOrgForm({name:'',owner_name:'',email:'',phone:'',city:'',province:'',country:'Pakistan'}); fetchAll(); }
+  };
+
+  // Add Subscription
+  const addSubscription = async (clinicId: string) => {
+    const clinic = clinics.find(c=>c.id===clinicId);
+    const { error } = await supabase.from('subscriptions').insert([{
+      clinic_id: clinicId, org_id: clinic?.org_id||null,
+      plan_name: subForm.plan_name, price_monthly: Number(subForm.price_monthly),
+      currency: subForm.currency, start_date: subForm.start_date||null,
+      next_billing: subForm.next_billing||null, status:'active', notes: subForm.notes,
+    }]);
+    if (error) toast.error('Failed: '+error.message);
+    else { toast.success('Subscription added'); setShowAddSub(null); fetchAll(); }
+  };
+
+  // Add MediPlex Expense
+  const addMediplexExpense = async () => {
+    const { error } = await supabase.from('mediplex_expenses').insert([{
+      category: mexpForm.category, amount: Number(mexpForm.amount),
+      currency: mexpForm.currency, date: mexpForm.date, description: mexpForm.description,
+    }]);
+    if (error) toast.error('Failed: '+error.message);
+    else { toast.success('Expense recorded'); setShowAddMExp(false); setMexpForm({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''}); fetchAll(); }
   };
 
   // Add Org Owner
@@ -938,6 +967,171 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
             })}
           </div>
         )}
+      {/* ── BUSINESS ── */}
+        {tab==='business' && (
+          <div className="space-y-5">
+            <h1 className="text-white text-[20px] font-semibold">Business Analytics</h1>
+
+            {/* MediPlex Revenue from Subscriptions */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label:'Monthly Recurring Revenue', value:`PKR ${subscriptions.filter(s=>s.status==='active'&&s.currency==='PKR').reduce((s,sub)=>s+Number(sub.price_monthly||0),0).toLocaleString()}`, color:'#1a7f5e' },
+                { label:'Active Subscriptions', value:subscriptions.filter(s=>s.status==='active').length, color:'#c9a84c' },
+                { label:'Total Clients', value:clinics.length, color:'#2b6cb0' },
+              ].map(s=>(
+                <div key={s.label} className="rounded-xl p-4" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.06)'}}>
+                  <div className="text-[10px] text-white/40 uppercase tracking-widest mb-1">{s.label}</div>
+                  <div className="text-[24px] font-bold" style={{color:s.color}}>{s.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add MediPlex Expense */}
+            <div className="flex justify-between items-center">
+              <div className="text-white font-semibold text-[15px]">Subscriptions & Revenue</div>
+              <div className="flex gap-2">
+                <button onClick={()=>setShowAddMExp(!showAddMExp)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
+                  style={{background:'rgba(220,38,38,0.15)',color:'#fc8181',border:'1px solid rgba(220,38,38,0.3)'}}>
+                  <Plus size={11}/> Add MediPlex Expense
+                </button>
+              </div>
+            </div>
+
+            {showAddMExp && (
+              <div className="rounded-2xl p-5" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(220,38,38,0.3)'}}>
+                <div className="text-white font-semibold mb-4">Record MediPlex Business Expense</div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Category</label>
+                    <select value={mexpForm.category} onChange={e=>setMexpForm(p=>({...p,category:e.target.value}))}
+                      className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                      style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
+                      {['Supabase','Vercel','N8N','Domain','WhatsApp API','Marketing','Staff','Other'].map(c=><option key={c} value={c} style={{background:'#0a1628'}}>{c}</option>)}
+                    </select>
+                  </div>
+                  <Input label="Amount" value={mexpForm.amount} onChange={(v:string)=>setMexpForm(p=>({...p,amount:v}))} placeholder="25"/>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Currency</label>
+                    <select value={mexpForm.currency} onChange={e=>setMexpForm(p=>({...p,currency:e.target.value}))}
+                      className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                      style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
+                      {['USD','PKR','GBP'].map(c=><option key={c} value={c} style={{background:'#0a1628'}}>{c}</option>)}
+                    </select>
+                  </div>
+                  <Input label="Date" value={mexpForm.date} onChange={(v:string)=>setMexpForm(p=>({...p,date:v}))} type="date"/>
+                  <div className="col-span-2">
+                    <Input label="Description" value={mexpForm.description} onChange={(v:string)=>setMexpForm(p=>({...p,description:v}))} placeholder="Monthly Supabase Pro plan"/>
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={addMediplexExpense} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold"
+                    style={{background:'linear-gradient(135deg,#c9a84c,#e8c87a)',color:'#0a1628'}}><Save size={13}/> Save Expense</button>
+                  <button onClick={()=>setShowAddMExp(false)} className="px-4 py-2 rounded-xl text-[12px] text-white/50"
+                    style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)'}}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* Subscriptions per clinic */}
+            <div className="rounded-2xl overflow-hidden" style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)'}}>
+              <div className="px-5 py-4 border-b flex items-center justify-between" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+                <div className="text-white font-medium text-[14px]">Clinic Subscriptions</div>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+                    {['Clinic','Plan','Price/Month','Currency','Next Billing','Status','Actions'].map(h=>(
+                      <th key={h} className="px-4 py-3 text-left text-[10px] text-white/30 uppercase tracking-widest">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {clinics.map(clinic=>{
+                    const sub = subscriptions.find(s=>s.clinic_id===clinic.id);
+                    const expired = sub?.next_billing && new Date(sub.next_billing) < new Date();
+                    return (
+                      <tr key={clinic.id} style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}} className="hover:bg-white/[0.02]">
+                        <td className="px-4 py-3">
+                          <div className="text-white text-[13px] font-medium">{clinic.name}</div>
+                          <div className="text-white/30 text-[10px]">{clinic.speciality}</div>
+                        </td>
+                        <td className="px-4 py-3 text-[12px] text-white/60">{sub?.plan_name||'—'}</td>
+                        <td className="px-4 py-3 text-[13px] font-semibold" style={{color:sub?'#c9a84c':'rgba(255,255,255,0.3)'}}>{sub?Number(sub.price_monthly).toLocaleString():'Not set'}</td>
+                        <td className="px-4 py-3 text-[12px] text-white/50">{sub?.currency||'—'}</td>
+                        <td className="px-4 py-3 text-[12px]" style={{color:expired?'#fc8181':'rgba(255,255,255,0.5)'}}>{sub?.next_billing||'—'}</td>
+                        <td className="px-4 py-3">
+                          {sub ? <span className="px-2 py-0.5 rounded-full text-[10px] font-medium" style={{background:sub.status==='active'?'rgba(26,127,94,0.2)':'rgba(197,48,48,0.2)',color:sub.status==='active'?'#4ade80':'#fc8181'}}>{sub.status}</span>
+                          : <span className="text-[10px] text-white/20">No subscription</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button onClick={()=>setShowAddSub(showAddSub===clinic.id?null:clinic.id)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-medium"
+                            style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c'}}>
+                            {sub?'Update':'+ Add'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {showAddSub && (
+                    <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
+                      <td colSpan={7} className="px-4 py-4">
+                        <div className="grid grid-cols-4 gap-3">
+                          <div>
+                            <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Plan</label>
+                            <select value={subForm.plan_name} onChange={e=>setSubForm(p=>({...p,plan_name:e.target.value}))}
+                              className="w-full rounded-lg px-3 py-2 text-[12px] outline-none"
+                              style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
+                              {['Basic','Standard','Premium','Enterprise'].map(p=><option key={p} value={p} style={{background:'#0a1628'}}>{p}</option>)}
+                            </select>
+                          </div>
+                          <Input label="Price/Month" value={subForm.price_monthly} onChange={(v:string)=>setSubForm(p=>({...p,price_monthly:v}))} placeholder="15000"/>
+                          <Input label="Start Date" value={subForm.start_date} onChange={(v:string)=>setSubForm(p=>({...p,start_date:v}))} type="date"/>
+                          <Input label="Next Billing" value={subForm.next_billing} onChange={(v:string)=>setSubForm(p=>({...p,next_billing:v}))} type="date"/>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <button onClick={()=>addSubscription(showAddSub)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                            style={{background:'linear-gradient(135deg,#c9a84c,#e8c87a)',color:'#0a1628'}}><Save size={11}/> Save</button>
+                          <button onClick={()=>setShowAddSub(null)} className="px-3 py-1.5 rounded-lg text-[11px] text-white/40">Cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* MediPlex Expenses */}
+            <div className="rounded-2xl overflow-hidden" style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)'}}>
+              <div className="px-5 py-4 border-b" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+                <div className="text-white font-medium text-[14px]">MediPlex Business Expenses</div>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{borderBottom:'1px solid rgba(255,255,255,0.06)'}}>
+                    {['Date','Category','Amount','Currency','Description'].map(h=>(
+                      <th key={h} className="px-4 py-3 text-left text-[10px] text-white/30 uppercase tracking-widest">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {mediplexExpenses.length===0 && <tr><td colSpan={5} className="px-4 py-8 text-center text-white/30 text-[13px]">No expenses recorded</td></tr>}
+                  {mediplexExpenses.map(e=>(
+                    <tr key={e.id} style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}} className="hover:bg-white/[0.02]">
+                      <td className="px-4 py-3 text-[12px] text-white/50">{e.date}</td>
+                      <td className="px-4 py-3"><span className="px-2 py-0.5 rounded text-[11px] font-medium" style={{background:'rgba(220,38,38,0.15)',color:'#fc8181'}}>{e.category}</span></td>
+                      <td className="px-4 py-3 text-[13px] font-semibold text-red-400">{Number(e.amount).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-[12px] text-white/40">{e.currency}</td>
+                      <td className="px-4 py-3 text-[12px] text-white/50">{e.description||'—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );
