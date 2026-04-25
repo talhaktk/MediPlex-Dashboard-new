@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Mic, MicOff, FileText, ClipboardList, Pill, Copy, Download,
@@ -352,34 +352,6 @@ Dr. [Doctor Name], [Qualification]
 ☐ Routine  ☐ Urgent  ☐ Emergency — [indicate if mentioned]`
   },
 ];
-
-// Usage display component
-function UsageDisplay({ clinicId }: { clinicId: string }) {
-  const [usage, setUsage] = useState<{used:number,limit:number}|null>(null);
-  useEffect(() => {
-    supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle()
-      .then(({data}) => { if(data?.ai_scribe_limit) setUsage({used:data.ai_scribe_used||0,limit:data.ai_scribe_limit}); });
-  }, [clinicId]);
-  if (!usage) return null;
-  const pct = Math.round((usage.used/usage.limit)*100);
-  const color = pct>=100?'#dc2626':pct>=80?'#d97706':'#1a7f5e';
-  return (
-    <div className="rounded-xl p-3 mb-4 flex items-center gap-3" style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}>
-      <div className="flex-1">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] text-white/50">AI Scribe Usage This Month</span>
-          <span className="text-[12px] font-semibold" style={{color}}>{usage.used}/{usage.limit} calls</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{width:`${Math.min(pct,100)}%`,background:color}}/>
-        </div>
-      </div>
-      {pct>=80 && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={{background:pct>=100?'rgba(220,38,38,0.2)':'rgba(217,119,6,0.2)',color}}>
-        {pct>=100?'Limit Reached':'Near Limit'}
-      </span>}
-    </div>
-  );
-}
 
 // Usage display component
 function UsageDisplay({ clinicId }: { clinicId: string }) {
