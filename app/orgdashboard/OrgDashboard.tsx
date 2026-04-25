@@ -24,8 +24,6 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'overview'|'appointments'|'revenue'|'feedback'>('overview');
 
   useEffect(() => {
@@ -62,10 +60,6 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
       setInvoices(inv||[]);
       const { data: exp } = await supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false});
       setExpenses(exp||[]);
-      const { data: exp } = await supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false});
-      setExpenses(exp||[]);
-      const { data: exp } = await supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false});
-      setExpenses(exp||[]);
     }
     setLoading(false);
   };
@@ -80,10 +74,6 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
   }), [selectedClinic, appointments, invoices, stats]);
 
   const totalRevenue = filtered.stats.reduce((s,c)=>s+c.revenue,0);
-  const totalExpenses = (filtered as any).expenses?.reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
-  const netProfit = totalRevenue - totalExpenses;
-  const totalExpenses = (filtered as any).expenses?.reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
-  const netProfit = totalRevenue - totalExpenses;
   const totalExpenses = (filtered as any).expenses?.reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
   const netProfit = totalRevenue - totalExpenses;
   const totalPending = filtered.stats.reduce((s,c)=>s+c.pending,0);
