@@ -12,6 +12,44 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    const fetchNotifs = () => {
+      supabase.from('notifications').select('*').eq('clinic_id', clinicId).eq('is_read', false)
+        .order('created_at',{ascending:false}).limit(10)
+        .then(({data}) => setNotifications(data||[]));
+    };
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 60000);
+    return () => clearInterval(interval);
+  }, [clinicId]);
+
+  const markRead = async (id: number) => {
+    await supabase.from('notifications').update({is_read:true}).eq('id', id);
+    setNotifications(prev => prev.filter(n=>n.id!==id));
+  };
+
+  const markAllRead = async () => {
+    if (!clinicId) return;
+    await supabase.from('notifications').update({is_read:true}).eq('clinic_id', clinicId);
+    setNotifications([]);
+    setShowNotifs(false);
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotifs(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+  const { data: session } = useSession();
+  const clinicId = (session?.user as any)?.clinicId;
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const [doctorName, setDoctorName] = useState('Doctor');
   const [initials, setInitials] = useState('DR');
   const [refreshing, setRefreshing] = useState(false);
