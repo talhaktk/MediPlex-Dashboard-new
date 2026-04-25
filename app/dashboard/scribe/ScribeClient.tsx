@@ -13,7 +13,7 @@ import { saveScribeOutput } from '@/lib/scribeStore';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 
-type Mode = 'soap' | 'prescription' | 'discharge' | 'referral' | 'preauth';
+type Mode = 'soap' | 'prescription' | 'discharge' | 'referral' | 'insurance' | 'sick_cert' | 'preauth';
 type Status = 'idle' | 'recording' | 'processing' | 'done';
 
 interface SelectedPatient {
@@ -205,116 +205,6 @@ Yours sincerely,
 [Clinic Name]`
   },
   {
-    id: 'insurance' as Mode, label: 'Insurance Preauth',
-    icon: FileText, color: '#059669', bg: 'rgba(5,150,105,0.1)', border: 'rgba(5,150,105,0.3)',
-    desc: 'Insurance pre-authorization letter',
-    prompt: (text: string, ctx: string) => `You are a medical documentation AI helping with insurance pre-authorization.
-PATIENT CONTEXT:
-${ctx}
-CLINICAL DETAILS:
-${text}
-Generate a formal insurance pre-authorization request letter:
-**INSURANCE PRE-AUTHORIZATION REQUEST**
-Date: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}
-**PATIENT INFORMATION**
-Name: [from context]
-Date of Birth: [if available]
-Policy/Member ID: [if mentioned]
-**TREATING PHYSICIAN**
-[Doctor details]
-**DIAGNOSIS**
-Primary: [with ICD-10]
-**REQUESTED PROCEDURE/TREATMENT**
-[Specific procedure or medication requiring authorization]
-**CLINICAL JUSTIFICATION**
-[Medical necessity — why this treatment is required]
-**SUPPORTING EVIDENCE**
-[Lab results, imaging, failed conservative treatments]
-**URGENCY**
-[Routine/Urgent/Emergency]
-**REQUESTED AUTHORIZATION**
-[Specific request — procedure code if known, duration, quantity]
-Thank you for your prompt consideration.`
-  },
-  {
-    id: 'sick_cert' as Mode, label: 'Sick Certificate',
-    icon: FileText, color: '#7c3aed', bg: 'rgba(124,58,237,0.1)', border: 'rgba(124,58,237,0.3)',
-    desc: 'Medical sick leave certificate',
-    prompt: (text: string, ctx: string) => `You are a medical documentation AI.
-PATIENT CONTEXT:
-${ctx}
-DETAILS:
-${text}
-Generate a formal medical sick leave certificate:
-**MEDICAL CERTIFICATE**
-Date: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}
-TO WHOM IT MAY CONCERN,
-This is to certify that **[Patient Name]**, aged [age], has been examined and found to be suffering from:
-**Diagnosis:** [condition]
-The patient is advised rest and is unfit for duty/work/school from **[start date]** to **[end date]** (inclusive), a total of **[X] days**.
-They may resume normal duties on **[return date]** subject to satisfactory recovery.
-This certificate is issued on patient's request for official purposes.
-Yours sincerely,
-[Doctor Name]
-[Qualification]
-[Clinic Name]`
-  },
-  {
-    id: 'insurance' as Mode, label: 'Insurance Preauth',
-    icon: FileText, color: '#059669', bg: 'rgba(5,150,105,0.1)', border: 'rgba(5,150,105,0.3)',
-    desc: 'Insurance pre-authorization letter',
-    prompt: (text: string, ctx: string) => `You are a medical documentation AI helping with insurance pre-authorization.
-PATIENT CONTEXT:
-${ctx}
-CLINICAL DETAILS:
-${text}
-Generate a formal insurance pre-authorization request letter:
-**INSURANCE PRE-AUTHORIZATION REQUEST**
-Date: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}
-**PATIENT INFORMATION**
-Name: [from context]
-Date of Birth: [if available]
-Policy/Member ID: [if mentioned]
-**TREATING PHYSICIAN**
-[Doctor details]
-**DIAGNOSIS**
-Primary: [with ICD-10]
-**REQUESTED PROCEDURE/TREATMENT**
-[Specific procedure or medication requiring authorization]
-**CLINICAL JUSTIFICATION**
-[Medical necessity — why this treatment is required]
-**SUPPORTING EVIDENCE**
-[Lab results, imaging, failed conservative treatments]
-**URGENCY**
-[Routine/Urgent/Emergency]
-**REQUESTED AUTHORIZATION**
-[Specific request — procedure code if known, duration, quantity]
-Thank you for your prompt consideration.`
-  },
-  {
-    id: 'sick_cert' as Mode, label: 'Sick Certificate',
-    icon: FileText, color: '#7c3aed', bg: 'rgba(124,58,237,0.1)', border: 'rgba(124,58,237,0.3)',
-    desc: 'Medical sick leave certificate',
-    prompt: (text: string, ctx: string) => `You are a medical documentation AI.
-PATIENT CONTEXT:
-${ctx}
-DETAILS:
-${text}
-Generate a formal medical sick leave certificate:
-**MEDICAL CERTIFICATE**
-Date: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}
-TO WHOM IT MAY CONCERN,
-This is to certify that **[Patient Name]**, aged [age], has been examined and found to be suffering from:
-**Diagnosis:** [condition]
-The patient is advised rest and is unfit for duty/work/school from **[start date]** to **[end date]** (inclusive), a total of **[X] days**.
-They may resume normal duties on **[return date]** subject to satisfactory recovery.
-This certificate is issued on patient's request for official purposes.
-Yours sincerely,
-[Doctor Name]
-[Qualification]
-[Clinic Name]`
-  },
-  {
     id: 'referral' as Mode, label: 'Referral Letter', icon: Mail,
     color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.3)',
     desc: 'Specialist referral letter',
@@ -407,34 +297,6 @@ Dr. [Doctor Name], [Qualification]
 ☐ Routine  ☐ Urgent  ☐ Emergency — [indicate if mentioned]`
   },
 ];
-
-// Usage display component
-function UsageDisplay({ clinicId }: { clinicId: string }) {
-  const [usage, setUsage] = useState<{used:number,limit:number}|null>(null);
-  useEffect(() => {
-    supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle()
-      .then(({data}) => { if(data?.ai_scribe_limit) setUsage({used:data.ai_scribe_used||0,limit:data.ai_scribe_limit}); });
-  }, [clinicId]);
-  if (!usage) return null;
-  const pct = Math.round((usage.used/usage.limit)*100);
-  const color = pct>=100?'#dc2626':pct>=80?'#d97706':'#1a7f5e';
-  return (
-    <div className="rounded-xl p-3 mb-4 flex items-center gap-3" style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.1)'}}>
-      <div className="flex-1">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] text-white/50">AI Scribe Usage This Month</span>
-          <span className="text-[12px] font-semibold" style={{color}}>{usage.used}/{usage.limit} calls</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
-          <div className="h-full rounded-full transition-all" style={{width:`${Math.min(pct,100)}%`,background:color}}/>
-        </div>
-      </div>
-      {pct>=80 && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={{background:pct>=100?'rgba(220,38,38,0.2)':'rgba(217,119,6,0.2)',color}}>
-        {pct>=100?'Limit Reached':'Near Limit'}
-      </span>}
-    </div>
-  );
-}
 
 // Usage display component
 function UsageDisplay({ clinicId }: { clinicId: string }) {
