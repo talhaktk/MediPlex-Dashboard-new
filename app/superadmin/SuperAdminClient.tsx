@@ -218,12 +218,16 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   // Fetch all data
   const fetchAll = async () => {
-    const [{ data: orgData }, { data: clinicData }, { data: userData }] = await Promise.all([
+    const [{ data: orgData }, { data: clinicData }, { data: userData }, { data: subData }, { data: mexpData }] = await Promise.all([
       supabase.from('organisations').select('*').order('created_at', { ascending: false }),
       supabase.from('clinics').select('*').order('created_at', { ascending: false }),
       supabase.from('logins').select('*').order('created_at', { ascending: false }),
+      supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
+      supabase.from('mediplex_expenses').select('*').order('date', { ascending: false }),
     ]);
     setOrgs(orgData || []);
+    setSubscriptions(subData || []);
+    setMediplexExpenses(mexpData || []);
     const enriched = await Promise.all((clinicData || []).map(async (c: any) => {
       const [{ count: pc }, { count: ac }] = await Promise.all([
         supabase.from('patients').select('*', { count:'exact', head:true }).eq('clinic_id', c.id),
@@ -249,14 +253,19 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   // Add Subscription
   const addSubscription = async (clinicId: string) => {
     const clinic = clinics.find(c=>c.id===clinicId);
-    const { error } = await supabase.from('subscriptions').insert([{
+    const existing = subscriptions.find(s=>s.clinic_id===clinicId);
+    const payload = {
       clinic_id: clinicId, org_id: clinic?.org_id||null,
       plan_name: subForm.plan_name, price_monthly: Number(subForm.price_monthly),
       currency: subForm.currency, start_date: subForm.start_date||null,
       next_billing: subForm.next_billing||null, status:'active', notes: subForm.notes,
-    }]);
+      ai_scribe_limit: subForm.ai_scribe_limit ? Number(subForm.ai_scribe_limit) : null,
+    };
+    const { error } = existing
+      ? await supabase.from('subscriptions').update(payload).eq('clinic_id', clinicId)
+      : await supabase.from('subscriptions').insert([payload]);
     if (error) toast.error('Failed: '+error.message);
-    else { toast.success('Subscription added'); setShowAddSub(null); fetchAll(); }
+    else { toast.success(existing ? 'Subscription updated' : 'Subscription added'); setShowAddSub(null); fetchAll(); }
   };
 
   // Add MediPlex Expense
@@ -1083,8 +1092,11 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-1">
-                            <button onClick={()=>setShowAddSub(showAddSub===clinic.id?null:clinic.id)}
-                              className="px-2 py-1 rounded-lg text-[10px] font-medium"
+                            <button onClick={()=>{
+                              if (sub) setSubForm({plan_name:sub.plan_name||'Standard',price_monthly:String(sub.price_monthly||''),currency:sub.currency||'PKR',start_date:sub.start_date||'',next_billing:sub.next_billing||'',notes:sub.notes||'',ai_scribe_limit:String(sub.ai_scribe_limit||'')});
+                              else setSubForm({plan_name:'Standard',price_monthly:'15000',currency:'PKR',start_date:'',next_billing:'',notes:'',ai_scribe_limit:'100'});
+                              setShowAddSub(clinic.id);
+                            }} className="px-2 py-1 rounded-lg text-[10px] font-medium"
                               style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c'}}>
                               {sub?'Update':'+ Add'}
                             </button>
@@ -1102,31 +1114,6 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       </tr>
                     );
                   })}
-                  {showAddSub && (
-                    <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-                      <td colSpan={7} className="px-4 py-4">
-                        <div className="grid grid-cols-4 gap-3">
-                          <div>
-                            <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Plan</label>
-                            <select value={subForm.plan_name} onChange={e=>setSubForm(p=>({...p,plan_name:e.target.value}))}
-                              className="w-full rounded-lg px-3 py-2 text-[12px] outline-none"
-                              style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
-                              {['Basic','Standard','Premium','Enterprise'].map(p=><option key={p} value={p} style={{background:'#0a1628'}}>{p}</option>)}
-                            </select>
-                          </div>
-                          <Input label="Price/Month" value={subForm.price_monthly} onChange={(v:string)=>setSubForm(p=>({...p,price_monthly:v}))} placeholder="15000"/>
-                          <Input label="AI Scribe Limit/Month" value={subForm.ai_scribe_limit||'100'} onChange={(v:string)=>setSubForm(p=>({...p,ai_scribe_limit:v}))} placeholder="100"/>
-                          <Input label="Start Date" value={subForm.start_date} onChange={(v:string)=>setSubForm(p=>({...p,start_date:v}))} type="date"/>
-                          <Input label="Next Billing" value={subForm.next_billing} onChange={(v:string)=>setSubForm(p=>({...p,next_billing:v}))} type="date"/>
-                        </div>
-                        <div className="flex gap-2 mt-3">
-                          <button onClick={()=>addSubscription(showAddSub)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
-                            style={{background:'linear-gradient(135deg,#c9a84c,#e8c87a)',color:'#0a1628'}}><Save size={11}/> Save</button>
-                          <button onClick={()=>setShowAddSub(null)} className="px-3 py-1.5 rounded-lg text-[11px] text-white/40">Cancel</button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
@@ -1162,6 +1149,55 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
         )}
 
       </main>
+
+      {/* Subscription Modal */}
+      {showAddSub && (() => {
+        const clinic = clinics.find(c=>c.id===showAddSub);
+        const existing = subscriptions.find(s=>s.clinic_id===showAddSub);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.6)'}}>
+            <div className="rounded-2xl p-6 w-full max-w-lg mx-4" style={{background:'#0f1e35',border:'1px solid rgba(255,255,255,0.1)'}}>
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <div className="text-white font-semibold text-[16px]">{existing ? 'Update' : 'Add'} Subscription</div>
+                  <div className="text-[12px] mt-0.5" style={{color:'#c9a84c'}}>{clinic?.name}</div>
+                </div>
+                <button onClick={()=>setShowAddSub(null)} className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10">
+                  <X size={14}/>
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Plan</label>
+                  <select value={subForm.plan_name} onChange={e=>setSubForm(p=>({...p,plan_name:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
+                    {['Basic','Standard','Premium','Enterprise'].map(p=><option key={p} value={p} style={{background:'#0f1e35'}}>{p}</option>)}
+                  </select>
+                </div>
+                <Input label="Price/Month" value={subForm.price_monthly} onChange={(v:string)=>setSubForm(p=>({...p,price_monthly:v}))} placeholder="15000"/>
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Currency</label>
+                  <select value={subForm.currency||'PKR'} onChange={e=>setSubForm(p=>({...p,currency:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
+                    {['PKR','USD','GBP'].map(c=><option key={c} value={c} style={{background:'#0f1e35'}}>{c}</option>)}
+                  </select>
+                </div>
+                <Input label="AI Scribe Limit/Month" value={subForm.ai_scribe_limit||''} onChange={(v:string)=>setSubForm(p=>({...p,ai_scribe_limit:v}))} placeholder="100 (blank = unlimited)"/>
+                <Input label="Start Date" value={subForm.start_date} onChange={(v:string)=>setSubForm(p=>({...p,start_date:v}))} type="date"/>
+                <Input label="Next Billing" value={subForm.next_billing} onChange={(v:string)=>setSubForm(p=>({...p,next_billing:v}))} type="date"/>
+              </div>
+              <div className="flex gap-2 mt-5">
+                <button onClick={()=>addSubscription(showAddSub)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] font-semibold"
+                  style={{background:'linear-gradient(135deg,#c9a84c,#e8c87a)',color:'#0a1628'}}><Save size={13}/> {existing ? 'Update' : 'Save'}</button>
+                <button onClick={()=>setShowAddSub(null)} className="px-5 py-2.5 rounded-xl text-[13px] text-white/40"
+                  style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)'}}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
