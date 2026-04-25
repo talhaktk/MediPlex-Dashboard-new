@@ -443,22 +443,24 @@ export default function PrescriptionClient({
   // Pre-fill form from scribe output
   const useScribeInPrescription = (text: string) => {
     if (!scribeData) return;
-    // Pre-populate patient info from scribe
     setForm(prev => ({
       ...prev,
-      id: prev.id || genId(),
-      childName: prev.childName || scribeData.patientName,
-      parentName: prev.parentName || scribeData.parentName,
-      childAge: prev.childAge || scribeData.patientAge,
-      date: prev.date || new Date().toISOString().split('T')[0],
-      createdAt: prev.createdAt || new Date().toISOString(),
-      // Extract diagnosis if SOAP
-      diagnosis: prev.diagnosis || extractDiagnosis(text),
-      advice: prev.advice || extractAdvice(text) || 'Drink plenty of water. Rest well.',
+      id:             prev.id             || genId(),
+      childName:      prev.childName      || scribeData.patientName,
+      parentName:     prev.parentName     || scribeData.parentName,
+      childAge:       prev.childAge       || scribeData.patientAge,
+      date:           prev.date           || new Date().toISOString().split('T')[0],
+      createdAt:      prev.createdAt      || new Date().toISOString(),
+      diagnosis:      prev.diagnosis      || extractDiagnosis(text),
+      chiefComplaint: prev.chiefComplaint || extractChiefComplaint(text),
+      signsSymptoms:  prev.signsSymptoms  || extractSignsSymptoms(text),
+      followUp:       prev.followUp       || extractFollowUp(text),
+      advice:         prev.advice         || extractAdvice(text) || 'Drink plenty of water. Rest well.',
     }));
-    // Try to extract medicines from prescription output
     const extractedMeds = extractMedicines(text);
     if (extractedMeds.length > 0) setMedicines(extractedMeds);
+    const labsText = extractLabsText(text);
+    if (labsText) setLabResultsText(labsText);
     setShowForm(true);
     toast.success('AI Scribe data loaded into prescription!');
   };
@@ -1287,6 +1289,30 @@ export default function PrescriptionClient({
 }
 
 // ── Helpers to extract data from AI output ────────────────────────────────
+function extractChiefComplaint(text: string): string {
+  const m = text.match(/Chief Complaint:\s*(.+)/i) ||
+            text.match(/PRESENTING COMPLAINT[\s\S]*?\n(.+)/i);
+  return m ? m[1].trim().slice(0, 200) : '';
+}
+
+function extractSignsSymptoms(text: string): string {
+  const m = text.match(/History of Presenting Complaint:\s*([\s\S]*?)(?=\n\*\*|\n[A-Z ]+:|$)/i) ||
+            text.match(/Signs.*?Symptoms:\s*([\s\S]*?)(?=\n\*\*|\n[A-Z ]+:|$)/i);
+  return m ? m[1].replace(/^[-•]\s*/gm, '').trim().slice(0, 500) : '';
+}
+
+function extractFollowUp(text: string): string {
+  const m = text.match(/Follow-?up:\s*(.+)/i) ||
+            text.match(/FOLLOW.?UP PLAN[\s\S]*?\n(.+)/i);
+  return m ? m[1].trim().slice(0, 100) : '';
+}
+
+function extractLabsText(text: string): string {
+  const m = text.match(/Investigations?:\s*([\s\S]*?)(?=\n\*\*|\n[A-Z ]+:|$)/i) ||
+            text.match(/Labs? (?:Ordered|Results|Advised):\s*([\s\S]*?)(?=\n\*\*|\n[A-Z ]+:|$)/i);
+  return m ? m[1].replace(/^[-•]\s*/gm, '').trim().slice(0, 500) : '';
+}
+
 function extractDiagnosis(text: string): string {
   const match = text.match(/Primary Diagnosis:\s*(.+)/i) ||
     text.match(/Primary:\s*(.+)/i) ||

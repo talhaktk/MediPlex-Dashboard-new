@@ -7,10 +7,10 @@ const ROLE_ROUTES: Record<string, string[]> = {
   '/dashboard/clinical':     ['super_admin','doctor_admin','doctor'],
   '/dashboard/patients':     ['super_admin','doctor_admin','admin','doctor'],
   '/dashboard/portal':       ['super_admin','doctor_admin','admin','doctor'],
-  '/dashboard/billing':      ['super_admin','org_owner','doctor_admin','admin','receptionist'],
-  '/dashboard/analytics':    ['super_admin','org_owner','doctor_admin','admin','doctor'],
+  '/dashboard/billing':      ['super_admin','doctor_admin','admin','receptionist'],
+  '/dashboard/analytics':    ['super_admin','doctor_admin','admin','doctor'],
   '/dashboard/settings':     ['super_admin','doctor_admin','admin'],
-  '/dashboard/feedback':     ['super_admin','org_owner','doctor_admin','admin','doctor'],
+  '/dashboard/feedback':     ['super_admin','doctor_admin','admin','doctor'],
   '/superadmin':             ['super_admin'],
   '/orgdashboard':           ['org_owner','super_admin'],
 };
@@ -24,6 +24,11 @@ export default withAuth(
 
     // Super admin can go anywhere
     if (isSuperAdmin) return NextResponse.next();
+
+    // Org owner belongs exclusively to /orgdashboard — block all /dashboard/* access
+    if (role === 'org_owner' && path.startsWith('/dashboard')) {
+      return NextResponse.redirect(new URL('/orgdashboard', req.url));
+    }
 
     // Check role-based access
     for (const [route, allowedRoles] of Object.entries(ROLE_ROUTES)) {

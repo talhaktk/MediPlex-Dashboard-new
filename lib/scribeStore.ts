@@ -7,7 +7,7 @@ export interface ScribeOutput {
   patientName: string;
   patientAge: string;
   parentName: string;
-  mode: 'soap' | 'prescription' | 'discharge' | 'referral';
+  mode: 'soap' | 'prescription' | 'discharge' | 'referral' | 'preauth';
   output: string;
   generatedAt: string;
 }

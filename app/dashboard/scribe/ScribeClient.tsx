@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   Mic, MicOff, FileText, ClipboardList, Pill, Copy, Download,
   RefreshCw, ChevronRight, Loader2, Check, Search,
-  Heart, AlertTriangle, Activity, X, ExternalLink, Save, Mail
+  Heart, AlertTriangle, Activity, X, ExternalLink, Save, Mail, Shield
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Appointment } from '@/types';
@@ -13,7 +13,7 @@ import { saveScribeOutput } from '@/lib/scribeStore';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 
-type Mode = 'soap' | 'prescription' | 'discharge' | 'referral';
+type Mode = 'soap' | 'prescription' | 'discharge' | 'referral' | 'preauth';
 type Status = 'idle' | 'recording' | 'processing' | 'done';
 
 interface SelectedPatient {
@@ -199,6 +199,48 @@ Yours sincerely,
 Dr. [Doctor Name]
 [Clinic]`
   },
+  {
+    id: 'preauth' as Mode, label: 'Pre-Auth Insurance', icon: Shield,
+    color: '#0369a1', bg: 'rgba(3,105,161,0.1)', border: 'rgba(3,105,161,0.3)',
+    desc: 'Insurance pre-authorization',
+    prompt: (text: string, ctx: string) => `You are a medical documentation AI generating an insurance pre-authorization request for a pediatric clinic.
+PATIENT CONTEXT:\n${ctx}\nCLINICAL DETAILS:\n${text}
+
+Output in this format:
+**PRE-AUTHORIZATION REQUEST**
+Date: ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}
+Provider / Clinic: [Clinic Name]
+
+**PATIENT INFORMATION**
+Name: [Patient Name] · Age: [age] · MR#: [if available]
+Parent/Guardian: [parent name]
+Insurance ID: [if mentioned, else leave blank]
+
+**DIAGNOSIS**
+Primary Diagnosis: [with ICD-10 code]
+Secondary Diagnoses: [if applicable]
+
+**CLINICAL JUSTIFICATION**
+[3-5 sentences: why this treatment/procedure is medically necessary based on patient history, symptoms, and exam findings]
+
+**REQUESTED TREATMENT / PROCEDURE**
+[Specific treatment, procedure, or medication with CPT/item code if known]
+
+**SUPPORTING CLINICAL EVIDENCE**
+- Relevant History: [from records]
+- Relevant Investigations: [labs / imaging already done]
+- Failed Conservative Treatment: [if applicable]
+
+**REQUESTED DURATION / QUANTITY**
+[e.g. 5-day course, 1 procedure, 30-day supply]
+
+**ATTENDING PHYSICIAN**
+Dr. [Doctor Name], [Qualification]
+[Clinic Name]
+
+**URGENCY**
+☐ Routine  ☐ Urgent  ☐ Emergency — [indicate if mentioned]`
+  },
 ];
 
 export default function ScribeClient({ data }: { data: Appointment[] }) {
@@ -206,7 +248,8 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
   const { clinicId, isSuperAdmin } = useClinic();
   const [mode, setMode] = useState<Mode>('soap');
   const [input, setInput] = useState('');
-  const [output, setOutput] = useState('');
+  const [outputs, setOutputs] = useState<Partial<Record<Mode, string>>>({});
+  const output = outputs[mode] || '';
   const [status, setStatus] = useState<Status>('idle');
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -287,8 +330,8 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
     let lastLab = null;
     try {
       const labQ = p.mrNumber
-        ? supabase.from('lab_results').select('test_name,notes,uploaded_at').eq('mr_number', p.mrNumber).order('uploaded_at',{ascending:false}).limit(3)
-        : supabase.from('lab_results').select('test_name,notes,uploaded_at').ilike('child_name', p.name).order('uploaded_at',{ascending:false}).limit(3);
+        ? supabase.from('lab_results').select('test_name,notes,uploaded_at,visit_date,file_urls').eq('mr_number', p.mrNumber).order('uploaded_at',{ascending:false}).limit(3)
+        : supabase.from('lab_results').select('test_name,notes,uploaded_at,visit_date,file_urls').ilike('child_name', p.name).order('uploaded_at',{ascending:false}).limit(3);
       const { data: labRows } = await labQ;
       lastLab = labRows || [];
     } catch {}
@@ -319,7 +362,7 @@ Last Prescription — Diagnosis: ${lastRx.diagnosis||'N/A'} | Medicines: ${meds}
     }
     if (lastLab?.length) {
       ctx += `
-Lab Results — ${lastLab.map((l:any)=>`${l.test_name}: ${l.notes||'uploaded'}`).join(' | ')}`;
+Lab Results — ${lastLab.map((l:any)=>`${l.test_name} (${l.visit_date||l.uploaded_at?.slice(0,10)||''}): ${l.notes||'result on file'}`).join(' | ')}`;
     }
     if (lastTelehealth) {
       ctx += `
@@ -355,6 +398,19 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       }
     } catch {}
 
+    // Fetch previous SOAP notes from scribe_outputs
+    try {
+      const soQ = p.mrNumber
+        ? supabase.from('scribe_outputs').select('output,generated_at').eq('mr_number', p.mrNumber).eq('mode','soap').order('generated_at',{ascending:false}).limit(2)
+        : supabase.from('scribe_outputs').select('output,generated_at').ilike('child_name', p.name).eq('mode','soap').order('generated_at',{ascending:false}).limit(2);
+      const { data: soRows } = await soQ;
+      if (soRows?.length) {
+        const assessMatch = soRows[0].output.match(/\*\*ASSESSMENT\*\*([\s\S]*?)(?=\*\*PLAN\*\*|\*\*|$)/i);
+        const assess = assessMatch ? assessMatch[1].trim().slice(0, 300) : soRows[0].output.slice(0, 300);
+        ctx += `\nPrevious SOAP Assessment (${soRows[0].generated_at?.slice(0,10)||''}): ${assess}`;
+      }
+    } catch {}
+
     setPatientContext(ctx);
     toast.success(`Loaded ${p.name}'s full records`);
   };
@@ -366,26 +422,62 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
   const startRecording = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast.error('Speech recognition not supported'); return; }
-    const recognition = new SR();
-    recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-GB';
-    recognition.onresult = (e: any) => {
-      let t = '';
-      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-      setInput(t);
+
+    let accumulated = input;
+    const maxTimer = setTimeout(() => stopRecording(), 3 * 60 * 1000);
+
+    const makeRecognition = () => {
+      const r = new SR();
+      r.continuous = true;
+      r.interimResults = true;
+      r.maxAlternatives = 1;
+      r.lang = 'en-GB';
+
+      r.onresult = (e: any) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            accumulated += (accumulated ? ' ' : '') + e.results[i][0].transcript.trim();
+          } else {
+            interim = e.results[i][0].transcript;
+          }
+        }
+        setInput(accumulated + (interim ? ' ' + interim : ''));
+      };
+
+      r.onerror = (e: any) => {
+        if (e.error !== 'no-speech') {
+          clearTimeout(maxTimer);
+          setStatus('idle');
+          toast.error('Mic error: ' + e.error);
+        }
+      };
+
+      r.onend = () => {
+        setStatus((prev: Status) => {
+          if (prev === 'recording') {
+            try { r.start(); } catch {}
+          } else {
+            clearTimeout(maxTimer);
+          }
+          return prev;
+        });
+      };
+
+      r.start();
+      return r;
     };
-    recognition.onerror = () => { setStatus('idle'); toast.error('Microphone error'); };
-    recognition.onend = () => setStatus((prev: Status) => prev === 'recording' ? 'idle' : prev);
-    recognition.start();
-    recognitionRef.current = recognition;
+
+    recognitionRef.current = makeRecognition();
     setStatus('recording');
-    toast.success('Listening...');
+    toast.success('Listening… click Stop when done');
   };
 
   const stopRecording = () => { recognitionRef.current?.stop(); setStatus('idle'); };
 
   const generate = async () => {
     if (!input.trim()) { toast.error('Enter clinical notes first'); return; }
-    setStatus('processing'); setOutput(''); setSavedToDb(false);
+    setStatus('processing'); setSavedToDb(false);
     try {
       const res = await fetch('/api/scribe', {
         method: 'POST',
@@ -397,7 +489,7 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       });
       const d = await res.json();
       const text = d.content?.map((c: any) => c.text || '').join('') || 'No output generated';
-      setOutput(text); setStatus('done');
+      setOutputs(prev => ({ ...prev, [mode]: text })); setStatus('done');
       if (selectedPatient) {
         saveScribeOutput({ patientName: selectedPatient.name, patientAge: selectedPatient.age, parentName: selectedPatient.parentName, mode, output: text, generatedAt: new Date().toISOString() });
       }
@@ -442,8 +534,8 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
     toast.success('Sent to Prescription tab!');
     router.push('/dashboard/prescription');
   };
-  const reset = () => { setOutput(''); setStatus('idle'); setSavedToDb(false); };
-  const fullReset = () => { setInput(''); setOutput(''); setStatus('idle'); setSavedToDb(false); };
+  const reset = () => { setOutputs(prev => ({ ...prev, [mode]: '' })); setStatus('idle'); setSavedToDb(false); };
+  const fullReset = () => { setInput(''); setOutputs({}); setStatus('idle'); setSavedToDb(false); };
 
   return (
     <div className="min-h-screen p-6" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
@@ -536,12 +628,12 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       </div>
 
       {/* Mode Selector — 4 modes in grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         {MODES.map(m => {
           const Icon = m.icon;
           const active = mode === m.id;
           return (
-            <button key={m.id} onClick={() => { setMode(m.id); setOutput(''); setStatus('idle'); setSavedToDb(false); }}
+            <button key={m.id} onClick={() => { setMode(m.id); setSavedToDb(false); }}
               className="p-3 rounded-2xl border text-left transition-all"
               style={{ background: active ? m.bg : 'rgba(255,255,255,0.03)', borderColor: active ? m.border : 'rgba(255,255,255,0.08)', transform: active ? 'scale(1.02)' : 'scale(1)' }}>
               <div className="flex items-center gap-2 mb-1.5">
@@ -624,7 +716,7 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
                     <ExternalLink size={11} />→ Rx
                   </button>
                 )}
-                <button onClick={() => { setOutput(''); setStatus('idle'); setSavedToDb(false); }} className="px-2 py-1.5 rounded-lg text-xs text-white/40 hover:text-white/70">
+                <button onClick={reset} className="px-2 py-1.5 rounded-lg text-xs text-white/40 hover:text-white/70">
                   <RefreshCw size={11} />
                 </button>
               </div>
