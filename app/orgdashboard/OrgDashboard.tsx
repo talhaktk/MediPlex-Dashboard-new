@@ -23,6 +23,7 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'overview'|'appointments'|'revenue'|'feedback'>('overview');
 
   useEffect(() => {
@@ -57,6 +58,8 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
       setAppointments(apts||[]);
       const { data: inv } = await supabase.from('billing').select('*').in('clinic_id', clinicIds).order('created_at',{ascending:false});
       setInvoices(inv||[]);
+      const { data: exp } = await supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false});
+      setExpenses(exp||[]);
     }
     setLoading(false);
   };
@@ -64,10 +67,13 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
   const filtered = useMemo(() => ({
     appointments: selectedClinic==='all' ? appointments : appointments.filter(a=>a.clinic_id===selectedClinic),
     invoices: selectedClinic==='all' ? invoices : invoices.filter(i=>i.clinic_id===selectedClinic),
+    expenses: selectedClinic==='all' ? expenses : expenses.filter(e=>e.clinic_id===selectedClinic),
     stats: selectedClinic==='all' ? stats : stats.filter(s=>s.clinicId===selectedClinic),
   }), [selectedClinic, appointments, invoices, stats]);
 
   const totalRevenue = filtered.stats.reduce((s,c)=>s+c.revenue,0);
+  const totalExpenses = (filtered as any).expenses?.reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
+  const netProfit = totalRevenue - totalExpenses;
   const totalPending = filtered.stats.reduce((s,c)=>s+c.pending,0);
   const totalPatients = filtered.stats.reduce((s,c)=>s+c.patients,0);
   const totalApts = filtered.stats.reduce((s,c)=>s+c.appointments,0);
@@ -151,6 +157,8 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
                 {label:'Outstanding', val:`PKR ${totalPending.toLocaleString()}`, icon:TrendingUp, color:'#d97706', bg:'#fefce8'},
                 {label:'Total Patients', val:totalPatients, icon:Users, color:'#2b6cb0', bg:'#eff6ff'},
                 {label:'Total Appointments', val:totalApts, icon:Calendar, color:'#7c3aed', bg:'#f5f3ff'},
+                {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, icon:Receipt, color:'#dc2626', bg:'#fef2f2'},
+                {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, icon:TrendingUp, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
               ].map(s=>(
                 <div key={s.label} className="bg-white rounded-2xl p-5 border border-black/5">
                   <div className="flex items-center gap-3 mb-2">
@@ -321,6 +329,44 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Expenses by clinic */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-black/5">
+                <div className="font-semibold text-navy text-[14px] mb-4">Expenses by Clinic</div>
+                <div className="space-y-3">
+                  {clinics.map((clinic,i)=>{
+                    const clinicExp = (filtered as any).expenses?.filter((e:any)=>e.clinic_id===clinic.id).reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
+                    return (
+                      <div key={clinic.id} className="flex items-center gap-3">
+                        <div className="text-[12px] text-gray-600 w-36 flex-shrink-0 truncate">{clinic.name}</div>
+                        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full" style={{width:`${totalExpenses?((clinicExp/totalExpenses)*100):0}%`,background:'#dc2626'}}/>
+                        </div>
+                        <div className="text-[12px] font-medium text-red-600 w-28 text-right">PKR {clinicExp.toLocaleString()}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl p-5 border border-black/5">
+                <div className="font-semibold text-navy text-[14px] mb-4">Net Profit by Clinic</div>
+                <div className="space-y-3">
+                  {filtered.stats.map((s,i)=>{
+                    const clinicExp = (filtered as any).expenses?.filter((e:any)=>e.clinic_id===s.clinicId).reduce((sum:number,e:any)=>sum+Number(e.amount||0),0)||0;
+                    const profit = s.revenue - clinicExp;
+                    return (
+                      <div key={s.clinicId} className="flex items-center justify-between p-3 rounded-xl" style={{background:'#f9f7f3'}}>
+                        <div className="text-[13px] font-medium text-navy">{s.clinicName}</div>
+                        <div className="text-[13px] font-bold" style={{color:profit>=0?'#1a7f5e':'#dc2626'}}>
+                          PKR {profit.toLocaleString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
