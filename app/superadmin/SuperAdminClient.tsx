@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   Building2, Users, ToggleLeft, BarChart3, Plus, X, Save,
   LogOut, CheckCircle, XCircle,
-  UserCheck, Shield, ChevronRight, ChevronDown,
+  UserCheck, Shield, ChevronRight, ChevronDown, Briefcase,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -396,6 +396,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     { id:'users',     label:'Users',         icon: Users      },
     { id:'features',  label:'Features',      icon: ToggleLeft },
     { id:'analytics', label:'Analytics',     icon: BarChart3  },
+    { id:'business',  label:'Business',      icon: Briefcase  },
   ];
 
   return (
