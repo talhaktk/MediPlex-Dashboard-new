@@ -100,20 +100,20 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
 
   // ── Fetch + realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetch = async () => {
+    const load = async () => {
       let bq = supabase.from('billing').select('*').order('created_at', { ascending: false });
-      if (clinicId && !isSuperAdmin) bq = bq.eq('clinic_id', clinicId);
+      if (clinicId && !isSuperAdmin) bq = (bq as any).eq('clinic_id', clinicId);
       const { data: rows, error } = await bq;
       if (error) { toast.error('Could not load invoices: ' + error.message); return; }
       if (rows) setInvoices(rows.map(mapRow));
     };
-    fetch();
+    load();
     const ch = supabase
       .channel('billing-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, fetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'billing' }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [clinicId, isSuperAdmin]);
 
   // ── Uninvoiced appointments ──────────────────────────────────────────────────
   const uninvoiced = useMemo(() => {
@@ -331,7 +331,45 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
       {billingTab==='expenses' && <ExpensesTab/>}
       {billingTab==='invoices' && <div className="space-y-5">
 
-
+      {/* KPI Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          {
+            label: 'Total Collected',
+            value: `PKR ${totalRevenue.toLocaleString()}`,
+            sub: `${invoices.length} records`,
+            color: '#1a7f5e',
+            bg: '#e8f7f2',
+          },
+          {
+            label: 'Pending Balance',
+            value: `PKR ${totalPending.toLocaleString()}`,
+            sub: `${unpaidCount} unpaid`,
+            color: '#c53030',
+            bg: '#fff0f0',
+          },
+          {
+            label: 'Consultations',
+            value: String(consultInvoices.length),
+            sub: `PKR ${consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()} collected`,
+            color: '#0369a1',
+            bg: '#e0f2fe',
+          },
+          {
+            label: 'Procedures',
+            value: String(procedureInvoices.length),
+            sub: `PKR ${procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()} collected`,
+            color: '#6d28d9',
+            bg: '#ede9fe',
+          },
+        ].map(c => (
+          <div key={c.label} className="card p-4" style={{ borderLeft: `3px solid ${c.color}` }}>
+            <div className="text-[11px] text-gray-400 uppercase tracking-widest font-medium mb-1">{c.label}</div>
+            <div className="text-[22px] font-bold" style={{ color: c.color }}>{c.value}</div>
+            <div className="text-[11px] text-gray-400 mt-0.5">{c.sub}</div>
+          </div>
+        ))}
+      </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

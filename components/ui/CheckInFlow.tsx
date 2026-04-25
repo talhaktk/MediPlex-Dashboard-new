@@ -10,6 +10,7 @@ import {
   saveInvoice, setHealth, getHealth, addVitals,
   getInvoiceByApt, patientKey, InvoiceRecord, VitalSigns
 } from '@/lib/store';
+import { useClinic } from '@/lib/clinicContext';
 
 const METHODS      = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 const BLOOD_GROUPS = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -25,6 +26,7 @@ interface Props {
 type Step = 'mr' | 'invoice' | 'vitals';
 
 export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Props) {
+  const { clinicId } = useClinic();
   const existingInv = getInvoiceByApt(a.id);
 
   // If appointment already has MR#, skip MR step
@@ -134,6 +136,7 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
         payment_method:   record.paymentMethod || 'Cash',
         payment_status:   payStatus,
         notes:            record.notes      || '',
+        clinic_id:        clinicId          || null,
       }], { onConflict: 'invoice_number' });
       if (error) throw error;
       toast.success(`Invoice ${record.id} saved`);

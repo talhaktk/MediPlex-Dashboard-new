@@ -5,6 +5,7 @@ import { Appointment, MonthlyStats, ReasonStat, AgeStat, DashboardStats } from '
 import { filterAppointments, computeMonthlyStats, exportToCSV, formatUSDate } from '@/lib/sheets';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
+import { useSession } from 'next-auth/react';
 import AgingReport from '@/components/ui/AgingReport';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -273,7 +274,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   };
 
   // Revenue & financial tabs restricted to super_admin, org_owner, doctor_admin, doctor
-  const canSeeFinancials = ['super_admin','org_owner','doctor_admin','doctor'].includes(role);
+  const { status: sessionStatus } = useSession();
+  const canSeeFinancials = sessionStatus === 'loading' || ['super_admin','org_owner','doctor_admin','doctor'].includes(role);
   const allTabs = ['overview','monthly','patients','trends','billing','aging','expenses'] as const;
   const tabs = allTabs.filter(t => {
     if ((t === 'billing' || t === 'expenses') && !canSeeFinancials) return false;
