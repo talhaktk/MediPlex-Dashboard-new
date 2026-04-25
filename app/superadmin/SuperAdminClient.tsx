@@ -974,14 +974,10 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
             <h1 className="text-white text-[20px] font-semibold">Business Analytics</h1>
 
             {/* MediPlex Revenue from Subscriptions */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-5 gap-3">
               {[
                 { label:'Monthly Recurring Revenue', value:`PKR ${subscriptions.filter(s=>s.status==='active'&&s.currency==='PKR').reduce((s,sub)=>s+Number(sub.price_monthly||0),0).toLocaleString()}`, color:'#1a7f5e' },
                 { label:'Active Subscriptions', value:subscriptions.filter(s=>s.status==='active').length, color:'#c9a84c' },
-                { label:'Near Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=(s.ai_scribe_limit*0.8)&&s.ai_scribe_used<s.ai_scribe_limit).length, color:'#d97706' },
-                { label:'Over Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=s.ai_scribe_limit&&s.ai_scribe_limit>0).length, color:'#dc2626' },
-                { label:'Near Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=(s.ai_scribe_limit*0.8)&&s.ai_scribe_used<s.ai_scribe_limit).length, color:'#d97706' },
-                { label:'Over Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=s.ai_scribe_limit&&s.ai_scribe_limit>0).length, color:'#dc2626' },
                 { label:'Near Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=(s.ai_scribe_limit*0.8)&&s.ai_scribe_used<s.ai_scribe_limit).length, color:'#d97706' },
                 { label:'Over Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=s.ai_scribe_limit&&s.ai_scribe_limit>0).length, color:'#dc2626' },
                 { label:'Total Clients', value:clinics.length, color:'#2b6cb0' },
@@ -1067,34 +1063,6 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                         <td className="px-4 py-3 text-[13px] font-semibold" style={{color:sub?'#c9a84c':'rgba(255,255,255,0.3)'}}>{sub?Number(sub.price_monthly).toLocaleString():'Not set'}</td>
                         <td className="px-4 py-3 text-[12px] text-white/50">{sub?.currency||'—'}</td>
                         <td className="px-4 py-3 text-[12px]" style={{color:expired?'#fc8181':'rgba(255,255,255,0.5)'}}>{sub?.next_billing||'—'}</td>
-                        <td className="px-4 py-3 text-[12px]">
-                          {sub?.ai_scribe_limit ? (
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span style={{color: sub.ai_scribe_used>=sub.ai_scribe_limit?'#fc8181':sub.ai_scribe_used>=sub.ai_scribe_limit*0.8?'#fbbf24':'#4ade80'}} className="text-[11px] font-medium">
-                                  {sub.ai_scribe_used||0}/{sub.ai_scribe_limit}
-                                </span>
-                              </div>
-                              <div className="h-1 rounded-full bg-white/10 w-24 overflow-hidden">
-                                <div className="h-full rounded-full" style={{width:`${Math.min(((sub.ai_scribe_used||0)/sub.ai_scribe_limit)*100,100)}%`,background:sub.ai_scribe_used>=sub.ai_scribe_limit?'#dc2626':sub.ai_scribe_used>=sub.ai_scribe_limit*0.8?'#d97706':'#1a7f5e'}}/>
-                              </div>
-                            </div>
-                          ) : <span className="text-white/20 text-[11px]">Unlimited</span>}
-                        </td>
-                        <td className="px-4 py-3 text-[12px]">
-                          {sub?.ai_scribe_limit ? (
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span style={{color: sub.ai_scribe_used>=sub.ai_scribe_limit?'#fc8181':sub.ai_scribe_used>=sub.ai_scribe_limit*0.8?'#fbbf24':'#4ade80'}} className="text-[11px] font-medium">
-                                  {sub.ai_scribe_used||0}/{sub.ai_scribe_limit}
-                                </span>
-                              </div>
-                              <div className="h-1 rounded-full bg-white/10 w-24 overflow-hidden">
-                                <div className="h-full rounded-full" style={{width:`${Math.min(((sub.ai_scribe_used||0)/sub.ai_scribe_limit)*100,100)}%`,background:sub.ai_scribe_used>=sub.ai_scribe_limit?'#dc2626':sub.ai_scribe_used>=sub.ai_scribe_limit*0.8?'#d97706':'#1a7f5e'}}/>
-                              </div>
-                            </div>
-                          ) : <span className="text-white/20 text-[11px]">Unlimited</span>}
-                        </td>
                         <td className="px-4 py-3 text-[12px]">
                           {sub?.ai_scribe_limit ? (
                             <div>
