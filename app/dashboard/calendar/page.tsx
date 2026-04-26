@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
 import CalendarClient from './CalendarClient';
 
-export const revalidate = 30;
+export const revalidate = 0;
 
 export default async function CalendarPage() {
   const session = await getServerSession(authOptions);

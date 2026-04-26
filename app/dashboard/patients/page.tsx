@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
 import PatientsClient from './PatientsClient';
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 const ALLOWED = ['super_admin','doctor_admin','admin','doctor'];
 

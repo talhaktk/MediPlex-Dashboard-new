@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import Topbar from '@/components/layout/Topbar';
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 export default async function RemindersPage() {
   const session = await getServerSession(authOptions);
