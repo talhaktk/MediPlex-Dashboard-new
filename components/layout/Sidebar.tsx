@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot, MessagesSquare } from 'lucide-react';
 import { Star as StarIcon } from 'lucide-react';
 import { FolderOpen } from 'lucide-react';
 
@@ -18,6 +18,7 @@ const ALL_NAV = [
   { label:'Prescription',   href:'/dashboard/prescription', icon:FileText,        roles:['super_admin','doctor_admin','admin','doctor'] },
   { label:'Clinical',       href:'/dashboard/clinical',     icon:Stethoscope,     roles:['super_admin','doctor_admin','admin','doctor'] },
   { label:'AI Scribe',      href:'/dashboard/scribe',       icon:Bot,             roles:['super_admin','doctor_admin','admin','doctor'] },
+  { label:'Patient Messages', href:'/dashboard/messages',  icon:MessagesSquare,  roles:['super_admin','doctor_admin','admin','doctor','receptionist'] },
   { label:'Billing',        href:'/dashboard/billing',      icon:Receipt,         roles:['super_admin','org_owner','doctor_admin','doctor','receptionist'] },
   { label:'Reminders',      href:'/dashboard/reminders',    icon:MessageCircle,   roles:['super_admin','org_owner','doctor_admin','admin','doctor','receptionist'] },
   { label:'Analytics',      href:'/dashboard/analytics',    icon:BarChart3,       roles:['super_admin','org_owner','doctor_admin','admin','doctor'] },
@@ -31,9 +32,10 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router   = useRouter();
 
-  const [clinicName, setClinicName] = React.useState('');
-  const [doctorName, setDoctorName] = React.useState('');
-  const [speciality, setSpeciality] = React.useState('');
+  const [clinicName,    setClinicName]    = React.useState('');
+  const [doctorName,    setDoctorName]    = React.useState('');
+  const [speciality,    setSpeciality]    = React.useState('');
+  const [unreadMsgs,    setUnreadMsgs]    = React.useState(0);
 
   const clinicId = (session?.user as any)?.clinicId || '';
 
@@ -48,6 +50,13 @@ export default function Sidebar() {
             setSpeciality(data.speciality || '');
           }
         });
+      // Count unread patient messages (from 'patient', no clinic reply after them)
+      supabase.from('patient_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+        .eq('sender', 'patient')
+        .is('staff_read_at', null)
+        .then(({ count }) => setUnreadMsgs(count || 0));
     });
   }, [clinicId]);
 
@@ -104,7 +113,14 @@ export default function Sidebar() {
                 <Link href={href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150 ${active ? 'bg-white/10 text-gold font-medium' : 'text-white/55 hover:text-white/85 hover:bg-white/5'}`}>
                   <Icon size={15} className="flex-shrink-0" />
                   {label}
-                  {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />}
+                  {href === '/dashboard/messages' && unreadMsgs > 0 && (
+                    <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: '#8b5cf6', color: '#fff', minWidth: '18px', textAlign: 'center' }}>
+                      {unreadMsgs > 99 ? '99+' : unreadMsgs}
+                    </span>
+                  )}
+                  {active && href !== '/dashboard/messages' && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />}
+                  {active && href === '/dashboard/messages' && unreadMsgs === 0 && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />}
                 </Link>
               </li>
             );

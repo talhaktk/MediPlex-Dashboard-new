@@ -11,6 +11,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
   '/dashboard/analytics':    ['super_admin','doctor_admin','admin','doctor'],
   '/dashboard/settings':     ['super_admin','doctor_admin','admin'],
   '/dashboard/feedback':     ['super_admin','doctor_admin','admin','doctor'],
+  '/dashboard/messages':     ['super_admin','doctor_admin','admin','doctor','receptionist'],
   '/superadmin':             ['super_admin'],
   '/orgdashboard':           ['org_owner','super_admin'],
 };
