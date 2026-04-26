@@ -56,8 +56,8 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Allow unauthenticated access to patient register page
         if (req.nextUrl.pathname.startsWith('/patient/register')) return true;
+        if (req.nextUrl.pathname.startsWith('/lab-upload')) return true;
         return !!token;
       },
     },
@@ -65,5 +65,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/superadmin/:path*', '/orgdashboard/:path*', '/patient/:path*'],
+  matcher: ['/dashboard/:path*', '/superadmin/:path*', '/orgdashboard/:path*', '/patient/:path*', '/lab-upload/:path*'],
 };

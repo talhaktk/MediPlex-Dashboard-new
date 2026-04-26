@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { getHealth, setHealth, addVitals, getLatestVitals, getPrescriptionsByPatient, patientKey, HealthRecord, VitalSigns } from '@/lib/store';
 import StatusPill from '@/components/ui/StatusPill';
 import LabResultsWithPrint from '@/components/ui/LabResultsWithPrint';
+import LabOrdersTab from '@/components/ui/LabOrdersTab';
 import ConsentForms from '@/components/ui/ConsentForms';
 import TelehealthHistory from '@/components/ui/TelehealthHistory';
 import WHOGrowthChart from '@/components/ui/WHOGrowthChart';
@@ -1423,7 +1424,11 @@ const [search, setSearch] = useState('');
               {/* LABS */}
               {activeTab==='labs' && (
                 <div className="p-5">
-                  <LabResultsWithPrint childName={selected.name} mrNumber={selected.mrNumber} patientAge={selected.age} parentName={selected.parentName} visitDate={new Date().toISOString().split('T')[0]}/>
+                  <LabOrdersTab mrNumber={selected.mrNumber} patientName={selected.name} />
+                  <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="text-[10px] text-white/25 uppercase tracking-widest mb-3">Uploaded Files (legacy)</p>
+                    <LabResultsWithPrint childName={selected.name} mrNumber={selected.mrNumber} patientAge={selected.age} parentName={selected.parentName} visitDate={new Date().toISOString().split('T')[0]}/>
+                  </div>
                 </div>
               )}
 
