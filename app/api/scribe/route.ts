@@ -62,18 +62,26 @@ export async function POST(req: NextRequest) {
   // Increment usage after successful generation
   if (clinicId && res.ok) {
     try {
-      const { data: sub } = await supabaseAdmin
+      const { data: sub, error: fetchErr } = await supabaseAdmin
         .from('subscriptions')
         .select('ai_scribe_limit,ai_scribe_used')
         .eq('clinic_id', clinicId)
         .maybeSingle();
 
+      if (fetchErr) console.error('[scribe] subscription fetch error:', fetchErr.message);
+
       if (sub !== null) {
         const newUsed = (sub.ai_scribe_used || 0) + 1;
-        await supabaseAdmin
+        const { error: updateErr } = await supabaseAdmin
           .from('subscriptions')
           .update({ ai_scribe_used: newUsed })
           .eq('clinic_id', clinicId);
+
+        if (updateErr) {
+          console.error('[scribe] usage update error:', updateErr.message);
+        } else {
+          console.log(`[scribe] usage updated: clinicId=${clinicId} newUsed=${newUsed}`);
+        }
 
         // 80% warning notification (once per month)
         const limit = sub.ai_scribe_limit;
@@ -95,8 +103,12 @@ export async function POST(req: NextRequest) {
             }]).then(() => {});
           }
         }
+      } else {
+        console.log(`[scribe] no subscription found for clinicId=${clinicId}`);
       }
-    } catch {}
+    } catch (e: any) {
+      console.error('[scribe] usage tracking exception:', e?.message);
+    }
   }
 
   return NextResponse.json(data);
