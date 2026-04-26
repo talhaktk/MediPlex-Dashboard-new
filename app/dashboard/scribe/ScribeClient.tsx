@@ -560,58 +560,28 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
 
   const generate = async () => {
     if (!input.trim()) { toast.error('Enter clinical notes first'); return; }
-
-    // Check AI Scribe usage limit (once, before generation)
-    let scribeUsed: number | null = null;
-    if (clinicId && !isSuperAdmin) {
-      try {
-        const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used,next_billing').eq('clinic_id', clinicId).maybeSingle();
-        if (sub) {
-          // Monthly auto-reset: if next_billing rolled over, reset the counter
-          let used = sub.ai_scribe_used || 0;
-          const limit = sub.ai_scribe_limit;
-          const billingMonth = sub.next_billing ? new Date(sub.next_billing).getMonth() : -1;
-          const currentMonth = new Date().getMonth();
-          if (billingMonth !== -1 && billingMonth !== currentMonth) {
-            await supabase.from('subscriptions').update({ ai_scribe_used: 0 }).eq('clinic_id', clinicId);
-            used = 0;
-          }
-          if (limit && used >= limit) {
-            toast.error(`AI Scribe limit reached (${used}/${limit}/month). Contact your admin to upgrade.`);
-            supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_blocked', title: '🚫 AI Scribe Limit Reached', body: `You have used ${used}/${limit} AI Scribe calls this month.` }]).then(() => {});
-            return;
-          }
-          if (limit && used >= Math.floor(limit * 0.8)) {
-            supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning')
-              .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-              .maybeSingle().then(({ data: existing }) => {
-                if (!existing) supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_warning', title: '⚠️ AI Scribe Usage at 80%', body: `You have used ${used}/${limit} AI Scribe calls this month.` }]).then(() => {});
-              });
-          }
-          scribeUsed = used;
-        }
-      } catch {}
-    }
-
     setStatus('processing'); setSavedToDb(false);
     try {
       const res = await fetch('/api/scribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          clinicId: (!isSuperAdmin && clinicId) ? clinicId : undefined,
           model: 'claude-sonnet-4-20250514', max_tokens: 1500,
           messages: [{ role: 'user', content: currentMode.prompt(input, patientContext) }]
         })
       });
+      if (res.status === 429) {
+        const d = await res.json();
+        toast.error(`AI Scribe limit reached (${d.used}/${d.limit}/month). Contact your admin to upgrade.`);
+        setStatus('idle');
+        return;
+      }
       const d = await res.json();
       const text = d.content?.map((c: any) => c.text || '').join('') || 'No output generated';
       setOutputs(prev => ({ ...prev, [mode]: text })); setStatus('done');
       if (selectedPatient) {
         saveScribeOutput({ patientName: selectedPatient.name, patientAge: selectedPatient.age, parentName: selectedPatient.parentName, mode, output: text, generatedAt: new Date().toISOString() });
-      }
-      // Increment usage only after successful generation
-      if (clinicId && !isSuperAdmin && scribeUsed !== null) {
-        await supabase.from('subscriptions').update({ ai_scribe_used: scribeUsed + 1 }).eq('clinic_id', clinicId);
       }
     } catch {
       toast.error('Generation failed'); setStatus('idle');
@@ -843,18 +813,7 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
             )}
           </div>
 
-          {/* Usage display */}
-      {clinicId && !isSuperAdmin && (
-        <UsageDisplay clinicId={clinicId}/>
-      )}
-      {/* Usage display */}
-      {clinicId && !isSuperAdmin && (
-        <UsageDisplay clinicId={clinicId}/>
-      )}
-      {/* Usage display */}
-      {clinicId && !isSuperAdmin && (
-        <UsageDisplay clinicId={clinicId}/>
-      )}
+          {clinicId && !isSuperAdmin && <UsageDisplay clinicId={clinicId}/>}
       {status === 'processing' && (
             <div className="flex flex-col items-center justify-center h-64 gap-3">
               <Loader2 size={32} className="animate-spin" style={{ color: currentMode.color }} />
