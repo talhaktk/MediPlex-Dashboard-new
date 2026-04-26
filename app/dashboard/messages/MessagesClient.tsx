@@ -36,7 +36,7 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
   const loadConversations = useCallback(async () => {
     let q = supabase.from('patient_messages').select('mr_number,patient_name,body,created_at,sender,staff_read_at')
       .order('created_at', { ascending: false });
-    if (!isSuperAdmin && clinicId) q = q.eq('clinic_id', clinicId);
+    if (!isSuperAdmin && clinicId) q = q.or(`clinic_id.eq.${clinicId},clinic_id.is.null`);
 
     const { data } = await q;
     if (!data) { setLoadingList(false); return; }
@@ -70,7 +70,7 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
   const loadThread = useCallback(async (mr: string) => {
     setLoadingThread(true);
     let q = supabase.from('patient_messages').select('*').eq('mr_number', mr).order('created_at', { ascending: true });
-    if (!isSuperAdmin && clinicId) q = q.eq('clinic_id', clinicId);
+    if (!isSuperAdmin && clinicId) q = q.or(`clinic_id.eq.${clinicId},clinic_id.is.null`);
     const { data } = await q;
     setMessages(data || []);
     setLoadingThread(false);
