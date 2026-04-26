@@ -564,21 +564,33 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
     // Check AI Scribe usage limit (once, before generation)
     let scribeUsed: number | null = null;
     if (clinicId && !isSuperAdmin) {
-      const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle();
-      if (sub) {
-        const used = sub.ai_scribe_used || 0;
-        const limit = sub.ai_scribe_limit;
-        if (limit && used >= limit) {
-          toast.error(`AI Scribe limit reached (${used}/${limit}/month). Please upgrade your plan.`);
-          await supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_blocked', title: '🚫 AI Scribe Limit Reached', message: `You have used ${used}/${limit} AI Scribe calls this month. Upgrade to continue.` }]);
-          return;
+      try {
+        const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used,next_billing').eq('clinic_id', clinicId).maybeSingle();
+        if (sub) {
+          // Monthly auto-reset: if next_billing rolled over, reset the counter
+          let used = sub.ai_scribe_used || 0;
+          const limit = sub.ai_scribe_limit;
+          const billingMonth = sub.next_billing ? new Date(sub.next_billing).getMonth() : -1;
+          const currentMonth = new Date().getMonth();
+          if (billingMonth !== -1 && billingMonth !== currentMonth) {
+            await supabase.from('subscriptions').update({ ai_scribe_used: 0 }).eq('clinic_id', clinicId);
+            used = 0;
+          }
+          if (limit && used >= limit) {
+            toast.error(`AI Scribe limit reached (${used}/${limit}/month). Contact your admin to upgrade.`);
+            supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_blocked', title: '🚫 AI Scribe Limit Reached', body: `You have used ${used}/${limit} AI Scribe calls this month.` }]).then(() => {});
+            return;
+          }
+          if (limit && used >= Math.floor(limit * 0.8)) {
+            supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning')
+              .gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
+              .maybeSingle().then(({ data: existing }) => {
+                if (!existing) supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_warning', title: '⚠️ AI Scribe Usage at 80%', body: `You have used ${used}/${limit} AI Scribe calls this month.` }]).then(() => {});
+              });
+          }
+          scribeUsed = used;
         }
-        if (limit && used >= Math.floor(limit * 0.8)) {
-          const existing = await supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).maybeSingle();
-          if (!existing.data) await supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_warning', title: '⚠️ AI Scribe Usage at 80%', message: `You have used ${used}/${limit} AI Scribe calls this month.` }]);
-        }
-        scribeUsed = used;
-      }
+      } catch {}
     }
 
     setStatus('processing'); setSavedToDb(false);

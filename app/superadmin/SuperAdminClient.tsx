@@ -254,7 +254,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const addSubscription = async (clinicId: string) => {
     const clinic = clinics.find(c=>c.id===clinicId);
     const existing = subscriptions.find(s=>s.clinic_id===clinicId);
-    const payload = {
+    const basePayload = {
       clinic_id: clinicId, org_id: clinic?.org_id||null,
       plan_name: subForm.plan_name, price_monthly: Number(subForm.price_monthly),
       currency: subForm.currency, start_date: subForm.start_date||null,
@@ -262,8 +262,8 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
       ai_scribe_limit: subForm.ai_scribe_limit ? Number(subForm.ai_scribe_limit) : null,
     };
     const { error } = existing
-      ? await supabase.from('subscriptions').update(payload).eq('clinic_id', clinicId)
-      : await supabase.from('subscriptions').insert([payload]);
+      ? await supabase.from('subscriptions').update(basePayload).eq('clinic_id', clinicId)
+      : await supabase.from('subscriptions').insert([{ ...basePayload, ai_scribe_used: 0 }]);
     if (error) toast.error('Failed: '+error.message);
     else { toast.success(existing ? 'Subscription updated' : 'Subscription added'); setShowAddSub(null); fetchAll(); }
   };
