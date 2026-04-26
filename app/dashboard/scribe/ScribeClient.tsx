@@ -314,11 +314,12 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
   const currentMode = MODES.find(m => m.id === mode)!
 
   useEffect(() => {
-    supabase.from('clinic_settings').select('doctor_name,clinic_name').eq('id', 1).maybeSingle()
+    if (!clinicId) return;
+    supabase.from('clinic_settings').select('doctor_name,clinic_name').eq('clinic_id', clinicId).maybeSingle()
       .then(({ data }) => {
         if (data) setClinicInfo({ doctorName: data.doctor_name || '', clinicName: data.clinic_name || '' });
       });
-  }, []);;
+  }, [clinicId]);
 
   const uniquePatients = Array.from(
     new Map(
@@ -470,6 +471,28 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       }
     } catch {}
 
+    // Fetch clinical assessments from Patients tab
+    try {
+      const caQ = p.mrNumber
+        ? supabase.from('clinical_assessments').select('*').eq('mr_number', p.mrNumber).order('recorded_at',{ascending:false}).limit(3)
+        : supabase.from('clinical_assessments').select('*').ilike('child_name', p.name).order('recorded_at',{ascending:false}).limit(3);
+      const { data: caRows } = await caQ;
+      if (caRows?.length) {
+        const ca = caRows[0];
+        const parts = [
+          ca.pain_scale    ? `Pain Scale: ${ca.pain_scale}/10`       : '',
+          ca.bmi           ? `BMI: ${ca.bmi}`                        : '',
+          ca.spo2          ? `SpO2: ${ca.spo2}%`                     : '',
+          ca.peak_flow     ? `Peak Flow: ${ca.peak_flow}`            : '',
+          ca.ecg_findings  ? `ECG: ${ca.ecg_findings}`              : '',
+          ca.cardiac_risk  ? `Cardiac Risk: ${ca.cardiac_risk}`     : '',
+          ca.gcs_score     ? `GCS: ${ca.gcs_score}`                 : '',
+          ca.notes         ? `Assessment Notes: ${ca.notes}`        : '',
+        ].filter(Boolean).join(' | ');
+        if (parts) ctx += `\nClinical Assessment (${ca.recorded_at||''}): ${parts}`;
+      }
+    } catch {}
+
     if (clinicInfo.doctorName) ctx = `Attending Physician: ${clinicInfo.doctorName}\n` + (clinicInfo.clinicName ? `Clinic: ${clinicInfo.clinicName}\n` : '') + ctx;
     setPatientContext(ctx);
     toast.success(`Loaded ${p.name}'s full records`);
@@ -539,22 +562,22 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
     if (!input.trim()) { toast.error('Enter clinical notes first'); return; }
 
     // Check AI Scribe usage limit (once, before generation)
-    let scribeSub: any = null;
+    let scribeUsed: number | null = null;
     if (clinicId && !isSuperAdmin) {
       const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle();
-      if (sub?.ai_scribe_limit) {
+      if (sub) {
         const used = sub.ai_scribe_used || 0;
         const limit = sub.ai_scribe_limit;
-        if (used >= limit) {
+        if (limit && used >= limit) {
           toast.error(`AI Scribe limit reached (${used}/${limit}/month). Please upgrade your plan.`);
           await supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_blocked', title: '🚫 AI Scribe Limit Reached', message: `You have used ${used}/${limit} AI Scribe calls this month. Upgrade to continue.` }]);
           return;
         }
-        if (used >= Math.floor(limit * 0.8)) {
+        if (limit && used >= Math.floor(limit * 0.8)) {
           const existing = await supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).maybeSingle();
           if (!existing.data) await supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_warning', title: '⚠️ AI Scribe Usage at 80%', message: `You have used ${used}/${limit} AI Scribe calls this month.` }]);
         }
-        scribeSub = { used, limit };
+        scribeUsed = used;
       }
     }
 
@@ -575,8 +598,8 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
         saveScribeOutput({ patientName: selectedPatient.name, patientAge: selectedPatient.age, parentName: selectedPatient.parentName, mode, output: text, generatedAt: new Date().toISOString() });
       }
       // Increment usage only after successful generation
-      if (clinicId && !isSuperAdmin && scribeSub) {
-        await supabase.from('subscriptions').update({ ai_scribe_used: scribeSub.used + 1 }).eq('clinic_id', clinicId);
+      if (clinicId && !isSuperAdmin && scribeUsed !== null) {
+        await supabase.from('subscriptions').update({ ai_scribe_used: scribeUsed + 1 }).eq('clinic_id', clinicId);
       }
     } catch {
       toast.error('Generation failed'); setStatus('idle');

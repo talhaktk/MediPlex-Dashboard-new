@@ -387,6 +387,30 @@ export default function PrescriptionClient({
     }
   }, []);
 
+  // Auto-fill form fields when scribe data is loaded
+  useEffect(() => {
+    if (!scribeData?.output) return;
+    const text = scribeData.output;
+    setForm(prev => ({
+      ...prev,
+      id:             prev.id             || genId(),
+      childName:      prev.childName      || scribeData.patientName,
+      parentName:     prev.parentName     || scribeData.parentName,
+      childAge:       prev.childAge       || scribeData.patientAge,
+      date:           prev.date           || new Date().toISOString().split('T')[0],
+      createdAt:      prev.createdAt      || new Date().toISOString(),
+      diagnosis:      prev.diagnosis      || extractDiagnosis(text),
+      chiefComplaint: prev.chiefComplaint || extractChiefComplaint(text),
+      signsSymptoms:  prev.signsSymptoms  || extractSignsSymptoms(text),
+      followUp:       prev.followUp       || extractFollowUp(text),
+      advice:         prev.advice         || extractAdvice(text) || 'Drink plenty of water. Rest well.',
+    }));
+    const meds = extractMedicines(text);
+    if (meds.length > 0) setMedicines(meds);
+    const labsText = extractLabsText(text);
+    if (labsText) setLabResultsText(labsText);
+  }, [scribeData]);
+
   // Poll for new scribe output every 3 seconds (when panel is closed)
   useEffect(() => {
     if (showScribePanel) return;
@@ -505,6 +529,31 @@ export default function PrescriptionClient({
           setLabResultsText(summary);
         }
       }
+    });
+  }, [form.childName]);
+
+  // Fetch clinical assessments when patient changes and pre-fill diagnosis/chief complaint if empty
+  useEffect(() => {
+    if (!form.childName) return;
+    const apt = data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase());
+    const mr = (apt as any)?.mr_number;
+    const q = mr
+      ? supabase.from('clinical_assessments').select('*').eq('mr_number', mr)
+      : supabase.from('clinical_assessments').select('*').ilike('child_name', form.childName || '');
+    q.order('recorded_at', {ascending:false}).limit(1).then(({data:rows}) => {
+      if (!rows?.[0]) return;
+      const ca = rows[0];
+      setForm(prev => ({
+        ...prev,
+        chiefComplaint: prev.chiefComplaint || (ca.notes ? ca.notes.slice(0, 200) : ''),
+        signsSymptoms:  prev.signsSymptoms  || [
+          ca.pain_scale  ? `Pain Scale: ${ca.pain_scale}/10` : '',
+          ca.spo2        ? `SpO2: ${ca.spo2}%`               : '',
+          ca.bmi         ? `BMI: ${ca.bmi}`                  : '',
+          ca.ecg_findings? `ECG: ${ca.ecg_findings}`         : '',
+          ca.gcs_score   ? `GCS: ${ca.gcs_score}`            : '',
+        ].filter(Boolean).join(', '),
+      }));
     });
   }, [form.childName]);
 
