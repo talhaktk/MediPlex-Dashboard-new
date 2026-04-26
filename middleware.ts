@@ -32,8 +32,8 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    // Staff: cannot access /patient/* routes
-    if (path.startsWith('/patient')) {
+    // Logged-in staff cannot access /patient/* routes
+    if (token && path.startsWith('/patient')) {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
 
