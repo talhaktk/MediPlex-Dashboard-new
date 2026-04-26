@@ -9,8 +9,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export const authOptions: NextAuthOptions = {
   providers: [
+    // Staff login
     CredentialsProvider({
-      name: 'credentials',
+      id: 'credentials',
+      name: 'Staff',
       credentials: {
         email:    { label:'Email',    type:'email' },
         password: { label:'Password', type:'password' },
@@ -29,14 +31,46 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
         return {
-          id:             user.id.toString(),
-          email:          user.email,
-          name:           user.name,
-          role:           user.user_role || user.role,
-          initials:       user.initials,
-          clinicId:       user.clinic_id || null,
-          orgId:          user.org_id || null,
-          isSuperAdmin:   user.is_super_admin || false,
+          id:           user.id.toString(),
+          email:        user.email,
+          name:         user.name,
+          role:         user.user_role || user.role,
+          initials:     user.initials,
+          clinicId:     user.clinic_id || null,
+          orgId:        user.org_id || null,
+          isSuperAdmin: user.is_super_admin || false,
+          isPatient:    false,
+        } as any;
+      },
+    }),
+
+    // Patient login
+    CredentialsProvider({
+      id: 'patient-login',
+      name: 'Patient',
+      credentials: {
+        mrNumber: { label:'MR Number', type:'text' },
+        password: { label:'Password',  type:'password' },
+      },
+      async authorize(credentials): Promise<User | null> {
+        if (!credentials?.mrNumber || !credentials?.password) return null;
+        const { data: account } = await supabase
+          .from('patient_accounts')
+          .select('*')
+          .eq('mr_number', credentials.mrNumber.trim().toUpperCase())
+          .eq('password_hash', credentials.password)
+          .maybeSingle();
+        if (!account) return null;
+        return {
+          id:          account.id,
+          name:        account.patient_name,
+          email:       account.email || '',
+          role:        'patient',
+          mrNumber:    account.mr_number,
+          clinicId:    account.clinic_id,
+          patientName: account.patient_name,
+          isPatient:   true,
+          isSuperAdmin: false,
         } as any;
       },
     }),
@@ -49,6 +83,9 @@ export const authOptions: NextAuthOptions = {
         token.clinicId     = (user as any).clinicId;
         token.orgId        = (user as any).orgId;
         token.isSuperAdmin = (user as any).isSuperAdmin;
+        token.isPatient    = (user as any).isPatient;
+        token.mrNumber     = (user as any).mrNumber;
+        token.patientName  = (user as any).patientName;
       }
       return token;
     },
@@ -59,6 +96,9 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).clinicId     = token.clinicId;
         (session.user as any).orgId        = token.orgId;
         (session.user as any).isSuperAdmin = token.isSuperAdmin;
+        (session.user as any).isPatient    = token.isPatient;
+        (session.user as any).mrNumber     = token.mrNumber;
+        (session.user as any).patientName  = token.patientName;
       }
       return session;
     },

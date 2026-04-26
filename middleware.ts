@@ -20,9 +20,23 @@ export default withAuth(
     const token = (req as any).nextauth?.token;
     const role = token?.role as string || 'receptionist';
     const isSuperAdmin = token?.isSuperAdmin as boolean || false;
+    const isPatient = token?.isPatient as boolean || false;
     const path = req.nextUrl.pathname;
 
-    // Super admin can go anywhere
+    // Patient: can only access /patient/* — redirect to patient dashboard if they try staff routes
+    if (isPatient) {
+      if (!path.startsWith('/patient')) {
+        return NextResponse.redirect(new URL('/patient/dashboard', req.url));
+      }
+      return NextResponse.next();
+    }
+
+    // Staff: cannot access /patient/* routes
+    if (path.startsWith('/patient')) {
+      return NextResponse.redirect(new URL('/dashboard', req.url));
+    }
+
+    // Super admin can go anywhere (staff side)
     if (isSuperAdmin) return NextResponse.next();
 
     // Org owner belongs exclusively to /orgdashboard — block all /dashboard/* access
@@ -40,11 +54,15 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow unauthenticated access to patient register page
+        if (req.nextUrl.pathname.startsWith('/patient/register')) return true;
+        return !!token;
+      },
     },
   }
 );
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/superadmin/:path*'],
+  matcher: ['/dashboard/:path*', '/superadmin/:path*', '/orgdashboard/:path*', '/patient/:path*'],
 };
