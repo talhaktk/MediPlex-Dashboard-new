@@ -61,13 +61,15 @@ export default function PatientMessages() {
     e.preventDefault();
     if (!body.trim() || !mrNumber) return;
     setSending(true);
-    await supabase.from('patient_messages').insert([{
-      mr_number:    mrNumber,
-      clinic_id:    clinicId || null,
-      patient_name: name,
-      sender:       'patient',
-      body:         body.trim(),
-    }]);
+    const res = await fetch('/api/patient/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: body.trim() }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      console.error('Send failed:', d.error);
+    }
     setBody('');
     setSending(false);
     await load();
