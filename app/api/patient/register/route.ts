@@ -8,36 +8,60 @@ function getAdmin() {
   );
 }
 
-// Attempt to find a patient record by MR number, trying several formats
+// Attempt to find a patient record by MR number, trying several formats.
+// patients table uses: child_name, whatsapp_number, mr_number
+// appointments table uses: child_name, whatsapp, clinic_id, mr_number
 async function findPatient(sb: ReturnType<typeof getAdmin>, raw: string) {
+  const stripped = raw.replace(/^MR[-\s]?/i, '');
   const variants = Array.from(new Set([
     raw,
     raw.toUpperCase(),
     raw.toLowerCase(),
-    raw.replace(/^MR[-\s]?/i, ''),            // strip "MR-" prefix
-    raw.replace(/^MR[-\s]?/i, '').padStart(4,'0'), // zero-pad after stripping
-    'MR-' + raw.replace(/^MR[-\s]?/i, ''),    // ensure "MR-" prefix
-    'MR' + raw.replace(/^MR[-\s]?/i, ''),     // "MR" without dash
+    stripped,
+    stripped.toUpperCase(),
+    stripped.padStart(4, '0'),
+    'MR-' + stripped.toUpperCase(),
+    'MR'  + stripped.toUpperCase(),
   ]));
 
+  // ── patients table ─────────────────────────────────────────────────────────
   for (const v of variants) {
-    const { data: p } = await sb.from('patients').select('name,phone,mr_number').eq('mr_number', v).maybeSingle();
-    if (p) return p;
+    const { data: p } = await sb
+      .from('patients')
+      .select('child_name,whatsapp_number,mr_number,clinic_id')
+      .eq('mr_number', v)
+      .maybeSingle();
+    if (p) return { name: p.child_name, phone: p.whatsapp_number, clinic_id: (p as any).clinic_id, mr_number: p.mr_number };
   }
 
-  // Try ilike as last resort
-  const { data: pLike } = await sb.from('patients').select('name,phone,mr_number').ilike('mr_number', `%${raw.replace(/^MR[-\s]?/i,'')}%`).limit(1).maybeSingle();
-  if (pLike) return pLike;
+  // ilike fallback on patients
+  const { data: pLike } = await sb
+    .from('patients')
+    .select('child_name,whatsapp_number,mr_number,clinic_id')
+    .ilike('mr_number', `%${stripped}%`)
+    .limit(1)
+    .maybeSingle();
+  if (pLike) return { name: pLike.child_name, phone: pLike.whatsapp_number, clinic_id: (pLike as any).clinic_id, mr_number: pLike.mr_number };
 
-  // Try appointments
+  // ── appointments table ─────────────────────────────────────────────────────
   for (const v of variants) {
-    const { data: a } = await sb.from('appointments').select('child_name,whatsapp,clinic_id,mr_number')
-      .eq('mr_number', v).order('appointment_date', { ascending: false }).limit(1).maybeSingle();
+    const { data: a } = await sb
+      .from('appointments')
+      .select('child_name,whatsapp,clinic_id,mr_number')
+      .eq('mr_number', v)
+      .order('appointment_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (a) return { name: a.child_name, phone: a.whatsapp, clinic_id: a.clinic_id, mr_number: a.mr_number };
   }
-  const { data: aLike } = await sb.from('appointments').select('child_name,whatsapp,clinic_id,mr_number')
-    .ilike('mr_number', `%${raw.replace(/^MR[-\s]?/i,'')}%`)
-    .order('appointment_date', { ascending: false }).limit(1).maybeSingle();
+
+  const { data: aLike } = await sb
+    .from('appointments')
+    .select('child_name,whatsapp,clinic_id,mr_number')
+    .ilike('mr_number', `%${stripped}%`)
+    .order('appointment_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
   if (aLike) return { name: aLike.child_name, phone: aLike.whatsapp, clinic_id: aLike.clinic_id, mr_number: aLike.mr_number };
 
   return null;
