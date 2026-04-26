@@ -495,7 +495,17 @@ export default function PrescriptionClient({
     const q = mr
       ? supabase.from('lab_results').select('*').eq('mr_number', mr)
       : supabase.from('lab_results').select('*').ilike('child_name', form.childName || '');
-    q.order('uploaded_at', {ascending:false}).then(({data:rows}) => { if(rows) setPatientLabResults(rows); });
+    q.order('uploaded_at', {ascending:false}).then(({data:rows}) => {
+      if (rows) {
+        setPatientLabResults(rows);
+        if (rows.length > 0 && !labResultsText) {
+          const summary = rows.map((r:any) =>
+            `${r.test_name}${r.visit_date ? ` (${r.visit_date})` : r.uploaded_at ? ` (${r.uploaded_at.slice(0,10)})` : ''}: ${r.notes || 'result on file'}`
+          ).join('\n');
+          setLabResultsText(summary);
+        }
+      }
+    });
   }, [form.childName]);
 
   // When vitals load, recalculate doses for already-selected medicines

@@ -13,7 +13,7 @@ import { saveScribeOutput } from '@/lib/scribeStore';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
 
-type Mode = 'soap' | 'prescription' | 'discharge' | 'referral' | 'insurance' | 'sick_cert' | 'preauth';
+type Mode = 'soap' | 'prescription' | 'discharge' | 'referral' | 'sick_cert' | 'preauth';
 type Status = 'idle' | 'recording' | 'processing' | 'done';
 
 interface SelectedPatient {
@@ -148,38 +148,6 @@ Secondary: [others]
 
 **GP ACTIONS REQUIRED**
 [What GP needs to do]`
-  },
-  {
-    id: 'insurance' as Mode, label: 'Insurance Preauth',
-    icon: FileText, color: '#059669', bg: 'rgba(5,150,105,0.1)', border: 'rgba(5,150,105,0.3)',
-    desc: 'Insurance pre-authorization letter',
-    prompt: (text: string, ctx: string) => `You are a medical documentation AI helping with insurance pre-authorization.
-PATIENT CONTEXT:
-${ctx}
-CLINICAL DETAILS:
-${text}
-Generate a formal insurance pre-authorization request letter:
-**INSURANCE PRE-AUTHORIZATION REQUEST**
-Date: ${new Date().toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'})}
-**PATIENT INFORMATION**
-Name: [from context]
-Date of Birth: [if available]
-Policy/Member ID: [if mentioned]
-**TREATING PHYSICIAN**
-[Doctor details]
-**DIAGNOSIS**
-Primary: [with ICD-10]
-**REQUESTED PROCEDURE/TREATMENT**
-[Specific procedure or medication requiring authorization]
-**CLINICAL JUSTIFICATION**
-[Medical necessity — why this treatment is required]
-**SUPPORTING EVIDENCE**
-[Lab results, imaging, failed conservative treatments]
-**URGENCY**
-[Routine/Urgent/Emergency]
-**REQUESTED AUTHORIZATION**
-[Specific request — procedure code if known, duration, quantity]
-Thank you for your prompt consideration.`
   },
   {
     id: 'sick_cert' as Mode, label: 'Sick Certificate',
@@ -342,7 +310,15 @@ export default function ScribeClient({ data }: { data: Appointment[] }) {
   const [showPatientSearch, setShowPatientSearch] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<SelectedPatient | null>(null);
   const [patientContext, setPatientContext] = useState('');
-  const currentMode = MODES.find(m => m.id === mode)!;
+  const [clinicInfo, setClinicInfo] = useState({ doctorName: '', clinicName: '' });
+  const currentMode = MODES.find(m => m.id === mode)!
+
+  useEffect(() => {
+    supabase.from('clinic_settings').select('doctor_name,clinic_name').eq('id', 1).maybeSingle()
+      .then(({ data }) => {
+        if (data) setClinicInfo({ doctorName: data.doctor_name || '', clinicName: data.clinic_name || '' });
+      });
+  }, []);;
 
   const uniquePatients = Array.from(
     new Map(
@@ -494,6 +470,7 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       }
     } catch {}
 
+    if (clinicInfo.doctorName) ctx = `Attending Physician: ${clinicInfo.doctorName}\n` + (clinicInfo.clinicName ? `Clinic: ${clinicInfo.clinicName}\n` : '') + ctx;
     setPatientContext(ctx);
     toast.success(`Loaded ${p.name}'s full records`);
   };
@@ -559,106 +536,28 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
   const stopRecording = () => { recognitionRef.current?.stop(); setStatus('idle'); };
 
   const generate = async () => {
-    // Check AI Scribe usage limit
-    if (clinicId && !isSuperAdmin) {
-      const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle();
-      if (sub?.ai_scribe_limit) {
-        const used = sub.ai_scribe_used || 0;
-        const limit = sub.ai_scribe_limit;
-        if (used >= limit) {
-          toast.error(`AI Scribe limit reached (${used}/${limit}/month). Please upgrade your plan.`);
-          // Create notification
-          await supabase.from('notifications').insert([{
-            clinic_id: clinicId,
-            type: 'scribe_blocked',
-            title: '🚫 AI Scribe Limit Reached',
-            message: `You have used ${used}/${limit} AI Scribe calls this month. Upgrade to continue.`,
-          }]);
-          return;
-        }
-        // Warn at 80%
-        if (used >= Math.floor(limit * 0.8) && used < limit) {
-          const existing = await supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).maybeSingle();
-          if (!existing.data) {
-            await supabase.from('notifications').insert([{
-              clinic_id: clinicId,
-              type: 'scribe_warning',
-              title: '⚠️ AI Scribe Usage at 80%',
-              message: `You have used ${used}/${limit} AI Scribe calls this month. Consider upgrading your plan.`,
-            }]);
-          }
-        }
-        // Increment usage
-        await supabase.from('subscriptions').update({ ai_scribe_used: used + 1 }).eq('clinic_id', clinicId);
-      }
-    }
-    // Check AI Scribe usage limit
-    if (clinicId && !isSuperAdmin) {
-      const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle();
-      if (sub?.ai_scribe_limit) {
-        const used = sub.ai_scribe_used || 0;
-        const limit = sub.ai_scribe_limit;
-        if (used >= limit) {
-          toast.error(`AI Scribe limit reached (${used}/${limit}/month). Please upgrade your plan.`);
-          // Create notification
-          await supabase.from('notifications').insert([{
-            clinic_id: clinicId,
-            type: 'scribe_blocked',
-            title: '🚫 AI Scribe Limit Reached',
-            message: `You have used ${used}/${limit} AI Scribe calls this month. Upgrade to continue.`,
-          }]);
-          return;
-        }
-        // Warn at 80%
-        if (used >= Math.floor(limit * 0.8) && used < limit) {
-          const existing = await supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).maybeSingle();
-          if (!existing.data) {
-            await supabase.from('notifications').insert([{
-              clinic_id: clinicId,
-              type: 'scribe_warning',
-              title: '⚠️ AI Scribe Usage at 80%',
-              message: `You have used ${used}/${limit} AI Scribe calls this month. Consider upgrading your plan.`,
-            }]);
-          }
-        }
-        // Increment usage
-        await supabase.from('subscriptions').update({ ai_scribe_used: used + 1 }).eq('clinic_id', clinicId);
-      }
-    }
-    // Check AI Scribe usage limit
-    if (clinicId && !isSuperAdmin) {
-      const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle();
-      if (sub?.ai_scribe_limit) {
-        const used = sub.ai_scribe_used || 0;
-        const limit = sub.ai_scribe_limit;
-        if (used >= limit) {
-          toast.error(`AI Scribe limit reached (${used}/${limit}/month). Please upgrade your plan.`);
-          // Create notification
-          await supabase.from('notifications').insert([{
-            clinic_id: clinicId,
-            type: 'scribe_blocked',
-            title: '🚫 AI Scribe Limit Reached',
-            message: `You have used ${used}/${limit} AI Scribe calls this month. Upgrade to continue.`,
-          }]);
-          return;
-        }
-        // Warn at 80%
-        if (used >= Math.floor(limit * 0.8) && used < limit) {
-          const existing = await supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).maybeSingle();
-          if (!existing.data) {
-            await supabase.from('notifications').insert([{
-              clinic_id: clinicId,
-              type: 'scribe_warning',
-              title: '⚠️ AI Scribe Usage at 80%',
-              message: `You have used ${used}/${limit} AI Scribe calls this month. Consider upgrading your plan.`,
-            }]);
-          }
-        }
-        // Increment usage
-        await supabase.from('subscriptions').update({ ai_scribe_used: used + 1 }).eq('clinic_id', clinicId);
-      }
-    }
     if (!input.trim()) { toast.error('Enter clinical notes first'); return; }
+
+    // Check AI Scribe usage limit (once, before generation)
+    let scribeSub: any = null;
+    if (clinicId && !isSuperAdmin) {
+      const { data: sub } = await supabase.from('subscriptions').select('ai_scribe_limit,ai_scribe_used').eq('clinic_id', clinicId).maybeSingle();
+      if (sub?.ai_scribe_limit) {
+        const used = sub.ai_scribe_used || 0;
+        const limit = sub.ai_scribe_limit;
+        if (used >= limit) {
+          toast.error(`AI Scribe limit reached (${used}/${limit}/month). Please upgrade your plan.`);
+          await supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_blocked', title: '🚫 AI Scribe Limit Reached', message: `You have used ${used}/${limit} AI Scribe calls this month. Upgrade to continue.` }]);
+          return;
+        }
+        if (used >= Math.floor(limit * 0.8)) {
+          const existing = await supabase.from('notifications').select('id').eq('clinic_id', clinicId).eq('type','scribe_warning').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()).maybeSingle();
+          if (!existing.data) await supabase.from('notifications').insert([{ clinic_id: clinicId, type: 'scribe_warning', title: '⚠️ AI Scribe Usage at 80%', message: `You have used ${used}/${limit} AI Scribe calls this month.` }]);
+        }
+        scribeSub = { used, limit };
+      }
+    }
+
     setStatus('processing'); setSavedToDb(false);
     try {
       const res = await fetch('/api/scribe', {
@@ -674,6 +573,10 @@ Growth — Latest: Weight ${latest.weight||'N/A'}kg, Height ${latest.height||'N/
       setOutputs(prev => ({ ...prev, [mode]: text })); setStatus('done');
       if (selectedPatient) {
         saveScribeOutput({ patientName: selectedPatient.name, patientAge: selectedPatient.age, parentName: selectedPatient.parentName, mode, output: text, generatedAt: new Date().toISOString() });
+      }
+      // Increment usage only after successful generation
+      if (clinicId && !isSuperAdmin && scribeSub) {
+        await supabase.from('subscriptions').update({ ai_scribe_used: scribeSub.used + 1 }).eq('clinic_id', clinicId);
       }
     } catch {
       toast.error('Generation failed'); setStatus('idle');
