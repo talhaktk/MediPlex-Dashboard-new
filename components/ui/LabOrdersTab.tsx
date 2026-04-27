@@ -155,8 +155,12 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
 
   const shareWhatsApp = (token: string) => {
     const url = uploadUrl(token);
-    const msg = encodeURIComponent(`Please upload lab results for ${patientName} using this secure link:\n${url}`);
-    const wa  = phone ? `https://wa.me/${phone.replace(/\D/g, '')}?text=${msg}` : `https://wa.me/?text=${msg}`;
+    const msg = `Please upload lab results for ${patientName} using this secure link:\n${url}`;
+    let p = (phone || '').replace(/\D/g, '');
+    if (p.startsWith('0')) p = '92' + p.slice(1);
+    const wa = p
+      ? `https://wa.me/${p}?text=${encodeURIComponent(msg)}`
+      : `https://wa.me/send?text=${encodeURIComponent(msg)}`;
     window.open(wa, '_blank');
   };
 

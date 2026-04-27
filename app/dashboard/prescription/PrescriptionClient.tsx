@@ -15,8 +15,7 @@ import {
   patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
 } from '@/lib/store';
 import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeStore';
-import LabInvestigations, { LabRequest } from '@/components/ui/LabInvestigations';
-import LabOrdersTab from '@/components/ui/LabOrdersTab';
+import LabInvestigations, { LabRequest, LAB_EXPANSIONS } from '@/components/ui/LabInvestigations';
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
@@ -55,7 +54,7 @@ function medId() { return `m-${Math.random().toString(36).slice(2, 7)}`; }
 function emptyMed(): Medicine { return { id: medId(), name: '', dose: '', frequency: 'Twice daily', duration: '5 days', notes: '' }; }
 
 // ── Print ──────────────────────────────────────────────────────────────────
-function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, labOrders?: any[]) {
+function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, labQrToken?: string | null, labQrExpiry?: string | null) {
   const key = patientKey(rx.childName);
   const health = getHealth(key);
   const vitals = getLatestVitals(key) || dbVitals;
@@ -112,7 +111,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
       ${(rx as any).labResultsText ? `<div class="section-title">🧾 Lab Results</div><div style="border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:11px;white-space:pre-wrap;background:#f8f8f8">${(rx as any).labResultsText}</div>` : ''}
       ${rx.advice ? `<div class="section-title">💡 Advice</div><div class="advice-box">${rx.advice}</div>` : ''}
       ${rx.followUp ? `<div class="section-title">📅 Follow-up</div><div class="followup-box">Please visit again: <strong>${rx.followUp}</strong></div>` : ''}
-      ${(labOrders||[]).filter((o:any)=>o.status!=='cancelled').length>0?`<div class="section-title">🔬 Lab / Radiology Orders — Scan QR to Upload Results</div><div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px">${(labOrders||[]).filter((o:any)=>o.status!=='cancelled').map((o:any)=>{const url=window.location.origin+'/lab-upload/'+o.qr_token;const tests=(o.tests||[]).map((t:any)=>t.name).join(', ');const exp=new Date(o.qr_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'});return`<div style="border:1px solid #e5e7eb;border-radius:8px;padding:8px;text-align:center;min-width:120px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(url)}" width="90" height="90" style="display:block;margin:0 auto 4px"/><div style="font-size:8px;font-weight:600;color:#0a1628;max-width:110px">${tests}</div><div style="font-size:7px;color:#9ca3af">Exp: ${exp}</div><div style="font-size:7px;color:${o.status==='complete'?'#16a34a':'#d97706'};font-weight:600">${o.status==='complete'?'✓ Received':'Awaiting'}</div></div>`;}).join('')}</div>`:''}
+      ${labQrToken?`<div class="section-title" style="margin-top:10px">🔬 Lab Results Upload (QR)</div><div style="display:flex;gap:14px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px"><img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(window.location.origin+'/lab-upload/'+labQrToken)}" width="90" height="90" style="border:1px solid #f1f5f9;border-radius:6px;flex-shrink:0"/><div style="font-size:10px;color:#0a1628"><strong style="font-size:11px">Scan to upload results</strong><br/><span style="color:#64748b">Lab/radiology department should scan this QR code to upload test results directly to the patient record.</span><br/><span style="color:#94a3b8;font-size:9px;margin-top:4px;display:block">Expires: ${labQrExpiry ? new Date(labQrExpiry).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : ''}</span></div></div>`:''}
       <div class="footer" style="display:flex;justify-content:space-between;align-items:flex-end">
         <div>
           <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Valid for 30 days from issue date.</div>
@@ -322,8 +321,6 @@ export default function PrescriptionClient({
   const [labResultsText, setLabResultsText] = useState('');
   const [patientLabResults, setPatientLabResults] = useState<any[]>([]);
   const [showLabResults, setShowLabResults] = useState(false);
-  const [prescLabOrders, setPrescLabOrders] = useState<any[]>([]);
-  const [showLabOrderPanel, setShowLabOrderPanel] = useState(false);
 
   // AI Scribe panel state
   const [scribeData, setScribeData] = useState<ScribeOutput | null>(null);
@@ -452,15 +449,6 @@ export default function PrescriptionClient({
     a.parentName.toLowerCase().includes(aptSearch.toLowerCase())
   );
 
-  const fetchLabOrdersForPatient = async (mrNumber: string) => {
-    if (!mrNumber) return;
-    try {
-      const res = await fetch(`/api/lab/order?mr=${encodeURIComponent(mrNumber)}`);
-      const { data: orders } = await res.json();
-      setPrescLabOrders(orders || []);
-    } catch {}
-  };
-
   const openNew = (apt?: Appointment) => {
     setForm({
       id: genId(), appointmentId: apt?.id || '',
@@ -474,9 +462,37 @@ export default function PrescriptionClient({
     setLabRequests([]);
     setLabResultsText('');
     setAptSearch('');
-    setPrescLabOrders([]);
-    if ((apt as any)?.mr_number) fetchLabOrdersForPatient((apt as any).mr_number);
     setShowForm(true);
+  };
+
+  // Create a QR lab order from selected Lab Investigations
+  const createLabOrderQR = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
+    if (!labReqs.length || !childName) return null;
+    const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
+    const mrNumber = (apt as any)?.mr_number;
+    if (!mrNumber) return null;
+    const phone = (apt as any)?.whatsapp || '';
+    // Expand panel names to individual parameters
+    const tests = labReqs.flatMap(l => {
+      const exp = LAB_EXPANSIONS[l.name];
+      if (exp) return exp;
+      return [{ name: l.name, category: l.cat || 'Lab' }];
+    });
+    const isRadiology = labReqs.every(l => l.cat === 'Radiology' || l.cat === 'Cardiology');
+    try {
+      const res = await fetch('/api/lab/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mrNumber, patientName: childName, phone,
+          orderType: isRadiology ? 'radiology' : 'lab',
+          tests, clinicalNotes: form.diagnosis || '',
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) return null;
+      return { qrToken: d.qrToken, expiresAt: d.expiresAt };
+    } catch { return null; }
   };
 
   // Pre-fill form from scribe output
@@ -1057,26 +1073,6 @@ export default function PrescriptionClient({
               {/* Lab Investigations */}
               <LabInvestigations labs={labRequests} onChange={setLabRequests}/>
 
-              {/* Lab Orders (QR-based) */}
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">🔬 Lab/Radiology Orders (QR)</label>
-                  <button onClick={() => setShowLabOrderPanel(!showLabOrderPanel)}
-                    className="text-[11px] text-gold hover:text-amber-700 font-medium flex items-center gap-1">
-                    {showLabOrderPanel ? '▲ Hide' : `▼ ${prescLabOrders.length > 0 ? `${prescLabOrders.length} Order(s)` : 'Create Order'}`}
-                  </button>
-                </div>
-                {showLabOrderPanel && (
-                  <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #e2e8f0' }}>
-                    <LabOrdersTab
-                      mrNumber={(data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase()) as any)?.mr_number || ''}
-                      patientName={form.childName || ''}
-                      phone={(data.find((a:any) => a.childName?.toLowerCase() === form.childName?.toLowerCase()) as any)?.whatsapp || ''}
-                    />
-                  </div>
-                )}
-              </div>
-
               {/* Lab Results (Already Done) */}
               <div className="mb-4">
                 <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
@@ -1150,10 +1146,16 @@ export default function PrescriptionClient({
 
               <div className="flex gap-2 pt-4 border-t border-black/5">
                 <button onClick={validateAndSave} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
-                <button onClick={() => {
+                <button onClick={async () => {
                   saveRxForm();
                   const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests, labResultsText } as any;
-                  setTimeout(() => printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, prescLabOrders), 300);
+                  let qrToken: string | null = null;
+                  let qrExpiry: string | null = null;
+                  if (labRequests.length > 0 && form.childName) {
+                    const result = await createLabOrderQR(labRequests, form.childName);
+                    if (result) { qrToken = result.qrToken; qrExpiry = result.expiresAt; }
+                  }
+                  printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry);
                 }} className="btn-outline text-[12px] py-2 px-4 gap-1.5"><Printer size={13} /> Save & Print</button>
                 <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">Cancel</button>
               </div>
@@ -1196,7 +1198,7 @@ export default function PrescriptionClient({
                       </td>
                       <td>
                         <div className="flex gap-1">
-                          <button onClick={async () => { let orders = prescLabOrders; try { const r = await fetch(`/api/lab/order?mr=${(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||''}`); const d2 = await r.json(); orders = d2.data||[]; } catch {} printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, orders); }}
+                          <button onClick={async () => { let qrToken: string|null=null; let qrExpiry: string|null=null; try { const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||''; if(mr){const r=await fetch(`/api/lab/order?mr=${mr}`);const d2=await r.json();const pending=(d2.data||[]).find((o:any)=>o.status==='pending');if(pending){qrToken=pending.qr_token;qrExpiry=pending.qr_expires_at;}}} catch {} printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry); }}
                             className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors" title="Print">
                             <Printer size={12} className="text-gray-600" />
                           </button>

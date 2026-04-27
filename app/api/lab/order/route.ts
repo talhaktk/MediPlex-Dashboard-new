@@ -4,11 +4,29 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import crypto from 'crypto';
 
+const BUCKET = 'lab-results';
+
 function getAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+async function signedUrl(sb: ReturnType<typeof getAdmin>, publicUrl: string): Promise<string> {
+  try {
+    const marker = `/object/public/${BUCKET}/`;
+    const idx = publicUrl.indexOf(marker);
+    if (idx === -1) return publicUrl;
+    const path = decodeURIComponent(publicUrl.slice(idx + marker.length).split('?')[0]);
+    const { data } = await sb.storage.from(BUCKET).createSignedUrl(path, 3600);
+    return data?.signedUrl || publicUrl;
+  } catch { return publicUrl; }
+}
+
+async function signFileUrls(sb: ReturnType<typeof getAdmin>, urls: any): Promise<string[]> {
+  const arr: string[] = Array.isArray(urls) ? urls : (typeof urls === 'string' && urls ? [urls] : []);
+  return Promise.all(arr.map(u => signedUrl(sb, u)));
 }
 
 export async function POST(req: NextRequest) {
@@ -71,7 +89,7 @@ export async function GET(req: NextRequest) {
   const action  = searchParams.get('action');
   const sb = getAdmin();
 
-  // Return uploaded file URLs for a specific order
+  // Return uploaded file URLs for a specific order (with signed URLs)
   if (action === 'files') {
     const orderId = searchParams.get('orderId');
     if (!orderId) return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
@@ -79,7 +97,13 @@ export async function GET(req: NextRequest) {
       .from('lab_results')
       .select('id,test_name,file_urls,notes,visit_date,uploaded_at,radiologist_report')
       .eq('order_id', orderId);
-    return NextResponse.json({ files: data || [] });
+    const files = await Promise.all(
+      (data || []).map(async (f: any) => ({
+        ...f,
+        file_urls: await signFileUrls(sb, f.file_urls),
+      }))
+    );
+    return NextResponse.json({ files });
   }
 
   const mrNumber = searchParams.get('mr');
