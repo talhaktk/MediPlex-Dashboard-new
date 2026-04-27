@@ -5,6 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   Plus, FlaskConical, Scan, Clock, ChevronDown, ChevronUp,
   Printer, X, Loader2, TrendingUp, MessageCircle, Mail, Copy,
+  FileText, Eye, Download,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -44,6 +45,9 @@ const FLAG: Record<string, { bg: string; color: string; label: string }> = {
 
 const TREND_TESTS = ['Hemoglobin', 'Hb', 'HbA1c', 'Fasting Blood Sugar', 'FBS', 'RBS', 'Total Cholesterol', 'TSH', 'Creatinine', 'WBC', 'Platelets', 'CRP', 'Vitamin D', 'Ferritin', 'ALT'];
 
+function isImage(url: string) { return /\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i.test(url); }
+function isPdf(url: string)   { return /\.pdf(\?|$)/i.test(url); }
+
 interface LabOrder {
   id: string; mr_number: string; patient_name: string; order_type: string;
   tests: { name: string; category: string }[];
@@ -54,6 +58,10 @@ interface ResultValue {
   id: string; test_name: string; value: number | null; value_text: string;
   unit: string; reference_low: number | null; reference_high: number | null;
   flag: string; created_at: string;
+}
+interface UploadedFile {
+  id: string; test_name: string; file_urls: string[]; notes: string | null;
+  visit_date: string | null; uploaded_at: string | null; radiologist_report: string | null;
 }
 
 interface Props {
@@ -76,6 +84,8 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
   const [showForm,    setShowForm]    = useState(false);
   const [activeOrder, setActiveOrder] = useState<string | null>(null);
   const [resultMap,   setResultMap]   = useState<Record<string, ResultValue[]>>({});
+  const [fileMap,     setFileMap]     = useState<Record<string, UploadedFile[]>>({});
+  const [lightbox,    setLightbox]    = useState<string | null>(null);
   const [view,        setView]        = useState<'orders' | 'trends'>('orders');
 
   const [orderType,  setOrderType]  = useState<'lab' | 'radiology'>('lab');
@@ -97,9 +107,16 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
 
   const loadResults = async (orderId: string) => {
     if (resultMap[orderId]) return;
+    // Fetch numeric result values
     const sb = getSupabase();
     const { data } = await sb.from('lab_result_values').select('*').eq('order_id', orderId).order('created_at', { ascending: true });
     setResultMap(prev => ({ ...prev, [orderId]: data || [] }));
+    // Fetch uploaded files via API (service role)
+    if (!fileMap[orderId]) {
+      const res = await fetch(`/api/lab/order?action=files&orderId=${encodeURIComponent(orderId)}`);
+      const json = await res.json();
+      setFileMap(prev => ({ ...prev, [orderId]: json.files || [] }));
+    }
   };
 
   const toggleOrder = (id: string) => {
@@ -151,21 +168,47 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
   };
 
   const printQr = (order: LabOrder) => {
-    const url  = uploadUrl(order.qr_token);
-    const tests = (order.tests as any[]).map(t => t.name).join(', ');
+    const url = uploadUrl(order.qr_token);
+    const testsList = (order.tests as any[]).map((t: any, i: number) =>
+      `<li style="padding:4px 0;color:#1e293b;font-size:13px;border-bottom:1px solid #f1f5f9">${i + 1}. <strong>${t.name}</strong>${t.category ? ` <span style="color:#94a3b8;font-size:11px">(${t.category})</span>` : ''}</li>`
+    ).join('');
     const w = window.open('', '_blank')!;
-    w.document.write(`<!DOCTYPE html><html><head><title>Lab Order QR</title>
-    <style>body{font-family:Arial;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px;text-align:center}
-    h2{color:#0a1628;margin-bottom:4px}p{color:#666;font-size:13px;margin:2px 0}img{margin:16px 0;border:1px solid #e5e7eb;padding:10px;border-radius:8px}
-    .url{font-size:10px;color:#aaa;word-break:break-all;max-width:280px}.tests{font-size:11px;color:#444;margin-bottom:4px}
-    button{margin-top:16px;padding:10px 28px;background:#0a1628;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px}
-    @media print{button{display:none}}</style></head>
-    <body><h2>MediPlex Lab Order</h2>
-    <p>Patient: <strong>${patientName}</strong> · MR: ${mrNumber}</p>
-    <p class="tests">${tests}</p>
-    <img src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}" width="220" height="220" />
-    <p class="url">${url}</p>
-    <button onclick="window.print()">Print</button></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>Lab Order — ${patientName}</title>
+    <style>
+      *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;padding:28px;color:#1e293b}
+      .header{border-bottom:2px solid #0a1628;padding-bottom:12px;margin-bottom:20px}
+      .header h2{margin:0 0 4px;color:#0a1628;font-size:18px}
+      .header p{margin:0;color:#64748b;font-size:12px}
+      .body{display:flex;gap:32px;align-items:flex-start}
+      .qr-col{flex-shrink:0;text-align:center}
+      .qr-col img{border:1px solid #e2e8f0;padding:10px;border-radius:8px}
+      .qr-col .url{font-size:9px;color:#94a3b8;word-break:break-all;max-width:220px;margin-top:6px}
+      .tests-col{flex:1}
+      .tests-col h3{margin:0 0 10px;font-size:14px;color:#0a1628;border-bottom:1px solid #e2e8f0;padding-bottom:6px}
+      ul{margin:0;padding:0;list-style:none}
+      .note{margin-top:14px;background:#f8fafc;border-radius:6px;padding:10px;font-size:11px;color:#64748b}
+      button{margin-top:24px;padding:10px 28px;background:#0a1628;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;display:block}
+      @media print{button{display:none}}
+    </style></head>
+    <body>
+      <div class="header">
+        <h2>MediPlex ${order.order_type === 'radiology' ? 'Radiology' : 'Lab'} Order</h2>
+        <p>Patient: <strong>${patientName}</strong> &nbsp;·&nbsp; MR#: ${mrNumber} &nbsp;·&nbsp; Date: ${new Date(order.ordered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      </div>
+      <div class="body">
+        <div class="qr-col">
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}" width="200" height="200" />
+          <p class="url">${url}</p>
+          <p style="font-size:10px;color:#94a3b8;margin-top:4px">Scan to upload results</p>
+        </div>
+        <div class="tests-col">
+          <h3>${order.order_type === 'radiology' ? '🔬 Studies Ordered' : '🧪 Tests Ordered'}</h3>
+          <ul>${testsList}</ul>
+          ${order.clinical_notes ? `<div class="note"><strong>Clinical Notes:</strong> ${order.clinical_notes}</div>` : ''}
+        </div>
+      </div>
+      <button onclick="window.print()">Print</button>
+    </body></html>`);
     w.document.close();
   };
 
@@ -189,6 +232,20 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
 
   return (
     <div className="space-y-3">
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.85)' }} onClick={() => setLightbox(null)}>
+          <button className="absolute top-4 right-4 text-white opacity-70 hover:opacity-100" onClick={() => setLightbox(null)}>
+            <X size={28} />
+          </button>
+          <img src={lightbox} alt="Lab report" className="max-w-full max-h-full rounded-xl"
+            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1 p-1 rounded-xl bg-slate-100">
@@ -285,17 +342,35 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
               </button>
             </>
           ) : (
-            /* QR display */
-            <div className="text-center space-y-4">
-              <div className="p-4 bg-white rounded-2xl inline-block" style={{ border: '1px solid #e2e8f0' }}>
-                <QRCodeSVG value={uploadUrl(newOrder.qrToken)} size={160} level="M" />
+            /* QR + test names side by side */
+            <div className="space-y-4">
+              <div className="flex gap-4 items-start p-4 rounded-2xl bg-slate-50" style={{ border: '1px solid #e2e8f0' }}>
+                {/* QR side */}
+                <div className="flex-shrink-0 flex flex-col items-center gap-2">
+                  <div className="p-3 bg-white rounded-xl" style={{ border: '1px solid #e2e8f0' }}>
+                    <QRCodeSVG value={uploadUrl(newOrder.qrToken)} size={130} level="M" />
+                  </div>
+                  <p className="text-slate-400 text-[10px] flex items-center gap-1">
+                    <Clock size={9} />Exp {new Date(newOrder.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                {/* Tests side */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mb-2">
+                    {orderType === 'radiology' ? '🔬 Studies Ordered' : '🧪 Tests Ordered'} ({selected.length})
+                  </p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
+                    {selected.map((t, i) => (
+                      <div key={t.name} className="flex items-center gap-2 text-xs">
+                        <span className="w-5 h-5 rounded-full bg-white border border-slate-200 text-slate-500 text-[9px] flex items-center justify-center flex-shrink-0 font-bold">{i + 1}</span>
+                        <span className="text-[#0a1628] font-medium">{t.name}</span>
+                        <span className="text-slate-400 text-[10px]">{t.category}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-slate-600 text-xs">Share this QR with the lab / radiology dept</p>
-                <p className="text-slate-400 text-[10px] mt-0.5 flex items-center justify-center gap-1">
-                  <Clock size={10} />Expires {new Date(newOrder.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </p>
-              </div>
+
               {/* Share buttons */}
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={() => shareWhatsApp(newOrder.qrToken)}
@@ -319,7 +394,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   <Copy size={13} /> Copy Link
                 </button>
               </div>
-              <button onClick={() => { setShowForm(false); setNewOrder(null); }} className="text-slate-400 hover:text-slate-600 text-xs">Done</button>
+              <button onClick={() => { setShowForm(false); setNewOrder(null); }} className="text-slate-400 hover:text-slate-600 text-xs w-full text-center">Done</button>
             </div>
           )}
         </div>
@@ -339,6 +414,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
           ) : orders.map(order => {
             const isOpen    = activeOrder === order.id;
             const results   = resultMap[order.id] || [];
+            const files     = fileMap[order.id] || [];
             const abnormals = results.filter(r => r.flag !== 'normal');
             const expired   = new Date(order.qr_expires_at) < new Date();
             const st        = stBadge[order.status] || stBadge.pending;
@@ -353,7 +429,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-[#0a1628] text-xs font-semibold">
-                        {(order.tests as any[]).slice(0,4).map((t: any) => t.name).join(', ')}
+                        {(order.tests as any[]).slice(0, 4).map((t: any) => t.name).join(', ')}
                         {order.tests.length > 4 && ` +${order.tests.length - 4}`}
                       </span>
                       {abnormals.length > 0 && (
@@ -374,16 +450,29 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                 {isOpen && (
                   <div className="px-4 pb-4 space-y-3" style={{ borderTop: '1px solid #f1f5f9' }}>
 
-                    {/* QR for pending orders */}
+                    {/* QR + test names side by side for pending orders */}
                     {order.status === 'pending' && !expired && (
-                      <div className="flex items-center gap-4 p-3 rounded-xl mt-3 bg-slate-50" style={{ border: '1px solid #e2e8f0' }}>
+                      <div className="flex gap-4 items-start p-3 rounded-xl mt-3 bg-slate-50" style={{ border: '1px solid #e2e8f0' }}>
                         <div className="p-2 bg-white rounded-lg flex-shrink-0" style={{ border: '1px solid #e2e8f0' }}>
-                          <QRCodeSVG value={uploadUrl(order.qr_token)} size={72} level="M" />
+                          <QRCodeSVG value={uploadUrl(order.qr_token)} size={80} level="M" />
+                          <p className="text-slate-400 text-[9px] text-center mt-1">Scan to upload</p>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-slate-600 text-xs mb-1">Share for lab result upload</p>
-                          <p className="text-slate-400 text-[10px]">Exp: {new Date(order.qr_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
-                          <div className="flex gap-1.5 mt-2 flex-wrap">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">
+                            {order.order_type === 'radiology' ? 'Studies' : 'Tests'} Ordered
+                          </p>
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {(order.tests as any[]).map((t: any) => (
+                              <span key={t.name} className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                style={{ background: order.order_type === 'radiology' ? '#dbeafe' : '#dcfce7', color: order.order_type === 'radiology' ? '#1d4ed8' : '#15803d' }}>
+                                {t.name}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="text-slate-400 text-[10px] mb-2 flex items-center gap-1">
+                            <Clock size={9} />Exp: {new Date(order.qr_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                          </p>
+                          <div className="flex gap-1.5 flex-wrap">
                             <button onClick={() => shareWhatsApp(order.qr_token)}
                               className="text-[10px] px-2 py-1 rounded-lg font-semibold text-white flex items-center gap-1"
                               style={{ background: '#25d366' }}>
@@ -402,7 +491,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                       </div>
                     )}
 
-                    {/* Results */}
+                    {/* Numeric Results */}
                     {results.length > 0 && (
                       <div className="space-y-1 mt-2">
                         <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-2">Results</p>
@@ -426,6 +515,58 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                         })}
                       </div>
                     )}
+
+                    {/* Uploaded files */}
+                    {files.length > 0 && (
+                      <div className="space-y-2 mt-2">
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest">Uploaded Reports</p>
+                        {files.map(f => (
+                          <div key={f.id} className="p-3 rounded-xl bg-slate-50" style={{ border: '1px solid #e2e8f0' }}>
+                            <p className="text-[#0a1628] text-xs font-semibold mb-1">{f.test_name}</p>
+                            {f.radiologist_report && (
+                              <p className="text-slate-600 text-[11px] mb-2 italic">{f.radiologist_report}</p>
+                            )}
+                            {f.notes && <p className="text-slate-500 text-[11px] mb-2">{f.notes}</p>}
+                            <div className="flex flex-wrap gap-2">
+                              {(f.file_urls || []).map((url, i) => {
+                                const img = isImage(url);
+                                const pdf = isPdf(url);
+                                return (
+                                  <div key={i}>
+                                    {img ? (
+                                      <button onClick={() => setLightbox(url)}
+                                        className="flex flex-col items-center gap-1 group">
+                                        <div className="w-20 h-20 rounded-lg overflow-hidden border border-slate-200 bg-white">
+                                          <img src={url} alt={`Report ${i + 1}`}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                        </div>
+                                        <span className="text-[9px] text-slate-400 flex items-center gap-0.5">
+                                          <Eye size={8} /> View
+                                        </span>
+                                      </button>
+                                    ) : pdf ? (
+                                      <a href={url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+                                        style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca' }}>
+                                        <FileText size={12} /> PDF {(f.file_urls || []).length > 1 ? i + 1 : ''}
+                                        <Download size={10} />
+                                      </a>
+                                    ) : (
+                                      <a href={url} target="_blank" rel="noopener noreferrer"
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium"
+                                        style={{ background: '#fef9c3', color: '#a16207', border: '1px solid #fde047' }}>
+                                        <Eye size={12} /> View File {(f.file_urls || []).length > 1 ? i + 1 : ''}
+                                      </a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     {order.clinical_notes && <p className="text-slate-400 text-xs italic">{order.clinical_notes}</p>}
                   </div>
                 )}

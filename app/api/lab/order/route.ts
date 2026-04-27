@@ -68,10 +68,23 @@ export async function GET(req: NextRequest) {
   if (!user || user.isPatient) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
+  const action  = searchParams.get('action');
+  const sb = getAdmin();
+
+  // Return uploaded file URLs for a specific order
+  if (action === 'files') {
+    const orderId = searchParams.get('orderId');
+    if (!orderId) return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
+    const { data } = await sb
+      .from('lab_results')
+      .select('id,test_name,file_urls,notes,visit_date,uploaded_at,radiologist_report')
+      .eq('order_id', orderId);
+    return NextResponse.json({ files: data || [] });
+  }
+
   const mrNumber = searchParams.get('mr');
   if (!mrNumber) return NextResponse.json({ error: 'Missing mr' }, { status: 400 });
 
-  const sb = getAdmin();
   const { data, error } = await sb.from('lab_orders').select('*').eq('mr_number', mrNumber).order('created_at', { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data || [] });

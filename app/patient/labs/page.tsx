@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FlaskConical, Scan, Calendar, FileText, ExternalLink, ChevronDown, ChevronUp, TrendingUp, Clock } from 'lucide-react';
+import { FlaskConical, Scan, Calendar, FileText, ExternalLink, ChevronDown, ChevronUp, TrendingUp, Clock, Eye, X, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+function isImage(url: string) { return /\.(jpg|jpeg|png|gif|webp|bmp)(\?|$)/i.test(url); }
+function isPdf(url: string)   { return /\.pdf(\?|$)/i.test(url); }
 
 const FLAG: Record<string, { bg: string; border: string; color: string; label: string }> = {
   normal:        { bg: '#f0fdf4', border: '#bbf7d0', color: '#15803d', label: 'Normal' },
@@ -22,6 +25,7 @@ export default function PatientLabs() {
   const [loading,      setLoading]      = useState(true);
   const [activeOrder,  setActiveOrder]  = useState<string | null>(null);
   const [view,         setView]         = useState<'orders' | 'trends'>('orders');
+  const [lightbox,     setLightbox]     = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/patient/labs')
@@ -58,6 +62,20 @@ export default function PatientLabs() {
 
   return (
     <div className="space-y-5">
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.88)' }} onClick={() => setLightbox(null)}>
+          <button className="absolute top-4 right-4 text-white opacity-70 hover:opacity-100 z-10" onClick={() => setLightbox(null)}>
+            <X size={28} />
+          </button>
+          <img src={lightbox} alt="Report" className="max-w-full max-h-full rounded-xl"
+            style={{ maxHeight: '90vh', maxWidth: '90vw' }}
+            onClick={e => e.stopPropagation()} />
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -131,18 +149,31 @@ export default function PatientLabs() {
                     {isOpen && (
                       <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid #f1f5f9' }}>
 
-                        {/* QR for pending orders — patient shows at lab */}
+                        {/* QR + test names side by side — patient shows at lab */}
                         {isPending && !expired && (
-                          <div className="mt-3 p-4 rounded-2xl bg-slate-50 flex items-center gap-4" style={{ border: '1px solid #e2e8f0' }}>
-                            <div className="p-2 bg-white rounded-xl flex-shrink-0" style={{ border: '1px solid #e2e8f0' }}>
-                              <QRCodeSVG value={uploadUrl(order.qr_token)} size={80} level="M" />
-                            </div>
-                            <div>
-                              <p className="text-[#0a1628] font-semibold text-sm">Show at Lab / Radiology</p>
-                              <p className="text-slate-500 text-xs mt-0.5">The lab scans this QR to upload your results directly to your record.</p>
-                              <p className="text-slate-400 text-[10px] mt-1.5 flex items-center gap-1">
-                                <Clock size={9} />Expires {new Date(order.qr_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          <div className="mt-3 p-4 rounded-2xl bg-slate-50 flex gap-4 items-start" style={{ border: '1px solid #e2e8f0' }}>
+                            <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+                              <div className="p-2 bg-white rounded-xl" style={{ border: '1px solid #e2e8f0' }}>
+                                <QRCodeSVG value={uploadUrl(order.qr_token)} size={90} level="M" />
+                              </div>
+                              <p className="text-slate-400 text-[9px] text-center">Show at lab</p>
+                              <p className="text-slate-400 text-[9px] flex items-center gap-0.5">
+                                <Clock size={8} />Exp {new Date(order.qr_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                               </p>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[#0a1628] font-semibold text-sm mb-1">
+                                {order.order_type === 'radiology' ? '🔬 Studies Ordered' : '🧪 Tests Ordered'}
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {(order.tests as any[]).map((t: any) => (
+                                  <span key={t.name} className="text-[11px] px-2.5 py-1 rounded-full font-semibold"
+                                    style={{ background: order.order_type === 'radiology' ? '#dbeafe' : '#dcfce7', color: order.order_type === 'radiology' ? '#1e40af' : '#15803d' }}>
+                                    {t.name}
+                                  </span>
+                                ))}
+                              </div>
+                              <p className="text-slate-500 text-xs mt-2">The lab scans this QR to upload your results directly to your record.</p>
                             </div>
                           </div>
                         )}
@@ -198,12 +229,33 @@ export default function PatientLabs() {
                             {l.has_abnormal && <span className="text-[10px] text-red-500 font-semibold">⚠️ Abnormal values</span>}
                             {l.notes && <p className="text-slate-600 text-xs mt-1.5 line-clamp-2">{l.notes}</p>}
                             {(l.file_urls || []).length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {(l.file_urls as string[]).map((url, i) => (
+                              <div className="mt-3 space-y-2">
+                                {/* Image thumbnails */}
+                                {(l.file_urls as string[]).some(isImage) && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {(l.file_urls as string[]).filter(isImage).map((url, i) => (
+                                      <button key={i} onClick={() => setLightbox(url)}
+                                        className="relative group rounded-lg overflow-hidden"
+                                        style={{ width: 72, height: 72, border: '1px solid #e2e8f0' }}>
+                                        <img src={url} alt={`${l.test_name} ${i + 1}`}
+                                          className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                          style={{ background: 'rgba(0,0,0,0.45)' }}>
+                                          <Eye size={18} className="text-white" />
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* PDF / other file links */}
+                                {(l.file_urls as string[]).filter(u => !isImage(u)).map((url, i) => (
                                   <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium"
-                                    style={{ background: '#fef9c3', color: '#a16207', border: '1px solid #fde047' }}>
-                                    <ExternalLink size={10} /> Report {(l.file_urls as string[]).length > 1 ? i + 1 : ''}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+                                    style={{ background: isPdf(url) ? '#fef2f2' : '#fef9c3', color: isPdf(url) ? '#dc2626' : '#a16207', border: `1px solid ${isPdf(url) ? '#fecaca' : '#fde047'}` }}>
+                                    <FileText size={13} />
+                                    {isPdf(url) ? 'View PDF' : 'Open File'}
+                                    {(l.file_urls as string[]).filter(u => !isImage(u)).length > 1 ? ` ${i + 1}` : ''}
+                                    <Download size={11} className="ml-auto" />
                                   </a>
                                 ))}
                               </div>
