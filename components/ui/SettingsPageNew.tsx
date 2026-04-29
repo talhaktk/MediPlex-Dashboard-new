@@ -698,14 +698,21 @@ function AddAppointmentType({ currency, onAdd }: any) {
   const [form, setForm] = useState({name:'',duration:'15',fee:''});
   return (
     <div className="flex gap-2 items-end">
-      <div className="flex-1"><label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Name</label>
-        <input value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Follow-up" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/></div>
-      <div className="w-24"><label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Duration</label>
+      <div className="flex-1">
+        <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Name</label>
+        <input value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Follow-up" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+      </div>
+      <div className="w-24">
+        <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Duration</label>
         <select value={form.duration} onChange={e=>setForm(p=>({...p,duration:e.target.value}))} className="w-full border border-gray-200 rounded-lg px-2 py-2 text-[12px] outline-none focus:border-gold">
-          {['5','10','15','20','30','45','60'].map(m=><option key={m}>{m}</option>)}</select></div>
-      <div className="w-28"><label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Fee ({currency})</label>
-        <input value={form.fee} onChange={e=>setForm(p=>({...p,fee:e.target.value}))} type="number" placeholder="1500" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/></div>
-      <button onClick={()=>{if(!form.name)return;onAdd({name:form.name,duration:Number(form.duration),fee:Number(form.fee)});setForm({name:'',duration:'15',fee:'';});}}
+          {['5','10','15','20','30','45','60'].map(m=><option key={m}>{m}</option>)}
+        </select>
+      </div>
+      <div className="w-28">
+        <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Fee ({currency})</label>
+        <input value={form.fee} onChange={e=>setForm(p=>({...p,fee:e.target.value}))} type="number" placeholder="1500" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+      </div>
+      <button onClick={()=>{if(!form.name)return;onAdd({name:form.name,duration:Number(form.duration),fee:Number(form.fee)});setForm({name:'',duration:'15',fee:''}); }}
         className="btn-gold text-[12px] px-3 py-2 flex items-center gap-1"><Plus size={12}/>Add</button>
     </div>
   );
@@ -737,7 +744,7 @@ function TemplateList({ label, field, form, set }: any) {
         </div>
       ))}
       <div className="space-y-2 mt-2">
-        <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder={`${label} name`}
+        <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder={label+" name"}
           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-[12px] outline-none focus:border-gold"/>
         <textarea value={newContent} onChange={e=>setNewContent(e.target.value)} rows={3} placeholder="Template content..."
           className="w-full border border-gray-200 rounded-xl px-3 py-2 text-[12px] outline-none focus:border-gold resize-none"/>
@@ -785,8 +792,8 @@ function ChangePassword() {
     const user = session?.user as any;
     const {error} = await supabase.from('logins').update({password_hash:form.newPw}).eq('email',user?.email||'').eq('password_hash',form.current);
     setSaving(false);
-    if(error)toast.error('Current password incorrect');
-    else{toast.success('Password changed!');setForm({current:'',newPw:'',confirm:''});}
+    if(error) toast.error('Current password incorrect');
+    else { toast.success('Password changed!'); setForm({current:'',newPw:'',confirm:''}); }
   };
   return (
     <div className="grid grid-cols-2 gap-3 max-w-md">
