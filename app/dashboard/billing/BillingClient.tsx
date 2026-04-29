@@ -562,10 +562,10 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
               </div>
               <div className="flex gap-2">
                 <button onClick={async()=>{
-                  if(!priceForm.procedure_name||!priceForm.standard_price){toast.error('Name and price required');return;}
+                  if(!priceForm.procedure_name||!priceForm.price){toast.error('Name and price required');return;}
                   const {error}=await supabase.from('procedure_prices').insert([{
                     clinic_id:clinicId||null, procedure_name:priceForm.procedure_name,
-                    price:Number(priceForm.standard_price),
+                    price:Number(priceForm.price),
                     discounted_price:priceForm.discounted_price?Number(priceForm.discounted_price):null,
                     category:priceForm.category, doctor_name:priceForm.doctor_name||null, is_active:true,
                   }]);
