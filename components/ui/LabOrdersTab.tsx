@@ -129,7 +129,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
         <div className="rounded-xl p-4 space-y-3" style={{background:'rgba(26,127,94,0.08)',border:'1px solid rgba(26,127,94,0.25)'}}>
           <div className="text-[12px] font-semibold text-emerald-600">New Lab Order</div>
           <input value={searchLab} onChange={e=>setSearchLab(e.target.value)} placeholder="Search tests..." 
-            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'#f1f5f9',border:'1px solid #e2e8f0',color:'#0a1628'}} onFocus={e=>(e.target.style.borderColor='rgba(201,168,76,0.5)')} onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,0.1)')}/>
+            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'#fff',border:'1px solid #e2e8f0',color:'#0a1628'}} onFocus={e=>(e.target.style.borderColor='rgba(201,168,76,0.5)')} onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,0.1)')}/>
           <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
             {filteredLabs.map(lab=>{
               const sel = selectedTests.find(t=>t.name===lab.name);
@@ -138,9 +138,9 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   if(sel) setSelectedTests(prev=>prev.filter(t=>t.name!==lab.name));
                   else setSelectedTests(prev=>[...prev,{name:lab.name,urgency:'Routine',instructions:''}]);
                 }} className="text-left px-2.5 py-1.5 rounded-lg text-[11px] transition-all"
-                  style={{background:sel?'rgba(26,127,94,0.3)':'rgba(255,255,255,0.04)',
-                    border:sel?'1px solid rgba(26,127,94,0.5)':'1px solid rgba(255,255,255,0.06)',
-                    color:sel?'#48bb78':'rgba(255,255,255,0.6)'}}>
+                  style={{background:sel?'rgba(22,163,74,0.15)':'#f9fafb',
+                    border:sel?'1px solid rgba(22,163,74,0.4)':'1px solid #e5e7eb',
+                    color:sel?'#15803d':'#374151'}}>
                   {sel?'✓ ':''}{lab.name}
                 </button>
               );
@@ -161,7 +161,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             </div>
           )}
           <textarea value={clinicalNotes} onChange={e=>setClinicalNotes(e.target.value)} placeholder="Clinical info / indication..." rows={2}
-            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none resize-none" style={{background:'#f1f5f9',border:'1px solid #e2e8f0',color:'#0a1628'}}/>
+            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none resize-none" style={{background:'#fff',border:'1px solid #e2e8f0',color:'#0a1628'}}/>
           <div className="flex gap-2">
             <button onClick={submitLabOrder} disabled={saving}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold"
@@ -206,7 +206,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             </div>
           </div>
           <textarea value={radioNotes} onChange={e=>setRadioNotes(e.target.value)} placeholder="Clinical indication..." rows={2}
-            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none resize-none" style={{background:'#f1f5f9',border:'1px solid #e2e8f0',color:'#0a1628'}}/>
+            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none resize-none" style={{background:'#fff',border:'1px solid #e2e8f0',color:'#0a1628'}}/>
           <div className="flex gap-2">
             <button onClick={submitRadioOrder} disabled={saving}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[12px] font-semibold"
@@ -290,17 +290,17 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                               style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c',border:'1px solid rgba(201,168,76,0.3)'}}>
                               🖨️ Print Order
                             </button>
-                            <button onClick={()=>{
-                                const msg = 'Lab Order - MediPlex\n\nPatient: '+order.child_name+'\nMR#: '+order.mr_number+'\nTests: '+(order.tests||[]).map((t:any)=>t.name||t).join(', ')+'\n\nScan QR or open link to upload results:\n'+uploadUrl(order.qr_token);
-                                navigator.clipboard.writeText(msg).then(()=>{
-                                  const btn = document.getElementById('wa-copy-'+order.id);
-                                  if(btn){btn.textContent='✓ Copied!';setTimeout(()=>{btn.textContent='💬 Copy for WA';},2000);}
-                                });
-                              }} id={'wa-copy-'+order.id}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
-                              style={{background:'rgba(37,211,102,0.15)',color:'#16a34a',border:'1px solid rgba(37,211,102,0.3)'}}>
-                              💬 Copy for WA
-                            </button>
+                            {(order.phone||phone) && (
+                              <button onClick={()=>{
+                                const p = (order.phone||phone||'').replace(/\D/g,'');
+                                const ph = p.startsWith('0')?'92'+p.slice(1):p;
+                                const msg = 'Lab Order - MediPlex\n\nPatient: '+order.child_name+'\nMR# '+order.mr_number+'\nTests: '+(order.tests||[]).map((t:any)=>t.name||t).join(', ')+'\n\nPlease scan QR at lab or open link:\n'+uploadUrl(order.qr_token);
+                                window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
+                              }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
+                                style={{background:'rgba(37,211,102,0.15)',color:'#16a34a',border:'1px solid rgba(37,211,102,0.3)'}}>
+                                💬 WhatsApp
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
