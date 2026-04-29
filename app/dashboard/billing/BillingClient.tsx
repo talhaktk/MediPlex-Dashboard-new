@@ -424,7 +424,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
               </button>
               <button onClick={async ()=>{
                 // Get whatsapp from appointments if not in billing
-                let waPhone = inv.whatsapp || '';
+                let waPhone = (inv as any).whatsapp || '';
                 if (!waPhone && inv.mr_number) {
                   const {data:aptData} = await supabase.from('appointments').select('whatsapp').eq('mr_number', inv.mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
                   waPhone = aptData?.whatsapp || '';
@@ -499,7 +499,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                   </button>
                   {balance>0 && (
                     <button onClick={async ()=>{
-                      let waPhone2 = patInvoices[0]?.whatsapp || '';
+                      let waPhone2 = (patInvoices[0] as any)?.whatsapp || '';
                       if (!waPhone2 && patInvoices[0]?.mr_number) {
                         const {data:aptData2} = await supabase.from('appointments').select('whatsapp').eq('mr_number', patInvoices[0].mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
                         waPhone2 = aptData2?.whatsapp || '';
