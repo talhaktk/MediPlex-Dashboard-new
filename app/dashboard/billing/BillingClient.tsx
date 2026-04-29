@@ -96,7 +96,16 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const [formType,   setFormType]   = useState<RecordType>('consultation');
   const [form,       setForm]       = useState<Partial<Invoice>>({});
   const [aptSearch,  setAptSearch]  = useState('');
-  const [billingTab, setBillingTab] = useState<'invoices'|'expenses'>('invoices');
+  const [prices, setPrices] = useState<any[]>([]);
+  const [claims, setClaims] = useState<any[]>([]);
+  const [showPriceForm, setShowPriceForm] = useState(false);
+  const [showClaimForm, setShowClaimForm] = useState(false);
+  const [priceForm, setPriceForm] = useState({procedure_name:'',standard_price:'',discounted_price:'',category:'General',doctor_name:''});
+  const [claimForm, setClaimForm] = useState({patient_name:'',mr_number:'',insurance_provider:'',policy_number:'',claim_number:'',claim_date:'',amount_claimed:'',notes:''});
+  const [bulkDiscount, setBulkDiscount] = useState({mrNumber:'',discount:'',reason:''});
+  const [showBulkDiscount, setShowBulkDiscount] = useState(false);
+  const [cashDate, setCashDate] = useState(new Date().toISOString().split('T')[0]);
+  const [billingTab, setBillingTab] = useState<'invoices'|'receipts'|'statements'|'pricelist'|'cashreport'|'claims'|'expenses'>('invoices');
 
   // ── Fetch + realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -149,6 +158,18 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const totalRevenue  = invoices.reduce((s, i) => s + i.paid, 0);
   const totalPending  = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
   const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
+
+  // Cash report computed
+  const cashReport = useMemo(() => {
+    const dayInvoices = invoices.filter(i => i.date === cashDate);
+    const totalBilled = dayInvoices.reduce((s,i) => s + i.feeAmount - i.discount, 0);
+    const totalCollected = dayInvoices.reduce((s,i) => s + i.paid, 0);
+    const totalDue = dayInvoices.reduce((s,i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
+    const cashCount = dayInvoices.filter(i => i.paymentMethod === 'Cash').length;
+    const cardCount = dayInvoices.filter(i => i.paymentMethod === 'Card').length;
+    const onlineCount = dayInvoices.filter(i => i.paymentMethod === 'Online').length;
+    return { dayInvoices, totalBilled, totalCollected, totalDue, cashCount, cardCount, onlineCount };
+  }, [invoices, cashDate]);
   const unpaidCount   = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
 
   // Analytics computed
@@ -368,13 +389,421 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     <div className="space-y-5">
       {/* Tab toggle */}
       <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
-        {([['invoices','Invoices'],['expenses','Expenses']] as const).map(([k,l])=>(
+        {([['invoices','Invoices'],['receipts','Receipts'],['statements','Statements'],['pricelist','Price List'],['cashreport','Cash Report'],['claims','Insurance Claims'],['expenses','Expenses']] as const).map(([k,l])=>(
           <button key={k} onClick={()=>setBillingTab(k)}
             className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${billingTab===k?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
             {l}
           </button>
         ))}
       </div>
+      {/* ── RECEIPTS TAB ── */}
+      {billingTab==='receipts' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-semibold text-navy">Payment Receipts</div>
+            <div className="text-[11px] text-gray-400">Click any paid invoice to print receipt</div>
+          </div>
+          {invoices.filter(i=>i.paid>0).map(inv=>(
+            <div key={inv.id} className="bg-white rounded-2xl p-4 flex items-center gap-4" style={{border:'1px solid #e5e7eb'}}>
+              <div className="flex-1">
+                <div className="font-semibold text-navy text-[13px]">{inv.childName}</div>
+                <div className="text-[11px] text-gray-500 mt-0.5">{inv.date} · {inv.appointmentId||'—'}</div>
+                <div className="flex gap-3 mt-1 text-[12px]">
+                  <span className="text-emerald-600 font-medium">Paid: PKR {inv.paid.toLocaleString()}</span>
+                  {inv.paymentMethod && <span className="text-gray-400">{inv.paymentMethod}</span>}
+                </div>
+              </div>
+              <button onClick={()=>{
+                const w=window.open('','_blank');
+                if(!w)return;
+                w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>body{font-family:Arial;padding:20px;max-width:350px;margin:0 auto;color:#0a1628}.hdr{background:#0a1628;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;text-align:center}.body{border:1px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 8px 8px}.row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.divider{border-top:1px dashed #e5e7eb;margin:8px 0}.total{font-weight:700;font-size:15px}.stamp{text-align:center;margin-top:12px;font-size:11px;color:#9ca3af}@media print{button{display:none}}</style></head><body><div class="hdr"><div style="font-size:15px;font-weight:700">Payment Receipt</div><div style="font-size:10px;opacity:0.7">MediPlex</div></div><div class="body"><div class="row"><span>Patient</span><strong>${inv.childName}</strong></div><div class="row"><span>Date</span><span>${inv.date}</span></div><div class="row"><span>Receipt #</span><span>RCP-${inv.id?.slice(-6)||'000000'}</span></div><div class="divider"></div><div class="row"><span>Fee</span><span>PKR ${inv.feeAmount.toLocaleString()}</span></div>${inv.discount>0?'<div class="row"><span>Discount</span><span style="color:#16a34a">- PKR '+inv.discount.toLocaleString()+'</span></div>':''}<div class="row total"><span>Amount Paid</span><span style="color:#16a34a">PKR ${inv.paid.toLocaleString()}</span></div>${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'<div class="row"><span>Balance Due</span><span style="color:#dc2626">PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString()+'</span></div>':''}<div class="divider"></div><div class="row"><span>Payment Method</span><span>${inv.paymentMethod||'Cash'}</span></div><div class="stamp">Thank you for choosing our clinic<br/>This is a computer generated receipt</div></div><button onclick="window.print()" style="margin:12px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Receipt</button></body></html>`);
+                w.document.close();setTimeout(()=>w.print(),400);
+              }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
+                style={{background:'rgba(26,127,94,0.1)',color:'#1a7f5e',border:'1px solid rgba(26,127,94,0.2)'}}>
+                🖨️ Receipt
+              </button>
+              <button onClick={()=>{
+                const p=(inv.whatsapp||'').replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
+                const msg='Payment Receipt - MediPlex\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: PKR '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
+                if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
+                else toast.error('No WhatsApp number on file');
+              }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
+                style={{background:'rgba(37,211,102,0.1)',color:'#16a34a',border:'1px solid rgba(37,211,102,0.2)'}}>
+                💬 WA
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── STATEMENTS TAB ── */}
+      {billingTab==='statements' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-semibold text-navy">Patient Statements</div>
+            <div className="flex gap-2 items-center">
+              {showBulkDiscount && (
+                <div className="flex gap-2 items-center p-3 rounded-xl" style={{background:'rgba(201,168,76,0.08)',border:'1px solid rgba(201,168,76,0.2)'}}>
+                  <input value={bulkDiscount.mrNumber} onChange={e=>setBulkDiscount(p=>({...p,mrNumber:e.target.value}))}
+                    placeholder="MR Number" className="border rounded-lg px-2 py-1.5 text-[12px] w-28 outline-none focus:border-gold"/>
+                  <input value={bulkDiscount.discount} onChange={e=>setBulkDiscount(p=>({...p,discount:e.target.value}))}
+                    placeholder="Discount PKR" type="number" className="border rounded-lg px-2 py-1.5 text-[12px] w-28 outline-none focus:border-gold"/>
+                  <button onClick={async()=>{
+                    if(!bulkDiscount.mrNumber||!bulkDiscount.discount){toast.error('Enter MR and discount');return;}
+                    const {error}=await supabase.from('billing').update({discount:Number(bulkDiscount.discount)}).eq('mr_number',bulkDiscount.mrNumber).eq('clinic_id',clinicId||'').eq('payment_status','Unpaid');
+                    if(error)toast.error(error.message);else{toast.success('Bulk discount applied');setBulkDiscount({mrNumber:'',discount:'',reason:''});setShowBulkDiscount(false);}
+                  }} className="px-3 py-1.5 rounded-lg text-[11px] font-semibold" style={{background:'#c9a84c',color:'#0a1628'}}>Apply</button>
+                  <button onClick={()=>setShowBulkDiscount(false)} className="text-gray-400 hover:text-gray-600 text-[11px]">Cancel</button>
+                </div>
+              )}
+              <button onClick={()=>setShowBulkDiscount(!showBulkDiscount)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
+                style={{background:'rgba(201,168,76,0.1)',color:'#c9a84c',border:'1px solid rgba(201,168,76,0.2)'}}>
+                % Bulk Discount
+              </button>
+            </div>
+          </div>
+          {Array.from(new Set(invoices.map(i=>i.childName))).map(patient=>{
+            const patInvoices = invoices.filter(i=>i.childName===patient);
+            const totalBilled = patInvoices.reduce((s,i)=>s+i.feeAmount-i.discount,0);
+            const totalPaid2 = patInvoices.reduce((s,i)=>s+i.paid,0);
+            const balance = totalBilled - totalPaid2;
+            return (
+              <div key={patient} className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="font-semibold text-navy">{patient}</div>
+                    <div className="text-[11px] text-gray-400">{patInvoices.length} invoices · {patInvoices[0]?.mrNumber||'—'}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold" style={{color:balance>0?'#dc2626':'#16a34a'}}>
+                      {balance>0?`PKR ${balance.toLocaleString()} due`:'Settled ✓'}
+                    </div>
+                    <div className="text-[10px] text-gray-400">Total billed: PKR {totalBilled.toLocaleString()}</div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={()=>{
+                    const w=window.open('','_blank');if(!w)return;
+                    const rows=patInvoices.map(inv=>`<tr><td>${inv.date}</td><td>${inv.appointmentId||'Visit'}</td><td>PKR ${inv.feeAmount.toLocaleString()}</td><td>PKR ${inv.discount.toLocaleString()}</td><td>PKR ${inv.paid.toLocaleString()}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():'Paid'}</td></tr>`).join('');
+                    w.document.write(`<!DOCTYPE html><html><head><title>Statement</title><style>body{font-family:Arial;padding:20px;max-width:700px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.total-row{font-weight:700;background:#f9f7f3}.footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h2 style="margin:0">Patient Statement</h2><div style="font-size:12px;color:#6b7280">MediPlex · ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div></div><div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#0a1628">${patient}</div><div style="font-size:11px;color:#6b7280">MR# ${patInvoices[0]?.mrNumber||'—'}</div></div></div><table><thead><tr><th>Date</th><th>Description</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="2">TOTAL</td><td>PKR ${totalBilled.toLocaleString()}</td><td></td><td>PKR ${totalPaid2.toLocaleString()}</td><td style="color:${balance>0?'#dc2626':'#16a34a'}">${balance>0?'PKR '+balance.toLocaleString()+' DUE':'SETTLED'}</td></tr></tbody></table><div class="footer">This is a computer-generated statement. For queries contact the clinic.</div><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Statement</button></body></html>`);
+                    w.document.close();setTimeout(()=>w.print(),400);
+                  }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
+                    style={{background:'rgba(43,108,176,0.1)',color:'#2b6cb0',border:'1px solid rgba(43,108,176,0.2)'}}>
+                    🖨️ Print Statement
+                  </button>
+                  {balance>0 && (
+                    <button onClick={()=>{
+                      const p=(patInvoices[0]?.whatsapp||'').replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
+                      const msg='Account Statement - MediPlex\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: PKR '+totalBilled.toLocaleString()+'\nTotal Paid: PKR '+totalPaid2.toLocaleString()+'\nBalance Due: PKR '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
+                      if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
+                      else toast.error('No WhatsApp number on file');
+                    }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
+                      style={{background:'rgba(37,211,102,0.1)',color:'#16a34a',border:'1px solid rgba(37,211,102,0.2)'}}>
+                      💬 Send via WA
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── PRICE LIST TAB ── */}
+      {billingTab==='pricelist' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-semibold text-navy">Procedure Price List</div>
+            <button onClick={()=>setShowPriceForm(!showPriceForm)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold btn-gold">
+              + Add Procedure
+            </button>
+          </div>
+          {showPriceForm && (
+            <div className="bg-white rounded-2xl p-4 space-y-3" style={{border:'1px solid rgba(201,168,76,0.3)'}}>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Procedure Name</label>
+                  <input value={priceForm.procedure_name} onChange={e=>setPriceForm(p=>({...p,procedure_name:e.target.value}))}
+                    placeholder="e.g. Consultation, X-Ray..." className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Category</label>
+                  <select value={priceForm.category} onChange={e=>setPriceForm(p=>({...p,category:e.target.value}))}
+                    className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold">
+                    {['General','Consultation','Procedure','Lab','Radiology','Surgery','Other'].map(c=><option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Standard Price (PKR)</label>
+                  <input value={priceForm.standard_price} onChange={e=>setPriceForm(p=>({...p,standard_price:e.target.value}))}
+                    type="number" placeholder="e.g. 1500" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Discounted Price (optional)</label>
+                  <input value={priceForm.discounted_price} onChange={e=>setPriceForm(p=>({...p,discounted_price:e.target.value}))}
+                    type="number" placeholder="e.g. 1200" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Doctor (leave blank for all)</label>
+                  <input value={priceForm.doctor_name} onChange={e=>setPriceForm(p=>({...p,doctor_name:e.target.value}))}
+                    placeholder="e.g. Dr. Ahmad Khan" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={async()=>{
+                  if(!priceForm.procedure_name||!priceForm.standard_price){toast.error('Name and price required');return;}
+                  const {error}=await supabase.from('procedure_prices').insert([{
+                    clinic_id:clinicId||null, procedure_name:priceForm.procedure_name,
+                    standard_price:Number(priceForm.standard_price),
+                    discounted_price:priceForm.discounted_price?Number(priceForm.discounted_price):null,
+                    category:priceForm.category, doctor_name:priceForm.doctor_name||null, is_active:true,
+                  }]);
+                  if(error)toast.error(error.message);
+                  else{toast.success('Procedure added');setPriceForm({procedure_name:'',standard_price:'',discounted_price:'',category:'General',doctor_name:''});setShowPriceForm(false);
+                    supabase.from('procedure_prices').select('*').eq('clinic_id',clinicId||'').eq('is_active',true).order('category').then(({data})=>setPrices(data||[]));
+                  }
+                }} className="btn-gold text-[11px] px-4 py-2">Save</button>
+                <button onClick={()=>setShowPriceForm(false)} className="px-4 py-2 rounded-lg text-[11px] text-gray-500 border">Cancel</button>
+              </div>
+            </div>
+          )}
+          {['Consultation','Procedure','Lab','Radiology','Surgery','General','Other'].map(cat=>{
+            const catPrices = prices.filter(p=>p.category===cat);
+            if(!catPrices.length) return null;
+            return (
+              <div key={cat} className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e5e7eb'}}>
+                <div className="px-4 py-2.5 font-semibold text-[12px] text-navy" style={{background:'#f9f7f3',borderBottom:'1px solid #e5e7eb'}}>{cat}</div>
+                <table className="w-full">
+                  <thead><tr style={{borderBottom:'1px solid #f3f4f6'}}>
+                    {['Procedure','Doctor','Standard Price','Discounted Price',''].map(h=>(
+                      <th key={h} className="px-4 py-2 text-left text-[10px] text-gray-400 uppercase tracking-widest">{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {catPrices.map(p=>(
+                      <tr key={p.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
+                        <td className="px-4 py-2.5 text-[13px] font-medium text-navy">{p.procedure_name}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-gray-500">{p.doctor_name||'All Doctors'}</td>
+                        <td className="px-4 py-2.5 text-[13px] font-semibold text-navy">PKR {Number(p.standard_price).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-[12px] text-emerald-600">{p.discounted_price?'PKR '+Number(p.discounted_price).toLocaleString():'—'}</td>
+                        <td className="px-4 py-2.5">
+                          <button onClick={async()=>{
+                            await supabase.from('procedure_prices').update({is_active:false}).eq('id',p.id);
+                            setPrices(prev=>prev.filter(x=>x.id!==p.id));
+                          }} className="text-[10px] text-red-400 hover:text-red-600">Remove</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+          {prices.length===0 && <div className="text-center py-12 text-gray-400 text-[13px]">No procedures added yet. Add your clinic fee schedule above.</div>}
+        </div>
+      )}
+
+      {/* ── CASH REPORT TAB ── */}
+      {billingTab==='cashreport' && (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="text-[13px] font-semibold text-navy">Daily Cash Report</div>
+            <input type="date" value={cashDate} onChange={e=>setCashDate(e.target.value)}
+              className="border rounded-lg px-3 py-1.5 text-[12px] outline-none focus:border-gold"/>
+            <button onClick={()=>{
+              const w=window.open('','_blank');if(!w)return;
+              const rows=cashReport.dayInvoices.map(inv=>`<tr><td>${inv.childName}</td><td>${inv.appointmentId||'—'}</td><td>PKR ${inv.feeAmount.toLocaleString()}</td><td>PKR ${inv.discount.toLocaleString()}</td><td>PKR ${inv.paid.toLocaleString()}</td><td>${inv.paymentMethod||'Cash'}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'Due':'Paid'}</td></tr>`).join('');
+              w.document.write(`<!DOCTYPE html><html><head><title>Cash Report</title><style>body{font-family:Arial;padding:20px;max-width:800px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.card{background:#f9f7f3;border-radius:8px;padding:12px;text-align:center}.card-val{font-size:18px;font-weight:700;color:#0a1628}.card-lbl{font-size:10px;color:#9ca3af;margin-top:2px}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">Daily Cash Report</h2><div style="font-size:12px;color:#6b7280">${new Date(cashDate).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div></div><div class="summary"><div class="card"><div class="card-val">PKR ${cashReport.totalBilled.toLocaleString()}</div><div class="card-lbl">Total Billed</div></div><div class="card"><div class="card-val" style="color:#16a34a">PKR ${cashReport.totalCollected.toLocaleString()}</div><div class="card-lbl">Collected</div></div><div class="card"><div class="card-val" style="color:#dc2626">PKR ${cashReport.totalDue.toLocaleString()}</div><div class="card-lbl">Outstanding</div></div><div class="card"><div class="card-val">${cashReport.dayInvoices.length}</div><div class="card-lbl">Patients</div></div></div><table><thead><tr><th>Patient</th><th>Invoice</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Method</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Report</button></body></html>`);
+              w.document.close();setTimeout(()=>w.print(),400);
+            }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium btn-gold">
+              🖨️ Print Report
+            </button>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {[
+              {label:'Total Billed',    value:`PKR ${cashReport.totalBilled.toLocaleString()}`,     color:'#2b6cb0'},
+              {label:'Total Collected', value:`PKR ${cashReport.totalCollected.toLocaleString()}`,  color:'#1a7f5e'},
+              {label:'Outstanding',     value:`PKR ${cashReport.totalDue.toLocaleString()}`,        color:'#c53030'},
+              {label:'Patients Today',  value:cashReport.dayInvoices.length,                       color:'#c9a84c'},
+            ].map(s=>(
+              <div key={s.label} className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
+                <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">{s.label}</div>
+                <div className="text-[22px] font-bold" style={{color:s.color}}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
+            <div className="font-semibold text-navy text-[13px] mb-3">Payment Methods</div>
+            <div className="flex gap-6">
+              {[
+                {label:'Cash',   count:cashReport.cashCount,   color:'#1a7f5e'},
+                {label:'Card',   count:cashReport.cardCount,   color:'#2b6cb0'},
+                {label:'Online', count:cashReport.onlineCount, color:'#9f7aea'},
+              ].map(m=>(
+                <div key={m.label} className="text-center">
+                  <div className="text-[20px] font-bold" style={{color:m.color}}>{m.count}</div>
+                  <div className="text-[11px] text-gray-400">{m.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e5e7eb'}}>
+            <table className="w-full">
+              <thead><tr style={{borderBottom:'1px solid #f3f4f6'}}>
+                {['Patient','Fee','Discount','Paid','Method','Status'].map(h=>(
+                  <th key={h} className="px-4 py-2 text-left text-[10px] text-gray-400 uppercase tracking-widest">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {cashReport.dayInvoices.length===0 ? (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-[13px]">No invoices for {cashDate}</td></tr>
+                ) : cashReport.dayInvoices.map(inv=>(
+                  <tr key={inv.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
+                    <td className="px-4 py-2.5 font-medium text-navy text-[13px]">{inv.childName}</td>
+                    <td className="px-4 py-2.5 text-[12px]">PKR {inv.feeAmount.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-[12px] text-emerald-600">{inv.discount>0?'PKR '+inv.discount.toLocaleString():'—'}</td>
+                    <td className="px-4 py-2.5 text-[12px] font-semibold text-emerald-700">PKR {inv.paid.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-[12px] text-gray-500">{inv.paymentMethod||'Cash'}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                        style={{background:inv.paymentStatus==='Paid'?'#f0fdf4':'#fef2f2',color:inv.paymentStatus==='Paid'?'#16a34a':'#dc2626'}}>
+                        {inv.paymentStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── INSURANCE CLAIMS TAB ── */}
+      {billingTab==='claims' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="text-[13px] font-semibold text-navy">Insurance Claims & RCM</div>
+            <button onClick={()=>setShowClaimForm(!showClaimForm)} className="btn-gold text-[11px] px-3 py-2 flex items-center gap-1.5">
+              + New Claim
+            </button>
+          </div>
+          {showClaimForm && (
+            <div className="bg-white rounded-2xl p-4 space-y-3" style={{border:'1px solid rgba(201,168,76,0.3)'}}>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Patient Name</label>
+                  <input value={claimForm.patient_name} onChange={e=>setClaimForm(p=>({...p,patient_name:e.target.value}))}
+                    placeholder="Patient name" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">MR Number</label>
+                  <input value={claimForm.mr_number} onChange={e=>setClaimForm(p=>({...p,mr_number:e.target.value}))}
+                    placeholder="MR number" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Insurance Provider</label>
+                  <input value={claimForm.insurance_provider} onChange={e=>setClaimForm(p=>({...p,insurance_provider:e.target.value}))}
+                    placeholder="e.g. State Life, Jubilee, SEHAT" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Policy Number</label>
+                  <input value={claimForm.policy_number} onChange={e=>setClaimForm(p=>({...p,policy_number:e.target.value}))}
+                    placeholder="Policy/Member ID" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Amount Claimed</label>
+                  <input value={claimForm.amount_claimed} onChange={e=>setClaimForm(p=>({...p,amount_claimed:e.target.value}))}
+                    type="number" placeholder="PKR amount" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Claim Date</label>
+                  <input value={claimForm.claim_date} onChange={e=>setClaimForm(p=>({...p,claim_date:e.target.value}))}
+                    type="date" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={async()=>{
+                  if(!claimForm.patient_name||!claimForm.insurance_provider){toast.error('Patient and insurer required');return;}
+                  const {error}=await supabase.from('insurance_claims').insert([{
+                    clinic_id:clinicId||null, mr_number:claimForm.mr_number,
+                    patient_name:claimForm.patient_name, insurance_provider:claimForm.insurance_provider,
+                    policy_number:claimForm.policy_number, amount_claimed:Number(claimForm.amount_claimed)||0,
+                    claim_date:claimForm.claim_date||new Date().toISOString().split('T')[0], status:'submitted',
+                    notes:claimForm.notes,
+                  }]);
+                  if(error)toast.error(error.message);
+                  else{toast.success('Claim submitted');setShowClaimForm(false);
+                    setClaimForm({patient_name:'',mr_number:'',insurance_provider:'',policy_number:'',claim_number:'',claim_date:'',amount_claimed:'',notes:''});
+                    supabase.from('insurance_claims').select('*').eq('clinic_id',clinicId||'').order('created_at',{ascending:false}).then(({data})=>setClaims(data||[]));
+                  }
+                }} className="btn-gold text-[11px] px-4 py-2">Submit Claim</button>
+                <button onClick={()=>setShowClaimForm(false)} className="px-4 py-2 rounded-lg text-[11px] text-gray-500 border">Cancel</button>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              {label:'Total Claimed',  value:`PKR ${claims.reduce((s,c)=>s+Number(c.amount_claimed||0),0).toLocaleString()}`, color:'#2b6cb0'},
+              {label:'Total Approved', value:`PKR ${claims.reduce((s,c)=>s+Number(c.amount_approved||0),0).toLocaleString()}`, color:'#1a7f5e'},
+              {label:'Pending',        value:claims.filter(c=>c.status==='submitted'||c.status==='pending').length, color:'#d97706'},
+              {label:'Denied',         value:claims.filter(c=>c.status==='denied').length, color:'#c53030'},
+            ].map(s=>(
+              <div key={s.label} className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
+                <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">{s.label}</div>
+                <div className="text-[20px] font-bold" style={{color:s.color}}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e5e7eb'}}>
+            <table className="w-full">
+              <thead><tr style={{borderBottom:'1px solid #f3f4f6'}}>
+                {['Patient','Insurer','Policy#','Claimed','Approved','Paid','Status','Action'].map(h=>(
+                  <th key={h} className="px-3 py-2 text-left text-[10px] text-gray-400 uppercase tracking-widest">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {claims.length===0?(
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400 text-[13px]">No claims submitted yet</td></tr>
+                ):claims.map(claim=>{
+                  const statusColors:Record<string,any>={
+                    submitted:{bg:'#eff6ff',color:'#2b6cb0'},
+                    pending:{bg:'#fffbeb',color:'#d97706'},
+                    approved:{bg:'#f0fdf4',color:'#16a34a'},
+                    paid:{bg:'#f0fdf4',color:'#16a34a'},
+                    denied:{bg:'#fef2f2',color:'#dc2626'},
+                    resubmitted:{bg:'#f5f3ff',color:'#7c3aed'},
+                  };
+                  const sc=statusColors[claim.status]||statusColors.pending;
+                  return (
+                    <tr key={claim.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
+                      <td className="px-3 py-2.5 font-medium text-navy text-[12px]">{claim.patient_name}</td>
+                      <td className="px-3 py-2.5 text-[11px] text-gray-600">{claim.insurance_provider}</td>
+                      <td className="px-3 py-2.5 text-[11px] text-gray-500 font-mono">{claim.policy_number||'—'}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-navy">PKR {Number(claim.amount_claimed||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-emerald-600">PKR {Number(claim.amount_approved||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[12px] font-semibold text-emerald-700">PKR {Number(claim.amount_paid||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium capitalize"
+                          style={{background:sc.bg,color:sc.color}}>{claim.status}</span>
+                        {claim.denial_reason&&<div className="text-[10px] text-red-400 mt-0.5">{claim.denial_reason}</div>}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <select value={claim.status} onChange={async e=>{
+                          await supabase.from('insurance_claims').update({status:e.target.value}).eq('id',claim.id);
+                          setClaims(prev=>prev.map(c=>c.id===claim.id?{...c,status:e.target.value}:c));
+                        }} className="border rounded px-2 py-1 text-[10px] outline-none">
+                          {['submitted','pending','approved','paid','denied','resubmitted'].map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {billingTab==='expenses' && <ExpensesTab/>}
       {billingTab==='invoices' && <div className="space-y-5">
 
