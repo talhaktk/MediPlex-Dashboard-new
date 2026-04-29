@@ -119,7 +119,7 @@ export async function PUT(req: NextRequest, { params }: { params: { token: strin
     title: '🔬 Lab Results Received',
     message: `Results for ${order.child_name || order.patient_name} (MR# ${order.mr_number}) uploaded by ${labName || 'Lab'}`,
     is_read: false,
-  }]).catch(() => {});
+  }).then(()=>{}).catch(()=>{});
 
   return NextResponse.json({ ok: true });
 }
