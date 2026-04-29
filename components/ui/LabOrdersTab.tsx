@@ -355,10 +355,8 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             );
           })}
 
-          {/* Uploaded reports not linked to any order */}
           {results.filter(r=>r.order_id==null||r.order_id===undefined).length > 0 && (
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Uploaded Reports</p>
               <div className="space-y-2">
                 {results.filter(r=>r.order_id==null||r.order_id===undefined).map(r=>(
                   <div key={r.id} className="rounded-xl p-3" style={{background:'#f9fafb',border:'1px solid #e2e8f0'}}>
