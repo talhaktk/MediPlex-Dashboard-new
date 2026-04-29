@@ -423,7 +423,13 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                 🖨️ Receipt
               </button>
               <button onClick={()=>{
-                const p=(inv.whatsapp||'').replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
+                // Get whatsapp from appointments if not in billing
+                let waPhone = inv.whatsapp || '';
+                if (!waPhone && inv.mr_number) {
+                  const {data:aptData} = await supabase.from('appointments').select('whatsapp').eq('mr_number', inv.mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
+                  waPhone = aptData?.whatsapp || '';
+                }
+                const p=(waPhone).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
                 const msg='Payment Receipt - MediPlex\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: PKR '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
                 if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                 else toast.error('No WhatsApp number on file');
@@ -493,7 +499,12 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                   </button>
                   {balance>0 && (
                     <button onClick={()=>{
-                      const p=(patInvoices[0]?.whatsapp||'').replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
+                      let waPhone2 = patInvoices[0]?.whatsapp || '';
+                      if (!waPhone2 && patInvoices[0]?.mr_number) {
+                        const {data:aptData2} = await supabase.from('appointments').select('whatsapp').eq('mr_number', patInvoices[0].mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
+                        waPhone2 = aptData2?.whatsapp || '';
+                      }
+                      const p=(waPhone2).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
                       const msg='Account Statement - MediPlex\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: PKR '+totalBilled.toLocaleString()+'\nTotal Paid: PKR '+totalPaid2.toLocaleString()+'\nBalance Due: PKR '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
                       if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                       else toast.error('No WhatsApp number on file');
