@@ -100,7 +100,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const [claims, setClaims] = useState<any[]>([]);
   const [showPriceForm, setShowPriceForm] = useState(false);
   const [showClaimForm, setShowClaimForm] = useState(false);
-  const [priceForm, setPriceForm] = useState({procedure_name:'',standard_price:'',discounted_price:'',category:'General',doctor_name:''});
+  const [priceForm, setPriceForm] = useState({procedure_name:'',price:'',discounted_price:'',category:'General',doctor_name:''});
   const [claimForm, setClaimForm] = useState({patient_name:'',mr_number:'',insurance_provider:'',policy_number:'',claim_number:'',claim_date:'',amount_claimed:'',notes:''});
   const [bulkDiscount, setBulkDiscount] = useState({mrNumber:'',discount:'',reason:''});
   const [showBulkDiscount, setShowBulkDiscount] = useState(false);
@@ -546,7 +546,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Standard Price (PKR)</label>
-                  <input value={priceForm.standard_price} onChange={e=>setPriceForm(p=>({...p,standard_price:e.target.value}))}
+                  <input value={priceForm.standard_price} onChange={e=>setPriceForm(p=>({...p,price:e.target.value}))}
                     type="number" placeholder="e.g. 1500" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
                 </div>
                 <div>
@@ -565,12 +565,12 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                   if(!priceForm.procedure_name||!priceForm.standard_price){toast.error('Name and price required');return;}
                   const {error}=await supabase.from('procedure_prices').insert([{
                     clinic_id:clinicId||null, procedure_name:priceForm.procedure_name,
-                    standard_price:Number(priceForm.standard_price),
+                    price:Number(priceForm.standard_price),
                     discounted_price:priceForm.discounted_price?Number(priceForm.discounted_price):null,
                     category:priceForm.category, doctor_name:priceForm.doctor_name||null, is_active:true,
                   }]);
                   if(error)toast.error(error.message);
-                  else{toast.success('Procedure added');setPriceForm({procedure_name:'',standard_price:'',discounted_price:'',category:'General',doctor_name:''});setShowPriceForm(false);
+                  else{toast.success('Procedure added');setPriceForm({procedure_name:'',price:'',discounted_price:'',category:'General',doctor_name:''});setShowPriceForm(false);
                     supabase.from('procedure_prices').select('*').eq('clinic_id',clinicId||'').eq('is_active',true).order('category').then(({data})=>setPrices(data||[]));
                   }
                 }} className="btn-gold text-[11px] px-4 py-2">Save</button>
@@ -595,7 +595,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                       <tr key={p.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
                         <td className="px-4 py-2.5 text-[13px] font-medium text-navy">{p.procedure_name}</td>
                         <td className="px-4 py-2.5 text-[12px] text-gray-500">{p.doctor_name||'All Doctors'}</td>
-                        <td className="px-4 py-2.5 text-[13px] font-semibold text-navy">PKR {Number(p.standard_price).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-[13px] font-semibold text-navy">PKR {Number(p.price).toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-[12px] text-emerald-600">{p.discounted_price?'PKR '+Number(p.discounted_price).toLocaleString():'—'}</td>
                         <td className="px-4 py-2.5">
                           <button onClick={async()=>{
