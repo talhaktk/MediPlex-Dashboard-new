@@ -143,6 +143,20 @@ export default function SettingsPageNew() {
                 <Input label="Province" value={f('clinic_province')} onChange={(v:string)=>set('clinic_province',v)} placeholder="KPK"/>
                 <Input label="Country" value={f('clinic_country')||'Pakistan'} onChange={(v:string)=>set('clinic_country',v)} placeholder="Pakistan"/>
                 <Input label="NPI / Registration #" value={f('npi_number')} onChange={(v:string)=>set('npi_number',v)} placeholder="License/NPI number"/>
+                <div>
+                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">MR Number Pattern</label>
+                  <div className="flex items-center gap-2">
+                    <input value={f('mr_prefix')||'MR'} onChange={e=>set('mr_prefix',e.target.value)}
+                      className="w-20 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold" placeholder="MR"/>
+                    <span className="text-gray-400">-</span>
+                    <select value={f('mr_digits')||'4'} onChange={e=>set('mr_digits',e.target.value)}
+                      className="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold">
+                      {['3','4','5','6'].map(d=><option key={d} value={d}>{d} digits</option>)}
+                    </select>
+                    <span className="text-[12px] text-gray-400">→ Preview: <strong>{f('mr_prefix')||'MR'}-{'0'.repeat(Number(f('mr_digits')||4)-1)}1</strong></span>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">e.g. RMI-0001, AMC-00001</p>
+                </div>
                 <Input label="Tax ID / GST #" value={f('tax_id')} onChange={(v:string)=>set('tax_id',v)} placeholder="Tax/GST number"/>
                 <div>
                   <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Timezone</label>
@@ -186,79 +200,147 @@ export default function SettingsPageNew() {
         {tab==='branding' && (
           <div className="space-y-5">
             <div className="bg-white rounded-2xl p-5 border border-black/5">
-              <h3 className="font-semibold text-navy mb-1">Clinic Branding</h3>
-              <p className="text-[12px] text-gray-400 mb-4">Customize how your clinic appears on prescriptions, invoices, WhatsApp messages and patient portal.</p>
-              <div className="grid grid-cols-2 gap-4">
+              <h3 className="font-semibold text-navy mb-1">Header & Footer Images</h3>
+              <p className="text-[12px] text-gray-400 mb-4">Upload your clinic's pre-designed header and footer images. These appear on <strong>all prescriptions, invoices, WhatsApp PDFs</strong> — fully branded per clinic.</p>
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Primary Brand Color</label>
-                  <div className="flex items-center gap-3">
-                    <input type="color" value={f('brand_color')||'#0a1628'} onChange={e=>set('brand_color',e.target.value)}
-                      className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer"/>
-                    <input value={f('brand_color')||'#0a1628'} onChange={e=>set('brand_color',e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold" placeholder="#0a1628"/>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Used in prescription header, invoice header</p>
+                  <div className="text-[12px] font-semibold text-navy mb-2">Header Image <span className="text-gray-400 font-normal">(top of document)</span></div>
+                  <p className="text-[11px] text-gray-400 mb-3">Recommended: 794×150px (A4 width) · PNG/JPG</p>
+                  {f('prescription_header_img') ? (
+                    <div className="relative mb-2">
+                      <img src={f('prescription_header_img')} alt="Header" className="w-full rounded-xl border border-gray-200 object-contain max-h-28"/>
+                      <button onClick={()=>set('prescription_header_img','')} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center"><X size={11}/></button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center text-gray-300 mb-2">
+                      <Upload size={24} className="mx-auto mb-1"/>
+                      <p className="text-[11px]">No header uploaded</p>
+                    </div>
+                  )}
+                  <button onClick={()=>{const i=document.createElement('input');i.type='file';i.accept='image/*';i.onchange=async(e:any)=>{const file=e.target.files[0];if(!file)return;try{const url=await uploadFile(file,clinicId+'/rx_header.'+file.name.split('.').pop());set('prescription_header_img',url);toast.success('Header uploaded!');}catch{toast.error('Upload failed - check storage bucket');}};i.click();}}
+                    className="btn-outline text-[12px] px-4 py-2 flex items-center gap-2">
+                    <Upload size={12}/> {f('prescription_header_img')?'Replace':'Upload'} Header
+                  </button>
                 </div>
                 <div>
-                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Accent Color</label>
-                  <div className="flex items-center gap-3">
-                    <input type="color" value={f('brand_accent')||'#c9a84c'} onChange={e=>set('brand_accent',e.target.value)}
-                      className="w-12 h-10 rounded-lg border border-gray-200 cursor-pointer"/>
-                    <input value={f('brand_accent')||'#c9a84c'} onChange={e=>set('brand_accent',e.target.value)}
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold" placeholder="#c9a84c"/>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Used for highlights and buttons</p>
+                  <div className="text-[12px] font-semibold text-navy mb-2">Footer Image <span className="text-gray-400 font-normal">(bottom of document)</span></div>
+                  <p className="text-[11px] text-gray-400 mb-3">Recommended: 794×80px · PNG/JPG</p>
+                  {f('prescription_footer_img') ? (
+                    <div className="relative mb-2">
+                      <img src={f('prescription_footer_img')} alt="Footer" className="w-full rounded-xl border border-gray-200 object-contain max-h-16"/>
+                      <button onClick={()=>set('prescription_footer_img','')} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center"><X size={11}/></button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-gray-200 rounded-xl p-5 text-center text-gray-300 mb-2">
+                      <Upload size={20} className="mx-auto mb-1"/>
+                      <p className="text-[11px]">No footer uploaded</p>
+                    </div>
+                  )}
+                  <button onClick={()=>{const i=document.createElement('input');i.type='file';i.accept='image/*';i.onchange=async(e:any)=>{const file=e.target.files[0];if(!file)return;try{const url=await uploadFile(file,clinicId+'/rx_footer.'+file.name.split('.').pop());set('prescription_footer_img',url);toast.success('Footer uploaded!');}catch{toast.error('Upload failed - check storage bucket');}};i.click();}}
+                    className="btn-outline text-[12px] px-4 py-2 flex items-center gap-2">
+                    <Upload size={12}/> {f('prescription_footer_img')?'Replace':'Upload'} Footer
+                  </button>
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-2xl p-5 border border-black/5">
-              <h3 className="font-semibold text-navy mb-4">Prescription Branding</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <Input label="Prescription Header Text" value={f('prescription_header')} onChange={(v:string)=>set('prescription_header',v)}
-                    placeholder="e.g. RMI Pediatric Centre · Dr. Ahmad Khan FCPS" hint="Appears at top of every prescription"/>
-                </div>
-                <div className="col-span-2">
-                  <Input label="Prescription Footer Text" value={f('prescription_footer')} onChange={(v:string)=>set('prescription_footer',v)}
-                    placeholder="e.g. Follow-up in 1 week · Emergency: +92-91-5000000" hint="Appears at bottom of every prescription"/>
-                </div>
+              <h3 className="font-semibold text-navy mb-1">Print Layout Settings</h3>
+              <p className="text-[12px] text-gray-400 mb-4">Configure how prescriptions print. Use <strong>Pre-printed Pad</strong> mode to skip digital header/footer and align text to your pre-printed letterhead areas.</p>
+              <div className="space-y-4">
                 <div>
-                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Prescription Logo</label>
-                  <div className="flex items-center gap-3">
-                    {f('prescription_logo_url') && <img src={f('prescription_logo_url')} alt="Rx Logo" className="w-14 h-14 rounded-lg object-contain border border-gray-200"/>}
-                    <button onClick={()=>rxLogoRef.current?.click()} className="btn-outline text-[12px] px-3 py-2 flex items-center gap-2">
-                      <Upload size={12}/> Upload
-                    </button>
-                    <input ref={rxLogoRef} type="file" accept="image/*" className="hidden" onChange={async e=>{
-                      const file=e.target.files?.[0]; if(!file) return;
-                      try { const url=await uploadFile(file,`${clinicId}/rx_logo.${file.name.split('.').pop()}`); set('prescription_logo_url',url); toast.success('Uploaded!'); } catch { toast.error('Failed'); }
-                    }}/>
+                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-2">Print Mode</label>
+                  <div className="flex gap-3">
+                    {[
+                      {val:'full',label:'Full Print',desc:'Show header image + content + footer image (plain paper)'},
+                      {val:'preprinted',label:'Pre-printed Pad',desc:'Hide header/footer, leave margins for pre-printed areas'},
+                    ].map(opt=>(
+                      <button key={opt.val} onClick={()=>set('print_mode',opt.val)}
+                        className="flex-1 p-3 rounded-xl text-left transition-all"
+                        style={{border:(f('print_mode')||'full')===opt.val?'2px solid #c9a84c':'1px solid #e5e7eb',
+                          background:(f('print_mode')||'full')===opt.val?'rgba(201,168,76,0.06)':'#fafafa'}}>
+                        <div className="text-[13px] font-semibold text-navy">{opt.label}</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">{opt.desc}</div>
+                      </button>
+                    ))}
                   </div>
-                  <p className="text-[10px] text-gray-400 mt-1">Optional separate logo for prescriptions</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Paper Size</label>
+                    <select value={f('paper_size')||'A4'} onChange={e=>set('paper_size',e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold">
+                      {['A4','A5','Letter (8.5x11in)','Half Letter'].map(s=><option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Print Font Size</label>
+                    <select value={f('print_font_size')||'12'} onChange={e=>set('print_font_size',e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold">
+                      {['10','11','12','13','14'].map(s=><option key={s}>{s}px</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">
+                      Top Margin (mm) {(f('print_mode')||'full')==='preprinted'?'— space for pre-printed header':''}
+                    </label>
+                    <input type="number" value={f('print_margin_top')||((f('print_mode')||'full')==='preprinted'?40:10)} onChange={e=>set('print_margin_top',Number(e.target.value))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">
+                      Bottom Margin (mm) {(f('print_mode')||'full')==='preprinted'?'— space for pre-printed footer':''}
+                    </label>
+                    <input type="number" value={f('print_margin_bottom')||((f('print_mode')||'full')==='preprinted'?25:10)} onChange={e=>set('print_margin_bottom',Number(e.target.value))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Left Margin (mm)</label>
+                    <input type="number" value={f('print_margin_left')||15} onChange={e=>set('print_margin_left',Number(e.target.value))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Right Margin (mm)</label>
+                    <input type="number" value={f('print_margin_right')||15} onChange={e=>set('print_margin_right',Number(e.target.value))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                  </div>
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-2xl p-5 border border-black/5">
-              <h3 className="font-semibold text-navy mb-4">Invoice Branding</h3>
+              <h3 className="font-semibold text-navy mb-4">Invoice & Document Settings</h3>
               <div className="grid grid-cols-2 gap-4">
-                <Input label="Invoice Prefix" value={f('invoice_prefix')||'INV'} onChange={(v:string)=>set('invoice_prefix',v)} placeholder="INV" hint="e.g. RMI-INV-001"/>
+                <Input label="Invoice Number Prefix" value={f('invoice_prefix')||'INV'} onChange={(v:string)=>set('invoice_prefix',v)} placeholder="INV" hint="e.g. RMI → RMI-2026-001"/>
+                <div/>
                 <div className="col-span-2">
-                  <Input label="Invoice Footer" value={f('invoice_footer')} onChange={(v:string)=>set('invoice_footer',v)} placeholder="Thank you for choosing our clinic · Payment due within 30 days"/>
+                  <Input label="Invoice Footer Text" value={f('invoice_footer')} onChange={(v:string)=>set('invoice_footer',v)}
+                    placeholder="Thank you for choosing our clinic · Payment due within 30 days"
+                    hint="Shown below invoice if no footer image uploaded"/>
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-2xl p-5 border border-black/5">
-              <h3 className="font-semibold text-navy mb-2">WhatsApp Message Branding</h3>
-              <p className="text-[12px] text-gray-400 mb-4">All WhatsApp reminders and messages will include your clinic name from the Clinic Profile.</p>
+              <h3 className="font-semibold text-navy mb-2">WhatsApp Message Preview</h3>
+              <p className="text-[12px] text-gray-400 mb-3">All messages automatically use your clinic name, phone, and branding.</p>
               <div className="rounded-xl p-4 text-[13px]" style={{background:'#f0fdf4',border:'1px solid #bbf7d0'}}>
-                <div className="font-semibold text-emerald-800 mb-2">Preview:</div>
-                <div className="text-emerald-700 whitespace-pre-line">{`Dear Patient,\n\nThis is a reminder from ${f('clinic_name')||'Your Clinic'}.\nYour appointment is scheduled for tomorrow.\n\nFor queries: ${f('clinic_phone')||'+92-XXX-XXXXXXX'}\n\nThank you,\n${f('clinic_name')||'Your Clinic'}`}</div>
+                <div className="font-semibold text-emerald-800 mb-2">Sample Reminder:</div>
+                <div className="text-emerald-700 whitespace-pre-line">{`Dear Ahmad Ali,
+
+Reminder from ${f('clinic_name')||'Your Clinic'}.
+Appointment: Tomorrow at 10:00 AM
+
+For queries: ${f('clinic_phone')||'+92-XXX-XXXXXXX'}
+
+Thank you,
+${f('clinic_name')||'Your Clinic'}`}</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ── PROVIDERS ── */}
+                {/* ── PROVIDERS ── */}
         {tab==='providers' && (
           <div className="space-y-5">
             <div className="bg-white rounded-2xl p-5 border border-black/5">
@@ -329,7 +411,7 @@ export default function SettingsPageNew() {
                   <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Buffer Time Between Appointments</label>
                   <select value={f('buffer_time')||0} onChange={e=>set('buffer_time',Number(e.target.value))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold">
-                    {[0,5,10,15,20,30].map(m=><option key={m} value={m}>{m===0?'No buffer':`${m} minutes`}</option>)}
+                    {[0,5,10,15,20,30].map(m=><option key={m} value={m}>{m===0?'No buffer':`${m} min`}</option>)}
                   </select>
                 </div>
                 <div className="flex items-center pt-6">
@@ -623,7 +705,7 @@ function AddAppointmentType({ currency, onAdd }: any) {
           {['5','10','15','20','30','45','60'].map(m=><option key={m}>{m}</option>)}</select></div>
       <div className="w-28"><label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Fee ({currency})</label>
         <input value={form.fee} onChange={e=>setForm(p=>({...p,fee:e.target.value}))} type="number" placeholder="1500" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/></div>
-      <button onClick={()=>{if(!form.name)return;onAdd({name:form.name,duration:Number(form.duration),fee:Number(form.fee)});setForm({name:'',duration:'15',fee:''});}}
+      <button onClick={()=>{if(!form.name)return;onAdd({name:form.name,duration:Number(form.duration),fee:Number(form.fee)});setForm({name:'',duration:'15',fee:'';});}}
         className="btn-gold text-[12px] px-3 py-2 flex items-center gap-1"><Plus size={12}/>Add</button>
     </div>
   );
