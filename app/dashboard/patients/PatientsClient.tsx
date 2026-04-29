@@ -1425,10 +1425,6 @@ const [search, setSearch] = useState('');
               {activeTab==='labs' && (
                 <div className="p-5">
                   <LabOrdersTab mrNumber={selected.mrNumber} patientName={selected.name} phone={selected.whatsapp} clinicId={clinicId||''} />
-                  <div className="mt-6 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <p className="text-[10px] text-white/25 uppercase tracking-widest mb-3">Uploaded Files (legacy)</p>
-                    <LabResultsWithPrint childName={selected.name} mrNumber={selected.mrNumber} patientAge={selected.age} parentName={selected.parentName} visitDate={new Date().toISOString().split('T')[0]}/>
-                  </div>
                 </div>
               )}
 
