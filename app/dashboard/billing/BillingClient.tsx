@@ -173,7 +173,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const topServices = useMemo(() => {
     const map: Record<string,{count:number,revenue:number}> = {};
     invoices.forEach(inv => {
-      const key = inv.appointmentType || inv.recordType || 'Consultation';
+      const key = inv.recordType || 'Consultation';
       if (!map[key]) map[key] = {count:0,revenue:0};
       map[key].count += 1;
       map[key].revenue += inv.paid;
