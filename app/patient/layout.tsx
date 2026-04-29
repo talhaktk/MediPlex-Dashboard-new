@@ -4,7 +4,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, CalendarDays, Pill, FlaskConical,
-  MessageSquare, LogOut, User, ChevronDown
+  MessageSquare, LogOut, User, ChevronDown, Receipt
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -14,6 +14,7 @@ const NAV = [
   { href: '/patient/prescriptions', label: 'Prescriptions', icon: Pill            },
   { href: '/patient/labs',          label: 'Lab Results',   icon: FlaskConical    },
   { href: '/patient/messages',      label: 'Messages',      icon: MessageSquare   },
+  { href: '/patient/billing',       label: 'Billing',       icon: Receipt        },
 ];
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {

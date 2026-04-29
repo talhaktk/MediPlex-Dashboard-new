@@ -118,9 +118,9 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
           <div class="sig-line">${doctorName}<br>Signature & Stamp</div>
         </div>
         <div style="text-align:center">
-          <div id="qrcode" style="width:100px;height:100px;border:1px solid #e5e7eb;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8px;color:#9ca3af">QR</div>
+
           <div style="font-size:9px;color:#9ca3af;margin-top:4px">Scan for Rx details</div>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
           <script>try{new QRCode(document.getElementById("qrcode"),{text:"Patient: ${rx.childName} | Rx: ${rx.id} | Date: ${rx.date} | "+${JSON.stringify(rx.medicines.map(m=>m.name+' '+m.dose+' '+m.frequency).join(', '))},width:100,height:100,colorDark:"#0a1628",colorLight:"#ffffff"});}catch(e){}</script>
         </div>
       </div>
