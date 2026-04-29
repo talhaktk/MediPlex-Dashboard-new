@@ -96,7 +96,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const [formType,   setFormType]   = useState<RecordType>('consultation');
   const [form,       setForm]       = useState<Partial<Invoice>>({});
   const [aptSearch,  setAptSearch]  = useState('');
-  const [billingTab, setBillingTab] = useState<'invoices'|'expenses'>('invoices');
+  const [billingTab, setBillingTab] = useState<'invoices'|'analytics'|'aging'|'expenses'>('invoices');
 
   // ── Fetch + realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -150,6 +150,53 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const totalPending  = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
   const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
   const unpaidCount   = invoices.filter(i => i.paymentStatus === 'Unpaid').length;
+
+  // Analytics computed
+  const monthlyRevenue = useMemo(() => {
+    const map: Record<string,{revenue:number,collected:number,count:number}> = {};
+    invoices.forEach(inv => {
+      const month = inv.date ? inv.date.slice(0,7) : new Date().toISOString().slice(0,7);
+      if (!map[month]) map[month] = {revenue:0,collected:0,count:0};
+      map[month].revenue += inv.feeAmount - inv.discount;
+      map[month].collected += inv.paid;
+      map[month].count += 1;
+    });
+    return Object.entries(map).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
+  }, [invoices]);
+
+  const revenueByType = useMemo(() => {
+    const cons = consultInvoices.reduce((s,i)=>s+i.paid,0);
+    const proc = procedureInvoices.reduce((s,i)=>s+i.paid,0);
+    return { consultation: cons, procedure: proc };
+  }, [consultInvoices, procedureInvoices]);
+
+  const topServices = useMemo(() => {
+    const map: Record<string,{count:number,revenue:number}> = {};
+    invoices.forEach(inv => {
+      const key = inv.appointmentType || inv.recordType || 'Consultation';
+      if (!map[key]) map[key] = {count:0,revenue:0};
+      map[key].count += 1;
+      map[key].revenue += inv.paid;
+    });
+    return Object.entries(map).sort((a,b)=>b[1].revenue-a[1].revenue).slice(0,8);
+  }, [invoices]);
+
+  // Aging report
+  const agingBuckets = useMemo(() => {
+    const now = new Date();
+    const buckets = { current:[] as Invoice[], d30:[] as Invoice[], d60:[] as Invoice[], d90:[] as Invoice[], over90:[] as Invoice[] };
+    invoices.filter(i=>i.paymentStatus!=='Paid'&&i.paymentStatus!=='Waived').forEach(inv => {
+      const due = Math.max(0, inv.feeAmount - inv.discount - inv.paid);
+      if (due <= 0) return;
+      const days = inv.date ? Math.floor((now.getTime()-new Date(inv.date).getTime())/(1000*60*60*24)) : 0;
+      if (days <= 30) buckets.current.push(inv);
+      else if (days <= 60) buckets.d30.push(inv);
+      else if (days <= 90) buckets.d60.push(inv);
+      else if (days <= 120) buckets.d90.push(inv);
+      else buckets.over90.push(inv);
+    });
+    return buckets;
+  }, [invoices]);
 
   // ── Open form ────────────────────────────────────────────────────────────────
   const openForm = (type: RecordType, apt?: Appointment) => {
@@ -321,7 +368,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
     <div className="space-y-5">
       {/* Tab toggle */}
       <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
-        {([['invoices','Invoices'],['expenses','Expenses']] as const).map(([k,l])=>(
+        {([['invoices','Invoices'],['analytics','Analytics'],['aging','Aging Report'],['expenses','Expenses']] as const).map(([k,l])=>(
           <button key={k} onClick={()=>setBillingTab(k)}
             className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${billingTab===k?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
             {l}
