@@ -30,6 +30,7 @@ export default async function PrescriptionPage() {
           doctorName={cs3?.doctor_name || process.env.NEXT_PUBLIC_DOCTOR_NAME || 'Doctor'}
           clinicPhone={process.env.NEXT_PUBLIC_CLINIC_PHONE || ''}
           clinicAddress={process.env.NEXT_PUBLIC_CLINIC_ADDRESS || ''}
+          clinicSettings={clinicSettings}
         />
       </main>
     </>
