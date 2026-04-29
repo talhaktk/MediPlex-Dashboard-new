@@ -546,7 +546,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Standard Price (PKR)</label>
-                  <input value={priceForm.standard_price} onChange={e=>setPriceForm(p=>({...p,price:e.target.value}))}
+                  <input value={priceForm.price} onChange={e=>setPriceForm(p=>({...p,price:e.target.value}))}
                     type="number" placeholder="e.g. 1500" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
                 </div>
                 <div>
