@@ -768,7 +768,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
           <div className="bg-white rounded-2xl overflow-hidden" style={{border:'1px solid #e5e7eb'}}>
             <table className="w-full">
               <thead><tr style={{borderBottom:'1px solid #f3f4f6'}}>
-                {['Patient','Insurer','Policy#','Claimed','Approved','Paid','Status','Action'].map(h=>(
+                {['Patient','Insurer','Policy#','Claimed','Approved','Paid','Resubmits','Status'].map(h=>(
                   <th key={h} className="px-3 py-2 text-left text-[10px] text-gray-400 uppercase tracking-widest">{h}</th>
                 ))}
               </tr></thead>
@@ -787,12 +787,19 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                   const sc=statusColors[claim.status]||statusColors.pending;
                   return (
                     <tr key={claim.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
-                      <td className="px-3 py-2.5 font-medium text-navy text-[12px]">{claim.patient_name}</td>
+                      <td className="px-3 py-2.5">
+                        <div className="font-medium text-navy text-[12px]">{claim.patient_name}</div>
+                        {claim.mr_number && <div className="text-[10px] text-gray-400 font-mono">MR# {claim.mr_number}</div>}
+                        {claim.claim_date && <div className="text-[10px] text-gray-400">{claim.claim_date}</div>}
+                      </td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-600">{claim.insurance_provider}</td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-500 font-mono">{claim.policy_number||'—'}</td>
                       <td className="px-3 py-2.5 text-[12px] text-navy">PKR {Number(claim.amount_claimed||0).toLocaleString()}</td>
                       <td className="px-3 py-2.5 text-[12px] text-emerald-600">PKR {Number(claim.amount_approved||0).toLocaleString()}</td>
                       <td className="px-3 py-2.5 text-[12px] font-semibold text-emerald-700">PKR {Number(claim.amount_paid||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-center">
+                        <span className="text-[12px] font-semibold text-navy">{claim.resubmit_count||0}</span>
+                      </td>
                       <td className="px-3 py-2.5">
                         <span className="text-[10px] px-2 py-0.5 rounded-full font-medium capitalize"
                           style={{background:sc.bg,color:sc.color}}>{claim.status}</span>
