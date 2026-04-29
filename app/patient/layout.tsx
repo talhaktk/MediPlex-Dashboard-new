@@ -6,7 +6,7 @@ import {
   LayoutDashboard, CalendarDays, Pill, FlaskConical,
   MessageSquare, LogOut, User, ChevronDown, Receipt
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const NAV = [
   { href: '/patient/dashboard',     label: 'Dashboard',     icon: LayoutDashboard },
