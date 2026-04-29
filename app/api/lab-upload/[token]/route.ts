@@ -76,7 +76,7 @@ export async function PUT(req: NextRequest, { params }: { params: { token: strin
     has_abnormal: false,
   }]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  await sb.from('lab_orders').update({ status: 'completed', lab_name: labName, technician_name: techName }).eq('id', order.id);
+  await sb.from('lab_orders').update({ status: 'completed', lab_name: labName || null, technician_name: techName || null }).eq('id', order.id);
   try {
     await sb.from('notifications').insert([{
       clinic_id: order.clinic_id,

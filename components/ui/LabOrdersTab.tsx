@@ -248,11 +248,17 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                       {order.ordered_by? ' · by '+order.ordered_by:''}
                     </div>
                   </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                    style={{background:order.status==='completed'?'rgba(26,127,94,0.2)':'rgba(245,158,11,0.2)',
-                      color:order.status==='completed'?'#48bb78':'#fbbf24'}}>
-                    {order.status==='completed'?'✓ Results Ready':'Awaiting Results'}
-                  </span>
+                  {(()=>{
+                    const hasResults = resultsForOrder(order.id).length > 0;
+                    const done = hasResults || order.status==='completed';
+                    return (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                        style={{background:done?'rgba(22,163,74,0.15)':'rgba(245,158,11,0.15)',
+                          color:done?'#16a34a':'#d97706'}}>
+                        {done?'✓ Results Ready':'Awaiting Results'}
+                      </span>
+                    );
+                  })()}
                 </button>
 
                 {isOpen && (
@@ -349,12 +355,12 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             );
           })}
 
-          {/* Uploaded results without orders (legacy) */}
-          {results.filter(r=>!r.order_id).length > 0 && (
+          {/* Uploaded reports not linked to any order */}
+          {results.filter(r=>r.order_id==null||r.order_id===undefined).length > 0 && (
             <div>
               <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-2">Uploaded Reports</p>
               <div className="space-y-2">
-                {results.filter(r=>!r.order_id).map(r=>(
+                {results.filter(r=>r.order_id==null||r.order_id===undefined).map(r=>(
                   <div key={r.id} className="rounded-xl p-3" style={{background:'#f9fafb',border:'1px solid #e2e8f0'}}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[12px] font-medium text-gray-800">{r.test_name}</span>
