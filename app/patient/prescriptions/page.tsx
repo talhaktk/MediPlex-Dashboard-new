@@ -1,4 +1,5 @@
 'use client';
+import { t, Lang } from '@/lib/translations';
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
@@ -11,7 +12,9 @@ export default function PatientPrescriptions() {
 
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [loading,       setLoading]       = useState(true);
-  const [expanded,      setExpanded]      = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [lang, setLang] = useState<Lang>('en');
+  useEffect(()=>{ const s=localStorage.getItem('patient_lang'); if(s==='ur') setLang('ur'); },[]);
 
   useEffect(() => {
     if (!mrNumber) return;
@@ -114,9 +117,9 @@ export default function PatientPrescriptions() {
                                 <td className="py-2 pr-4 font-semibold text-[#0a1628]">{m.name}</td>
                                 <td className="py-2 pr-4 text-slate-600">{m.dose || '—'}</td>
                                 <td className="py-2 pr-4 text-slate-600">{m.route || '—'}</td>
-                                <td className="py-2 pr-4 text-slate-600">{m.frequency || '—'}</td>
+                                <td className="py-2 pr-4 text-slate-600" dir={lang==='ur'?'rtl':'ltr'}>{m.frequency ? t(m.frequency, lang) : '—'}</td>
                                 <td className="py-2 pr-4 text-slate-600">{m.duration || '—'}</td>
-                                <td className="py-2 text-slate-500 text-xs">{m.instructions || '—'}</td>
+                                <td className="py-2 text-slate-500 text-xs" dir={lang==='ur'?'rtl':'ltr'}>{m.instructions ? t(m.instructions, lang) : '—'}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -129,13 +132,13 @@ export default function PatientPrescriptions() {
                       <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {rx.advice && (
                           <div className="p-3 rounded-xl text-sm" style={{ background:'#f0fdf4', border:'1px solid #bbf7d0' }}>
-                            <div className="font-semibold text-emerald-800 text-xs mb-1 uppercase tracking-wide">Advice</div>
+                            <div className="font-semibold text-emerald-800 text-xs mb-1 uppercase tracking-wide">{t('Advice', lang)}</div>
                             <div className="text-emerald-700">{rx.advice}</div>
                           </div>
                         )}
                         {rx.follow_up && (
                           <div className="p-3 rounded-xl text-sm" style={{ background:'#eff6ff', border:'1px solid #bfdbfe' }}>
-                            <div className="font-semibold text-blue-800 text-xs mb-1 uppercase tracking-wide">Follow-up</div>
+                            <div className="font-semibold text-blue-800 text-xs mb-1 uppercase tracking-wide">{t('Follow-up', lang)}</div>
                             <div className="text-blue-700">{rx.follow_up}</div>
                           </div>
                         )}
@@ -156,7 +159,7 @@ export default function PatientPrescriptions() {
                         <a href={`/rx/${rx.id}`} target="_blank" rel="noopener noreferrer"
                           className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                           style={{ background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.2)', color:'#10b981' }}>
-                          <Download size={13} /> View Full Prescription
+                          <Download size={13} /> {t('View Full Prescription', lang)}
                         </a>
                       </div>
                     )}

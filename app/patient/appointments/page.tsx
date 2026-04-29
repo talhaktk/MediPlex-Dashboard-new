@@ -1,4 +1,5 @@
 'use client';
+import { t, Lang } from '@/lib/translations';
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
@@ -6,10 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { CalendarDays, Clock, MapPin, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const statusColor: Record<string, { bg: string; color: string; label: string }> = {
-  confirmed:    { bg: 'rgba(16,185,129,0.1)',  color: '#10b981', label: 'Confirmed'   },
-  pending:      { bg: 'rgba(245,158,11,0.1)',  color: '#f59e0b', label: 'Pending'     },
-  completed:    { bg: 'rgba(59,130,246,0.1)',  color: '#3b82f6', label: 'Completed'   },
-  cancelled:    { bg: 'rgba(239,68,68,0.1)',   color: '#ef4444', label: 'Cancelled'   },
+  confirmed:    { bg: 'rgba(16,185,129,0.1)',  color: '#10b981', label: t('Confirmed', lang)   },
+  pending:      { bg: 'rgba(245,158,11,0.1)',  color: '#f59e0b', label: t('Pending', lang)     },
+  completed:    { bg: 'rgba(59,130,246,0.1)',  color: '#3b82f6', label: t('Completed', lang)   },
+  cancelled:    { bg: 'rgba(239,68,68,0.1)',   color: '#ef4444', label: t('Cancelled', lang)   },
   pending_confirmation: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', label: 'Awaiting Confirmation' },
 };
 
@@ -20,7 +21,9 @@ export default function PatientAppointments() {
 
   const [appointments, setAppointments] = useState<any[]>([]);
   const [tab,          setTab]          = useState<'upcoming' | 'past'>('upcoming');
-  const [loading,      setLoading]      = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [lang, setLang] = useState<Lang>('en');
+  useEffect(()=>{ const s=localStorage.getItem('patient_lang'); if(s==='ur') setLang('ur'); },[]);
 
   useEffect(() => {
     if (!mrNumber) return;
@@ -66,8 +69,8 @@ export default function PatientAppointments() {
       ) : shown.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl" style={{ border:'1px solid #e2e8f0' }}>
           <CalendarDays size={36} className="mx-auto mb-3 text-slate-300" />
-          <p className="text-slate-500 font-medium">No {tab} appointments</p>
-          <p className="text-slate-400 text-sm mt-1">Contact your clinic to book an appointment</p>
+          <p className="text-slate-500 font-medium" dir={lang==='ur'?'rtl':'ltr'}>{t('No upcoming appointments', lang)}</p>
+          <p className="text-slate-400 text-sm mt-1" dir={lang==='ur'?'rtl':'ltr'}>{t('Contact your clinic to book an appointment', lang)}</p>
         </div>
       ) : (
         <div className="space-y-3">

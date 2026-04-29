@@ -22,6 +22,10 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const router   = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [lang, setLang] = useState<'en'|'ur'>('en');
+  // Store lang in localStorage
+  useEffect(()=>{ const saved = localStorage.getItem('patient_lang'); if(saved==='ur') setLang('ur'); }, []);
+  const toggleLang = () => { const nl = lang==='en'?'ur':'en'; setLang(nl); localStorage.setItem('patient_lang','en'==nl?'en':'ur'); };
 
   const user = session?.user as any;
   const name = user?.patientName || user?.name || 'Patient';
@@ -71,7 +75,12 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
           {/* User menu */}
           <div className="relative">
-            <button onClick={() => setMenuOpen(!menuOpen)}
+            <button onClick={toggleLang}
+          className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all mr-2"
+          style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c',border:'1px solid rgba(201,168,76,0.3)'}}>
+          {lang==='en'?'اردو':'English'}
+        </button>
+        <button onClick={() => setMenuOpen(!menuOpen)}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all"
               style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"

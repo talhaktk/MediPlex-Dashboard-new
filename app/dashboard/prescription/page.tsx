@@ -16,6 +16,8 @@ export default async function PrescriptionPage() {
   const session = await getServerSession(authOptions);
   const role    = (session?.user as any)?.role;
   const clinicId = (session?.user as any)?.clinicId || null;
+  const sb2 = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {auth:{persistSession:false}});
+  const { data: clinicSettings } = clinicId ? await sb2.from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle() : {data:null};
   if (!ALLOWED.includes(role)) redirect('/dashboard');
   const data = await fetchAppointmentsFromDb(clinicId);
   return (
