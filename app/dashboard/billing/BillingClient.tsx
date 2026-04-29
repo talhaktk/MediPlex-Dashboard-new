@@ -25,7 +25,7 @@ type Invoice = {
   discount:      number;
   paid:          number;
   paymentMethod: string;
-  paymentStatus: 'Paid' | 'Partial' | 'Unpaid';
+  paymentStatus: 'Paid' | 'Partial' | 'Unpaid' | 'Waived';
   notes:         string;
   createdAt:     string;
   recordType:    RecordType;
@@ -185,7 +185,7 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
   const agingBuckets = useMemo(() => {
     const now = new Date();
     const buckets = { current:[] as Invoice[], d30:[] as Invoice[], d60:[] as Invoice[], d90:[] as Invoice[], over90:[] as Invoice[] };
-    invoices.filter(i=>i.paymentStatus!=='Paid'&&i.paymentStatus!=='Waived').forEach(inv => {
+    invoices.filter(i=>(i.paymentStatus as string)!=='Paid'&&(i.paymentStatus as string)!=='Waived').forEach(inv => {
       const due = Math.max(0, inv.feeAmount - inv.discount - inv.paid);
       if (due <= 0) return;
       const days = inv.date ? Math.floor((now.getTime()-new Date(inv.date).getTime())/(1000*60*60*24)) : 0;
