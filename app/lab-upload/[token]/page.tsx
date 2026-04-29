@@ -109,7 +109,7 @@ export default function LabUploadPage() {
               {(order.tests||[]).map((t:any,i:number)=>(
                 <span key={i} className="text-xs px-2.5 py-1 rounded-full font-medium"
                   style={{background:order.order_type==='radiology'?'#dbeafe':'#dcfce7',color:order.order_type==='radiology'?'#1e40af':'#15803d'}}>
-                  {t.name||t}{t.urgency&&t.urgency!=='Routine'?` (${t.urgency})`:''}
+                  {(t.name||t).split('(')[0].trim()}{t.urgency&&t.urgency!=='Routine'?` • ${t.urgency}`:''}
                 </span>
               ))}
             </div>

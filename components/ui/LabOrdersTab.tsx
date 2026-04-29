@@ -129,7 +129,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
         <div className="rounded-xl p-4 space-y-3" style={{background:'rgba(26,127,94,0.08)',border:'1px solid rgba(26,127,94,0.25)'}}>
           <div className="text-[12px] font-semibold text-emerald-400">New Lab Order</div>
           <input value={searchLab} onChange={e=>setSearchLab(e.target.value)} placeholder="Search tests..." 
-            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}/>
+            className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}} onFocus={e=>(e.target.style.borderColor='rgba(201,168,76,0.5)')} onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,0.1)')}/>
           <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto">
             {filteredLabs.map(lab=>{
               const sel = selectedTests.find(t=>t.name===lab.name);
@@ -192,11 +192,11 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             </div>
             <div>
               <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Body Part / Region *</label>
-              <input value={bodyPart} onChange={e=>setBodyPart(e.target.value)} placeholder="e.g. Chest, Right Knee..." className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}/>
+              <input value={bodyPart} onChange={e=>setBodyPart(e.target.value)} placeholder="e.g. Chest, Right Knee..." className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}} onFocus={e=>(e.target.style.borderColor='rgba(201,168,76,0.5)')} onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,0.1)')}/>
             </div>
             <div>
               <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">View / Position</label>
-              <input value={viewPos} onChange={e=>setViewPos(e.target.value)} placeholder="e.g. PA+Lateral, AP" className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}/>
+              <input value={viewPos} onChange={e=>setViewPos(e.target.value)} placeholder="e.g. PA+Lateral, AP" className="w-full rounded-lg px-3 py-2 text-[12px] outline-none" style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}} onFocus={e=>(e.target.style.borderColor='rgba(201,168,76,0.5)')} onBlur={e=>(e.target.style.borderColor='rgba(255,255,255,0.1)')}/>
             </div>
             <div>
               <label className="text-[10px] text-white/40 uppercase tracking-widest block mb-1">Contrast</label>
@@ -279,6 +279,26 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                             <ExternalLink size={10}/> {uploadUrl(order.qr_token).slice(0,50)}...
                           </a>
                           {order.qr_expires_at && <p className="text-[9px] text-white/20 mt-1">Expires: {new Date(order.qr_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>}
+                          <div className="flex gap-2 mt-2">
+                            <button onClick={()=>{
+                              const w=window.open('','_blank');
+                              if(!w)return;
+                              w.document.write(`<!DOCTYPE html><html><head><title>Lab Order</title><style>body{font-family:Arial,sans-serif;padding:20px;max-width:400px;margin:0 auto;color:#0a1628}.header{background:#0a1628;color:#fff;padding:10px 16px;border-radius:8px 8px 0 0;text-align:center}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:16px}.title{font-size:14px;font-weight:700}.sub{font-size:10px;color:rgba(255,255,255,0.6)}.qr-wrap{text-align:center;margin:12px 0}.tests{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.test-pill{background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}.footer{font-size:10px;color:#9ca3af;margin-top:12px;text-align:center}@media print{button{display:none}}</style></head><body><div class="header"><div class="title">MediPlex Lab Order</div><div class="sub">Scan QR at the lab to upload results</div></div><div class="body"><p style="font-size:13px;font-weight:600;margin-bottom:4px">Patient: ${order.child_name}</p><p style="font-size:11px;color:#6b7280;margin-bottom:12px">MR#: ${order.mr_number} · Ordered by: ${order.ordered_by||'Doctor'}</p><div class="qr-wrap"><img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(uploadUrl(order.qr_token))}" width="150" height="150"/></div><p style="font-size:11px;color:#6b7280;text-align:center;margin-bottom:8px">Tests Ordered:</p><div class="tests">${(order.tests||[]).map((t:any)=>`<span class="test-pill">${t.name||t}${t.urgency&&t.urgency!=='Routine'?' ('+t.urgency+')':''}</span>`).join('')}</div><div class="footer">Scan QR → Upload results at: ${uploadUrl(order.qr_token)}<br/>Expires: ${order.qr_expires_at?new Date(order.qr_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):''}</div></div><button onclick="window.print()" style="margin:12px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer;font-size:13px">🖨️ Print</button></body></html>`);
+                              w.document.close();
+                              setTimeout(()=>w.print(),500);
+                            }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
+                              style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c',border:'1px solid rgba(201,168,76,0.3)'}}>
+                              🖨️ Print Order
+                            </button>
+                            {order.phone && (
+                              <a href={`https://wa.me/${(order.phone||'').replace(/[^0-9]/g,'')}?text=${encodeURIComponent('Lab Order from MediPlex\n\nPatient: '+order.child_name+'\nMR#: '+order.mr_number+'\nTests: '+(order.tests||[]).map((t:any)=>t.name||t).join(', ')+'\n\nPlease scan QR at the lab to upload results:\n'+uploadUrl(order.qr_token))}`}
+                                target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
+                                style={{background:'rgba(37,211,102,0.15)',color:'#25d366',border:'1px solid rgba(37,211,102,0.3)'}}>
+                                💬 WhatsApp
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
