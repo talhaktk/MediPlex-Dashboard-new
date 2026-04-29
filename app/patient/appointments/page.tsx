@@ -7,10 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { CalendarDays, Clock, MapPin, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 const statusColor: Record<string, { bg: string; color: string; label: string }> = {
-  confirmed:    { bg: 'rgba(16,185,129,0.1)',  color: '#10b981', label: t('Confirmed', lang)   },
-  pending:      { bg: 'rgba(245,158,11,0.1)',  color: '#f59e0b', label: t('Pending', lang)     },
-  completed:    { bg: 'rgba(59,130,246,0.1)',  color: '#3b82f6', label: t('Completed', lang)   },
-  cancelled:    { bg: 'rgba(239,68,68,0.1)',   color: '#ef4444', label: t('Cancelled', lang)   },
+  confirmed:    { bg: 'rgba(16,185,129,0.1)',  color: '#10b981', label: 'Confirmed'   },
+  pending:      { bg: 'rgba(245,158,11,0.1)',  color: '#f59e0b', label: 'Pending'     },
+  completed:    { bg: 'rgba(59,130,246,0.1)',  color: '#3b82f6', label: 'Completed'   },
+  cancelled:    { bg: 'rgba(239,68,68,0.1)',   color: '#ef4444', label: 'Cancelled'   },
   pending_confirmation: { bg: 'rgba(139,92,246,0.1)', color: '#8b5cf6', label: 'Awaiting Confirmation' },
 };
 
@@ -121,7 +121,7 @@ export default function PatientAppointments() {
                   </div>
                   <span className="text-[11px] px-2.5 py-1 rounded-full font-medium flex-shrink-0"
                     style={{ background: s.bg, color: s.color }}>
-                    {s.label}
+                    {t(s.label, lang)}
                   </span>
                 </div>
               </div>
