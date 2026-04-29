@@ -708,8 +708,20 @@ export default function BillingClient({ data }: { data: Appointment[] }) {
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">MR Number</label>
-                  <input value={claimForm.mr_number} onChange={e=>setClaimForm(p=>({...p,mr_number:e.target.value}))}
-                    placeholder="MR number" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                  <div className="flex gap-2">
+                    <input value={claimForm.mr_number} onChange={e=>setClaimForm(p=>({...p,mr_number:e.target.value}))}
+                      placeholder="MR number" className="flex-1 border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"
+                      onBlur={async e=>{
+                        const mr = e.target.value.trim();
+                        if(!mr) return;
+                        const {data:pt} = await supabase.from('patients').select('child_name,whatsapp_number').eq('mr_number',mr).maybeSingle();
+                        if(pt) { setClaimForm(p=>({...p,patient_name:pt.child_name||p.patient_name})); }
+                        else {
+                          const {data:apt} = await supabase.from('appointments').select('child_name,whatsapp').eq('mr_number',mr).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
+                          if(apt) setClaimForm(p=>({...p,patient_name:apt.child_name||p.patient_name}));
+                        }
+                      }}/>
+                  </div>
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Insurance Provider</label>
