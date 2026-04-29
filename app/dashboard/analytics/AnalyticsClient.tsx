@@ -91,7 +91,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const [rangeFrom,    setRangeFrom]    = useState('');
   const [rangeTo,      setRangeTo]      = useState('');
   const [activePreset, setActivePreset] = useState('all');
-  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'|'aging'|'expenses'>('overview');  const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
+  const [activeTab,    setActiveTab]    = useState<'overview'|'monthly'|'patients'|'trends'|'billing'|'aging'|'expenses'|'doctors'|'clinical'|'operational'>('overview');  const [drillMonth,   setDrillMonth]   = useState<string|null>(null);
 
   const applyPreset = (key: string) => {
     const { from, to } = getPreset(key);
@@ -273,16 +273,138 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
     setTimeout(() => w.print(), 600);
   };
 
+  // ── New Analytics Computed Values ─────────────────────────────────────────
+
+  // Doctor-wise revenue
+  const doctorRevenue = useMemo(() => {
+    const map: Record<string,{revenue:number,patients:number,appointments:number}> = {};
+    invoices.forEach(inv => {
+      const dr = (inv as any).doctor_name || 'Unknown';
+      if(!map[dr]) map[dr] = {revenue:0,patients:0,appointments:0};
+      map[dr].revenue += (inv as any).paid || 0;
+      map[dr].appointments += 1;
+    });
+    // Count unique patients per doctor from appointments
+    data.forEach((apt:any) => {
+      const dr = apt.doctor_name || apt.doctorName || 'Unknown';
+      if(!map[dr]) map[dr] = {revenue:0,patients:0,appointments:0};
+    });
+    return Object.entries(map).sort((a,b)=>b[1].revenue-a[1].revenue);
+  }, [invoices, data]);
+
+  // New vs returning patients
+  const patientRetention = useMemo(() => {
+    const visitCount: Record<string,number> = {};
+    data.forEach((apt:any) => {
+      const key = apt.mrNumber || apt.childName;
+      visitCount[key] = (visitCount[key]||0) + 1;
+    });
+    const newPats = Object.values(visitCount).filter(v=>v===1).length;
+    const returning = Object.values(visitCount).filter(v=>v>1).length;
+    return { new: newPats, returning, total: newPats+returning };
+  }, [data]);
+
+  // Peak hours analysis
+  const peakHours = useMemo(() => {
+    const hours: Record<string,number> = {};
+    data.forEach((apt:any) => {
+      const time = apt.appointmentTime || apt.appointment_time || '';
+      if(!time) return;
+      const hour = time.split(':')[0];
+      if(hour) hours[hour] = (hours[hour]||0)+1;
+    });
+    return Object.entries(hours).sort((a,b)=>Number(a[0])-Number(b[0]));
+  }, [data]);
+
+  // Peak days
+  const peakDays = useMemo(() => {
+    const days: Record<string,number> = {};
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    data.forEach((apt:any) => {
+      const date = apt.appointmentDate || apt.appointment_date || '';
+      if(!date) return;
+      const day = dayNames[new Date(date).getDay()];
+      days[day] = (days[day]||0)+1;
+    });
+    return dayNames.map(d=>({day:d,count:days[d]||0}));
+  }, [data]);
+
+  // Diagnosis frequency
+  const diagnosisFreq = useMemo(() => {
+    const map: Record<string,number> = {};
+    data.forEach((apt:any) => {
+      const diag = apt.diagnosis || apt.reason || '';
+      if(!diag||diag==='—') return;
+      map[diag] = (map[diag]||0)+1;
+    });
+    return Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  }, [data]);
+
+  // Cancellation rate
+  const cancellationStats = useMemo(() => {
+    const total = data.length;
+    const cancelled = data.filter((a:any)=>a.status==='Cancelled').length;
+    const noShow = data.filter((a:any)=>a.attendanceStatus==='No-Show'||(a as any).attendance_status==='No-Show').length;
+    const completed = data.filter((a:any)=>a.status==='Completed').length;
+    return { total, cancelled, noShow, completed, cancelRate: total?Math.round((cancelled/total)*100):0, noShowRate: total?Math.round((noShow/total)*100):0 };
+  }, [data]);
+
+  // Average revenue per visit
+  const avgRevenuePerVisit = invoices.length ? Math.round(invoices.reduce((s,i)=>(s+(i as any).paid||0),0)/invoices.length) : 0;
+
+  // No-show revenue loss (estimated)
+  const noShowRevenueLoss = Math.round(cancellationStats.noShow * avgRevenuePerVisit);
+
+  // Monthly new patients trend
+  const monthlyNewPatients = useMemo(() => {
+    const seen = new Set<string>();
+    const monthly: Record<string,number> = {};
+    [...data].sort((a:any,b:any)=>(a.appointmentDate||'').localeCompare(b.appointmentDate||'')).forEach((apt:any) => {
+      const key = apt.mrNumber||apt.childName;
+      const month = (apt.appointmentDate||'').slice(0,7);
+      if(!seen.has(key) && month) { seen.add(key); monthly[month]=(monthly[month]||0)+1; }
+    });
+    return Object.entries(monthly).sort((a,b)=>a[0].localeCompare(b[0])).slice(-6);
+  }, [data]);
+
+  // Top prescribed drugs (from prescriptions)
+  const [topDrugs, setTopDrugs] = useState<[string,number][]>([]);
+  const [topLabTests, setTopLabTests] = useState<[string,number][]>([]);
+
+  // Fetch clinical data for analytics
+  useEffect(() => {
+    if(!clinicId && !isSuperAdmin) return;
+    const fetchClinical = async () => {
+      // Top drugs
+      const {data:rxData} = await supabase.from('prescriptions').select('medicines').eq('clinic_id', clinicId||'').limit(200);
+      if(rxData) {
+        const drugMap: Record<string,number> = {};
+        rxData.forEach((rx:any) => { (rx.medicines||[]).forEach((m:any)=>{ const name=m.name||''; if(name) drugMap[name]=(drugMap[name]||0)+1; }); });
+        setTopDrugs(Object.entries(drugMap).sort((a,b)=>b[1]-a[1]).slice(0,10));
+      }
+      // Top lab tests
+      const {data:labData} = await supabase.from('lab_orders').select('tests').eq('clinic_id', clinicId||'').limit(200);
+      if(labData) {
+        const testMap: Record<string,number> = {};
+        labData.forEach((o:any) => { (o.tests||[]).forEach((t:any)=>{ const name=t.name||t||''; if(name) testMap[name]=(testMap[name]||0)+1; }); });
+        setTopLabTests(Object.entries(testMap).sort((a,b)=>b[1]-a[1]).slice(0,10));
+      }
+    };
+    fetchClinical();
+  }, [clinicId]);
+
+  // ── End New Analytics ───────────────────────────────────────────────────────
+
   // Revenue & financial tabs restricted to super_admin, org_owner, doctor_admin, doctor
   const { status: sessionStatus } = useSession();
   const canSeeFinancials = sessionStatus === 'loading' || ['super_admin','org_owner','doctor_admin','doctor'].includes(role);
-  const allTabs = ['overview','monthly','patients','trends','billing','aging','expenses'] as const;
+  const allTabs = ['overview','monthly','patients','trends','billing','aging','expenses','doctors','clinical','operational'] as const;
   const tabs = allTabs.filter(t => {
     if ((t === 'billing' || t === 'expenses') && !canSeeFinancials) return false;
     return true;
   });
   type TabKey = typeof allTabs[number];
-  const tabLabels: Record<TabKey, string> = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues', expenses:'Expenses' };
+  const tabLabels: Record<string, string> = { overview:'Overview', monthly:'Monthly Records', patients:'Demographics', trends:'Trends', billing:'Billing', aging:'Aging & Dues', expenses:'Expenses', doctors:'Doctor Analytics', clinical:'Clinical Analytics', operational:'Operational' };
   const safeReasons = reasons||[];
   const safeAges    = ages||[];
 
@@ -941,6 +1063,226 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           <AgingReport/>
         </div>
       )}
+
+      {/* ── DOCTORS TAB ── */}
+      {activeTab==='doctors' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              {label:'Avg Revenue/Visit', value:`PKR ${avgRevenuePerVisit.toLocaleString()}`, color:'#c9a84c'},
+              {label:'Est. No-show Loss',  value:`PKR ${noShowRevenueLoss.toLocaleString()}`,  color:'#c53030'},
+              {label:'Total Doctors',      value:doctorRevenue.length,                         color:'#2b6cb0'},
+            ].map(s=>(
+              <div key={s.label} className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
+                <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">{s.label}</div>
+                <div className="text-[22px] font-bold" style={{color:s.color}}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+            <div className="font-semibold text-navy text-[14px] mb-4">Revenue by Doctor</div>
+            {doctorRevenue.length===0 ? (
+              <div className="text-center py-8 text-gray-400 text-[13px]">No doctor revenue data yet. Make sure doctor names are recorded in billing.</div>
+            ) : (
+              <div className="space-y-3">
+                {doctorRevenue.map(([dr, stats], i)=>{
+                  const maxRev = doctorRevenue[0]?.[1]?.revenue || 1;
+                  return (
+                    <div key={dr} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                        style={{background:['#c9a84c','#1a7f5e','#2b6cb0','#9f7aea','#e53e3e'][i%5]}}>
+                        {dr.replace(/^Dr\.?\s*/i,'').slice(0,2).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[13px] font-medium text-navy">{dr}</span>
+                          <span className="text-[12px] font-semibold text-navy">PKR {stats.revenue.toLocaleString()}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full" style={{width:`${(stats.revenue/maxRev)*100}%`,background:['#c9a84c','#1a7f5e','#2b6cb0','#9f7aea','#e53e3e'][i%5]}}/>
+                        </div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{stats.appointments} appointments</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+              <div className="font-semibold text-navy text-[14px] mb-4">Patient Retention</div>
+              <div className="flex items-center justify-center gap-8">
+                <div className="text-center">
+                  <div className="text-[36px] font-bold text-blue-600">{patientRetention.new}</div>
+                  <div className="text-[11px] text-gray-400 mt-1">New Patients</div>
+                  <div className="text-[10px] text-gray-300">{patientRetention.total?Math.round((patientRetention.new/patientRetention.total)*100):0}%</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[36px] font-bold text-emerald-600">{patientRetention.returning}</div>
+                  <div className="text-[11px] text-gray-400 mt-1">Returning</div>
+                  <div className="text-[10px] text-gray-300">{patientRetention.total?Math.round((patientRetention.returning/patientRetention.total)*100):0}%</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+              <div className="font-semibold text-navy text-[14px] mb-4">Monthly New Patients</div>
+              <div className="space-y-2">
+                {monthlyNewPatients.map(([month, count])=>(
+                  <div key={month} className="flex items-center gap-3">
+                    <span className="text-[11px] text-gray-500 w-16">{new Date(month+'-01').toLocaleDateString('en-US',{month:'short',year:'2-digit'})}</span>
+                    <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-400" style={{width:`${(count/Math.max(...monthlyNewPatients.map(([,v])=>v),1))*100}%`}}/>
+                    </div>
+                    <span className="text-[11px] font-semibold text-navy w-6 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CLINICAL TAB ── */}
+      {activeTab==='clinical' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+              <div className="font-semibold text-navy text-[14px] mb-4">Top Diagnoses</div>
+              {diagnosisFreq.length===0 ? (
+                <div className="text-center py-8 text-gray-400 text-[13px]">No diagnosis data recorded yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {diagnosisFreq.map(([diag, count], i)=>(
+                    <div key={diag} className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-gray-400 w-4">{i+1}</span>
+                      <span className="text-[12px] text-gray-700 flex-1 truncate">{diag}</span>
+                      <div className="w-24 h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-navy" style={{width:`${(count/diagnosisFreq[0][1])*100}%`}}/>
+                      </div>
+                      <span className="text-[11px] font-semibold text-navy w-8 text-right">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+              <div className="font-semibold text-navy text-[14px] mb-4">Top Prescribed Drugs</div>
+              {topDrugs.length===0 ? (
+                <div className="text-center py-8 text-gray-400 text-[13px]">No prescription data yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {topDrugs.map(([drug, count], i)=>(
+                    <div key={drug} className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-gray-400 w-4">{i+1}</span>
+                      <span className="text-[12px] text-gray-700 flex-1 truncate">{drug}</span>
+                      <div className="w-24 h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-400" style={{width:`${(count/topDrugs[0][1])*100}%`}}/>
+                      </div>
+                      <span className="text-[11px] font-semibold text-navy w-8 text-right">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+              <div className="font-semibold text-navy text-[14px] mb-4">Top Lab Tests Ordered</div>
+              {topLabTests.length===0 ? (
+                <div className="text-center py-8 text-gray-400 text-[13px]">No lab order data yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {topLabTests.map(([test, count], i)=>(
+                    <div key={test} className="flex items-center gap-3">
+                      <span className="text-[10px] font-bold text-gray-400 w-4">{i+1}</span>
+                      <span className="text-[12px] text-gray-700 flex-1 truncate">{test}</span>
+                      <div className="w-24 h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400" style={{width:`${(count/topLabTests[0][1])*100}%`}}/>
+                      </div>
+                      <span className="text-[11px] font-semibold text-navy w-8 text-right">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+              <div className="font-semibold text-navy text-[14px] mb-4">Cancellation & No-show</div>
+              <div className="space-y-4">
+                {[
+                  {label:'Total Appointments', value:cancellationStats.total, color:'#2b6cb0'},
+                  {label:'Completed',           value:cancellationStats.completed, color:'#1a7f5e'},
+                  {label:'Cancelled',           value:`${cancellationStats.cancelled} (${cancellationStats.cancelRate}%)`, color:'#d97706'},
+                  {label:'No-shows',            value:`${cancellationStats.noShow} (${cancellationStats.noShowRate}%)`, color:'#c53030'},
+                  {label:'Est. Revenue Lost',   value:`PKR ${noShowRevenueLoss.toLocaleString()}`, color:'#c53030'},
+                ].map(s=>(
+                  <div key={s.label} className="flex items-center justify-between">
+                    <span className="text-[12px] text-gray-600">{s.label}</span>
+                    <span className="text-[13px] font-semibold" style={{color:s.color}}>{s.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── OPERATIONAL TAB ── */}
+      {activeTab==='operational' && (
+        <div className="space-y-5">
+          <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+            <div className="font-semibold text-navy text-[14px] mb-4">Peak Hours (Appointments by Time Slot)</div>
+            {peakHours.length===0 ? (
+              <div className="text-center py-8 text-gray-400 text-[13px]">No time data recorded</div>
+            ) : (
+              <div className="space-y-2">
+                {peakHours.map(([hour, count])=>{
+                  const maxCount = Math.max(...peakHours.map(([,v])=>v));
+                  const h = Number(hour);
+                  const label = h===0?'12 AM':h<12?`${h} AM`:h===12?'12 PM':`${h-12} PM`;
+                  return (
+                    <div key={hour} className="flex items-center gap-3">
+                      <span className="text-[11px] text-gray-500 w-14 text-right">{label}</span>
+                      <div className="flex-1 h-5 rounded-lg bg-gray-100 overflow-hidden relative">
+                        <div className="h-full rounded-lg transition-all" style={{width:`${(count/maxCount)*100}%`,background:count===maxCount?'#c9a84c':'#2b6cb0'}}/>
+                        <span className="absolute right-2 top-0.5 text-[10px] font-semibold text-navy">{count}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="bg-white rounded-2xl p-5" style={{border:'1px solid #e5e7eb'}}>
+            <div className="font-semibold text-navy text-[14px] mb-4">Busiest Days of Week</div>
+            <div className="flex items-end gap-3 h-32">
+              {peakDays.map(({day, count})=>{
+                const maxCount = Math.max(...peakDays.map(d=>d.count), 1);
+                return (
+                  <div key={day} className="flex-1 flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-semibold text-navy">{count||''}</span>
+                    <div className="w-full rounded-t-lg transition-all" style={{height:`${Math.max((count/maxCount)*96,4)}px`,background:count===maxCount?'#c9a84c':'#cbd5e0'}}/>
+                    <span className="text-[9px] text-gray-400">{day.slice(0,3)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              {label:'Avg Visits/Day',     value:Math.round(data.length / Math.max(1, new Set(data.map((a:any)=>a.appointmentDate||a.appointment_date)).size)), color:'#2b6cb0'},
+              {label:'Cancellation Rate',  value:`${cancellationStats.cancelRate}%`, color:'#d97706'},
+              {label:'No-show Rate',       value:`${cancellationStats.noShowRate}%`, color:'#c53030'},
+            ].map(s=>(
+              <div key={s.label} className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
+                <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">{s.label}</div>
+                <div className="text-[24px] font-bold" style={{color:s.color}}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

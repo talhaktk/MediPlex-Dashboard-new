@@ -349,6 +349,47 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
               </div>
             </div>
 
+            {/* Doctor Revenue */}
+            <div className="bg-white rounded-2xl p-5 border border-black/5">
+              <div className="font-semibold text-navy text-[14px] mb-4">Revenue by Doctor (All Clinics)</div>
+              {(()=>{
+                const drMap: Record<string,{revenue:number,clinic:string,count:number}> = {};
+                (filtered as any).invoices?.forEach((inv:any) => {
+                  const dr = inv.doctor_name || 'Unknown';
+                  const clinic = clinics.find((c:any)=>c.id===inv.clinic_id)?.name || inv.clinic_id || '—';
+                  if(!drMap[dr]) drMap[dr] = {revenue:0,clinic,count:0};
+                  drMap[dr].revenue += Number(inv.amount_paid||inv.paid||0);
+                  drMap[dr].count += 1;
+                });
+                const entries = Object.entries(drMap).sort((a,b)=>b[1].revenue-a[1].revenue);
+                const maxRev = entries[0]?.[1]?.revenue || 1;
+                return entries.length===0 ? (
+                  <div className="text-center py-8 text-gray-400 text-[13px]">No doctor revenue data. Add doctor names to billing records.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {entries.map(([dr, stats], i)=>(
+                      <div key={dr} className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                          style={{background:['#c9a84c','#1a7f5e','#2b6cb0','#9f7aea','#e53e3e'][i%5]}}>
+                          {dr.replace(/^Dr\.?\s*/i,'').slice(0,2).toUpperCase()}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-[13px] font-medium text-navy">{dr}</span>
+                            <span className="text-[12px] font-semibold text-navy">PKR {stats.revenue.toLocaleString()}</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                            <div className="h-full rounded-full" style={{width:`${(stats.revenue/maxRev)*100}%`,background:['#c9a84c','#1a7f5e','#2b6cb0','#9f7aea','#e53e3e'][i%5]}}/>
+                          </div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">{stats.clinic} · {stats.count} invoices</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Monthly breakdown */}
             <div className="bg-white rounded-2xl overflow-hidden border border-black/5">
               <div className="px-5 py-4 border-b border-black/5 font-semibold text-navy text-[14px]">Monthly Revenue Breakdown</div>
