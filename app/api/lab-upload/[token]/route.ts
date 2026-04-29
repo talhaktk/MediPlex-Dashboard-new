@@ -9,7 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const sb = getAdmin();
   const { data: order } = await sb.from('lab_orders').select('*').eq('qr_token', params.token).maybeSingle();
   if (!order) return NextResponse.json({ error: 'Invalid or expired link' }, { status: 404 });
-  if (new Date(order.qr_expires_at) < new Date()) return NextResponse.json({ error: 'This QR code has expired. Please ask the clinic for a new order.' }, { status: 410 });
+  if (new Date(order.qr_expires_at) < new Date()) return NextResponse.json({ error: 'This QR code has expired.' }, { status: 410 });
   return NextResponse.json({ order: {
     id: order.id, child_name: order.child_name || order.patient_name,
     mr_number: order.mr_number, order_type: order.order_type,
@@ -21,46 +21,20 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
 export async function POST(req: NextRequest, { params }: { params: { token: string } }) {
   const sb = getAdmin();
   const body = await req.json();
-  
   if (body.action === 'verify_phone') {
     const { data: order } = await sb.from('lab_orders').select('mr_number,phone,clinic_id').eq('qr_token', params.token).maybeSingle();
     if (!order) return NextResponse.json({ error: 'Invalid link' }, { status: 404 });
-    
-    const inputPhone = body.phone?.replace(/\s+/g,'').replace(/^00/,'+');
-    
-    // Check phone from order itself first
-    if (order.phone) {
-      const orderPhone = order.phone.replace(/\s+/g,'').replace(/^00/,'+');
-      if (orderPhone === inputPhone || orderPhone.endsWith(inputPhone.slice(-9))) {
-        return NextResponse.json({ ok: true });
-      }
-    }
-    
-    // Check patients table
+    const inputPhone = (body.phone || '').replace(/\s+/g,'').replace(/^00/,'+');
+    const match = (p: string) => { const n = p.replace(/\s+/g,'').replace(/^00/,'+'); return n === inputPhone || n.endsWith(inputPhone.slice(-9)); };
+    if (order.phone && match(order.phone)) return NextResponse.json({ ok: true });
     const { data: patient } = await sb.from('patients').select('whatsapp_number').eq('mr_number', order.mr_number).maybeSingle();
-    if (patient?.whatsapp_number) {
-      const patPhone = patient.whatsapp_number.replace(/\s+/g,'').replace(/^00/,'+');
-      if (patPhone === inputPhone || patPhone.endsWith(inputPhone.slice(-9))) {
-        return NextResponse.json({ ok: true });
-      }
-    }
-    
-    // Check appointments
+    if (patient?.whatsapp_number && match(patient.whatsapp_number)) return NextResponse.json({ ok: true });
     const { data: appt } = await sb.from('appointments').select('whatsapp').eq('mr_number', order.mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
-    if (appt?.whatsapp) {
-      const apptPhone = appt.whatsapp.replace(/\s+/g,'').replace(/^00/,'+');
-      if (apptPhone === inputPhone || apptPhone.endsWith(inputPhone.slice(-9))) {
-        return NextResponse.json({ ok: true });
-      }
-    }
-    
-    // No phone on file — allow anyway (clinic may not have recorded phone)
-    const hasAnyPhone = order.phone || patient?.whatsapp_number || appt?.whatsapp;
-    if (!hasAnyPhone) return NextResponse.json({ ok: true });
-    
-    return NextResponse.json({ error: 'Phone number does not match our records. Please check with your clinic.' }, { status: 403 });
+    if (appt?.whatsapp && match(appt.whatsapp)) return NextResponse.json({ ok: true });
+    const hasPhone = order.phone || patient?.whatsapp_number || appt?.whatsapp;
+    if (!hasPhone) return NextResponse.json({ ok: true });
+    return NextResponse.json({ error: 'Phone number does not match our records.' }, { status: 403 });
   }
-  
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 }
 
@@ -68,14 +42,12 @@ export async function PUT(req: NextRequest, { params }: { params: { token: strin
   const sb = getAdmin();
   const formData = await req.formData();
   const files = formData.getAll('files') as File[];
-  const labName = formData.get('labName') as string || '';
-  const techName = formData.get('techName') as string || '';
-  const notes = formData.get('notes') as string || '';
-
+  const labName = (formData.get('labName') as string) || '';
+  const techName = (formData.get('techName') as string) || '';
+  const notes = (formData.get('notes') as string) || '';
   const { data: order } = await sb.from('lab_orders').select('*').eq('qr_token', params.token).maybeSingle();
   if (!order) return NextResponse.json({ error: 'Invalid link' }, { status: 404 });
   if (new Date(order.qr_expires_at) < new Date()) return NextResponse.json({ error: 'Link expired' }, { status: 410 });
-
   const BUCKET = 'lab-results';
   const fileUrls: string[] = [];
   for (const file of files) {
@@ -88,8 +60,6 @@ export async function PUT(req: NextRequest, { params }: { params: { token: strin
       fileUrls.push(urlData.publicUrl);
     }
   }
-
-  // Save to lab_results — this is what both patient tab and patient portal read
   const { error } = await sb.from('lab_results').insert([{
     mr_number: order.mr_number,
     child_name: order.child_name || order.patient_name,
@@ -106,20 +76,15 @@ export async function PUT(req: NextRequest, { params }: { params: { token: strin
     has_abnormal: false,
   }]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // Update order status to completed
-  await sb.from('lab_orders').update({
-    status: 'completed', lab_name: labName, technician_name: techName,
-  }).eq('id', order.id);
-
-  // Notify doctor
-  await sb.from('notifications').insert([{
-    clinic_id: order.clinic_id,
-    type: 'lab_result',
-    title: '🔬 Lab Results Received',
-    message: `Results for ${order.child_name || order.patient_name} (MR# ${order.mr_number}) uploaded by ${labName || 'Lab'}`,
-    is_read: false,
-  }).then(()=>{}).catch(()=>{});
-
+  await sb.from('lab_orders').update({ status: 'completed', lab_name: labName, technician_name: techName }).eq('id', order.id);
+  try {
+    await sb.from('notifications').insert([{
+      clinic_id: order.clinic_id,
+      type: 'lab_result',
+      title: 'Lab Results Received',
+      message: 'Results for ' + (order.child_name || order.patient_name) + ' (MR# ' + order.mr_number + ') uploaded by ' + (labName || 'Lab'),
+      is_read: false,
+    }]);
+  } catch (_) {}
   return NextResponse.json({ ok: true });
 }
