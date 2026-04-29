@@ -278,24 +278,24 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   // Doctor-wise revenue
   const doctorRevenue = useMemo(() => {
     const map: Record<string,{revenue:number,patients:number,appointments:number}> = {};
-    invoices.forEach(inv => {
-      const dr = (inv as any).doctor_name || 'Unknown';
+    filteredInvoices.forEach(inv => {
+      const dr = (inv as any).doctor_name || (inv as any).doctorName || 'Unknown Doctor';
       if(!map[dr]) map[dr] = {revenue:0,patients:0,appointments:0};
       map[dr].revenue += (inv as any).paid || 0;
       map[dr].appointments += 1;
     });
     // Count unique patients per doctor from appointments
-    data.forEach((apt:any) => {
-      const dr = apt.doctor_name || apt.doctorName || 'Unknown';
+    filteredData.forEach((apt:any) => {
+      const dr = apt.doctor_name || apt.doctorName || 'Unknown Doctor';
       if(!map[dr]) map[dr] = {revenue:0,patients:0,appointments:0};
     });
     return Object.entries(map).sort((a,b)=>b[1].revenue-a[1].revenue);
-  }, [invoices, data]);
+  }, [filteredInvoices, filteredData]);
 
   // New vs returning patients
   const patientRetention = useMemo(() => {
     const visitCount: Record<string,number> = {};
-    data.forEach((apt:any) => {
+    filteredData.forEach((apt:any) => {
       const key = apt.mrNumber || apt.childName;
       visitCount[key] = (visitCount[key]||0) + 1;
     });
@@ -307,7 +307,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   // Peak hours analysis
   const peakHours = useMemo(() => {
     const hours: Record<string,number> = {};
-    data.forEach((apt:any) => {
+    filteredData.forEach((apt:any) => {
       const time = apt.appointmentTime || apt.appointment_time || '';
       if(!time) return;
       const hour = time.split(':')[0];
@@ -320,7 +320,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const peakDays = useMemo(() => {
     const days: Record<string,number> = {};
     const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    data.forEach((apt:any) => {
+    filteredData.forEach((apt:any) => {
       const date = apt.appointmentDate || apt.appointment_date || '';
       if(!date) return;
       const day = dayNames[new Date(date).getDay()];
@@ -332,7 +332,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   // Diagnosis frequency
   const diagnosisFreq = useMemo(() => {
     const map: Record<string,number> = {};
-    data.forEach((apt:any) => {
+    filteredData.forEach((apt:any) => {
       const diag = apt.diagnosis || apt.reason || '';
       if(!diag||diag==='—') return;
       map[diag] = (map[diag]||0)+1;
@@ -342,15 +342,15 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
 
   // Cancellation rate
   const cancellationStats = useMemo(() => {
-    const total = data.length;
-    const cancelled = data.filter((a:any)=>a.status==='Cancelled').length;
-    const noShow = data.filter((a:any)=>a.attendanceStatus==='No-Show'||(a as any).attendance_status==='No-Show').length;
-    const completed = data.filter((a:any)=>a.status==='Completed').length;
+    const total = filteredData.length;
+    const cancelled = filteredData.filter((a:any)=>a.status==='Cancelled').length;
+    const noShow = filteredData.filter((a:any)=>a.attendanceStatus==='No-Show'||(a as any).attendance_status==='No-Show').length;
+    const completed = filteredData.filter((a:any)=>a.status==='Completed').length;
     return { total, cancelled, noShow, completed, cancelRate: total?Math.round((cancelled/total)*100):0, noShowRate: total?Math.round((noShow/total)*100):0 };
   }, [data]);
 
   // Average revenue per visit
-  const avgRevenuePerVisit = invoices.length ? Math.round(invoices.reduce((s,i)=>(s+(i as any).paid||0),0)/invoices.length) : 0;
+  const avgRevenuePerVisit = filteredInvoices.length ? Math.round(filteredInvoices.reduce((s,i)=>(s+(i as any).paid||0),0)/invoices.length) : 0;
 
   // No-show revenue loss (estimated)
   const noShowRevenueLoss = Math.round(cancellationStats.noShow * avgRevenuePerVisit);
@@ -359,7 +359,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
   const monthlyNewPatients = useMemo(() => {
     const seen = new Set<string>();
     const monthly: Record<string,number> = {};
-    [...data].sort((a:any,b:any)=>(a.appointmentDate||'').localeCompare(b.appointmentDate||'')).forEach((apt:any) => {
+    [...filteredData].sort((a:any,b:any)=>(a.appointmentDate||'').localeCompare(b.appointmentDate||'')).forEach((apt:any) => {
       const key = apt.mrNumber||apt.childName;
       const month = (apt.appointmentDate||'').slice(0,7);
       if(!seen.has(key) && month) { seen.add(key); monthly[month]=(monthly[month]||0)+1; }
@@ -1270,7 +1270,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[
-              {label:'Avg Visits/Day',     value:Math.round(data.length / Math.max(1, new Set(data.map((a:any)=>a.appointmentDate||a.appointment_date)).size)), color:'#2b6cb0'},
+              {label:'Avg Visits/Day',     value:Math.round(filteredData.length / Math.max(1, new Set(filteredData.map((a:any)=>a.appointmentDate||a.appointment_date)).size)), color:'#2b6cb0'},
               {label:'Cancellation Rate',  value:`${cancellationStats.cancelRate}%`, color:'#d97706'},
               {label:'No-show Rate',       value:`${cancellationStats.noShowRate}%`, color:'#c53030'},
             ].map(s=>(
