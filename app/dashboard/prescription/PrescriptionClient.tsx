@@ -1310,7 +1310,7 @@ printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPati
                             const fbId = `FB-${rx.id}`;
                             return phone && phone !== '—' ? (
                               <div className="flex gap-1">
-                                <button onClick={() => sendWA(phone, `Dear ${rx.parentName},\n\nYour prescription from ${clinicName} is ready.\n\n📋 View Prescription: ${rxLink}\n\nMedicines: ${rx.medicines.map((m:any)=>m.name).join(', ')}\n\nThank you.`)}
+                                <button onClick={() => sendWA(phone, `Dear ${rx.parentName},\n\nYour prescription from ${clinicName} is ready.\n\n📋 View Prescription: ${rxLink}\n\nMedicines: ${rx.medicines.map((m:any)=>m.name).join(', ')}\n\nThank you.\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`)}
                                   className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-green-50 transition-colors" title="Send Prescription via WhatsApp"
                                   style={{background:'#f0fdf4',border:'1px solid #bbf7d0'}}>
                                   <span style={{fontSize:12}}>📱</span>
@@ -1319,7 +1319,7 @@ printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPati
                                   const fbRow = { id: fbId, rx_id: rx.id, mr_number: (apt as any)?.mr_number||null, child_name: rx.childName, parent_name: rx.parentName, whatsapp: phone, status: 'pending' };
                                   await supabase.from('feedback').upsert([fbRow], { onConflict: 'id' });
                                   const fbLink = typeof window !== 'undefined' ? `${window.location.origin}/feedback/${fbId}` : `/feedback/${fbId}`;
-                                  sendWA(phone, `Dear ${rx.parentName},\n\nThank you for visiting ${clinicName}.\n\nWe would love to hear about your experience. Please take a moment to share your feedback:\n\n⭐ Feedback Form: ${fbLink}\n\nThank you.`);
+                                  sendWA(phone, `Dear ${rx.parentName},\n\nThank you for visiting ${clinicName}.\n\nWe would love to hear about your experience. Please take a moment to share your feedback:\n\n⭐ Feedback Form: ${fbLink}\n\nThank you.\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`);
                                 }} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-yellow-50 transition-colors" title="Send Feedback Request"
                                   style={{background:'#fefce8',border:'1px solid #fde68a'}}>
                                   <span style={{fontSize:12}}>⭐</span>

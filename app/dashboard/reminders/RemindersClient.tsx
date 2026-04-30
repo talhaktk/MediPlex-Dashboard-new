@@ -109,10 +109,10 @@ export default function RemindersClient({ data, clinicName, doctorName }: Props)
     const date = formatUSDate(a.appointmentDate);
     const time = a.appointmentTime;
     const msgs: Record<string,string> = {
-      confirmation: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n✅ *Appointment Confirmed*\n\nDear parent, appointment for *${a.childName}* has been confirmed:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n�� ${clinicName}\n👨‍⚕️ ${doctorName}\n\nPlease arrive 10 minutes early.\n\nJazakAllah Khair 🤲`,
-      reminder_24h: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n⏰ *Appointment Reminder — Tomorrow*\n\n*${a.childName}*'s appointment is tomorrow:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n\nPlease confirm attendance.\n\nJazakAllah Khair 🤲`,
-      reminder_4h:  `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n🔔 *Appointment in 4 Hours*\n\n*${a.childName}*'s appointment is today at *${time}*\n🏥 ${clinicName}\n\nPlease leave on time!\n\nJazakAllah Khair 🤲`,
-      followup:     `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n💊 *Follow-up Check*\n\nHope *${a.childName}* is feeling better after the visit on ${date}.\n\nFor any concerns please contact us.\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nJazakAllah Khair 🤲`,
+      confirmation: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n✅ *Appointment Confirmed*\n\nDear parent, appointment for *${a.childName}* has been confirmed:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n�� ${clinicName}\n👨‍⚕️ ${doctorName}\n\nPlease arrive 10 minutes early.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      reminder_24h: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n⏰ *Appointment Reminder — Tomorrow*\n\n*${a.childName}*'s appointment is tomorrow:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n\nPlease confirm attendance.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      reminder_4h:  `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n🔔 *Appointment in 4 Hours*\n\n*${a.childName}*'s appointment is today at *${time}*\n🏥 ${clinicName}\n\nPlease leave on time!\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      followup:     `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n💊 *Follow-up Check*\n\nHope *${a.childName}* is feeling better after the visit on ${date}.\n\nFor any concerns please contact us.\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
     };
     return msgs[type] || msgs.confirmation;
   };
