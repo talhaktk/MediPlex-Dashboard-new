@@ -488,8 +488,8 @@ export default function PrescriptionClient({
     setLabResultsText('');
     setAptSearch('');
     // Fetch pending lab orders from patient tab for this patient
-    if (apt?.childName || apt?.mrNumber) {
-      const mr = apt?.mrNumber || (data.find((a:any)=>a.childName===apt?.childName) as any)?.mr_number || '';
+    if (apt?.childName || (apt as any)?.mr_number) {
+      const mr = (apt as any)?.mr_number || (data.find((a:any)=>a.childName===apt?.childName) as any)?.mr_number || '';
       const param = mr ? `mr=${encodeURIComponent(mr)}` : `name=${encodeURIComponent(apt?.childName||'')}`;
       fetch(`/api/lab/order?${param}`)
         .then(r=>r.json())
