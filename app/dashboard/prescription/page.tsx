@@ -12,7 +12,7 @@ const ALLOWED = ['super_admin','doctor_admin','admin','doctor'];
 export default async function PrescriptionPage() {
   const { createClient } = await import('@supabase/supabase-js');
   const sb3 = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {auth:{persistSession:false}});
-  const { data: cs3 } = await sb3.from('clinic_settings').select('doctor_name,clinic_name,clinic_phone,clinic_address').eq('id',1).maybeSingle();
+  const { data: cs3 } = clinicId ? await sb3.from('clinic_settings').select('doctor_name,clinic_name,clinic_phone,clinic_address').eq('clinic_id', clinicId).maybeSingle() : {data:null};
   const session = await getServerSession(authOptions);
   const role    = (session?.user as any)?.role;
   const clinicId = (session?.user as any)?.clinicId || null;
