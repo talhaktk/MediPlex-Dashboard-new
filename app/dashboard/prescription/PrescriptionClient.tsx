@@ -500,7 +500,7 @@ export default function PrescriptionClient({
             pending.forEach((order:any)=>{
               (order.tests||[]).forEach((t:any)=>{
                 if(!allTests.find(x=>x.name===t.name)){
-                  allTests.push({name:t.name, urgency:t.urgency||'Routine', instructions:t.instructions||''});
+                  allTests.push({name:t.name, urgency:t.urgency||'Routine', instructions:t.instructions||'', id:t.name, cat:'General'});
                 }
               });
             });
