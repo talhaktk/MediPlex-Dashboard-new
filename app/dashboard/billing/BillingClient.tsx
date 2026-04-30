@@ -86,7 +86,7 @@ function TypeBadge({ type }: { type: RecordType }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function BillingClient({ clinicSettings = null, data }: { data: Appointment[] }) {
+export default function BillingClient({ clinicSettings = null, data }: { data: Appointment[]; clinicSettings?: any }) {
   const [invoices,   setInvoices]   = useState<Invoice[]>([]);
   const { clinicId, isSuperAdmin } = useClinic();
   const [search,     setSearch]     = useState('');
