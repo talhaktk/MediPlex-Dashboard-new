@@ -123,11 +123,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
           <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Valid for 30 days from issue date.</div>
           <div style="border-top:1px solid #374151;width:150px;padding-top:3px;font-size:9px;color:#6b7280;text-align:center">${doctorName}<br>Signature &amp; Stamp</div>
         </div>
-        ${qrToken ? `<div style="text-align:center">
-          <div style="font-size:9px;color:#9ca3af;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Lab QR Code</div>
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(typeof window!=='undefined'?window.location.origin+'/lab-upload/'+qrToken:'')}" width="90" height="90" style="border:1px solid #e5e7eb;border-radius:6px;padding:3px;background:#fff"/>
-          ${qrExpiry ? `<div style="font-size:8px;color:#9ca3af;margin-top:2px">Scan at lab · Exp ${new Date(qrExpiry).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>` : ''}
-        </div>` : ''}
+
       </div>
     </div>
   </div></body></html>`;
@@ -474,9 +470,16 @@ export default function PrescriptionClient({
   const createLabOrderQR = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
     if (!labReqs.length || !childName) return null;
     const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
-    const mrNumber = (apt as any)?.mr_number;
-    if (!mrNumber) return null;
+    let mrNumber = (apt as any)?.mr_number || null;
     const phone = (apt as any)?.whatsapp || '';
+    // Fallback: look up mr_number from DB if not in local appointments
+    if (!mrNumber) {
+      try {
+        const { data: pRow } = await supabase.from('patients').select('mr_number').ilike('child_name', childName).maybeSingle();
+        mrNumber = pRow?.mr_number || null;
+      } catch {}
+    }
+    if (!mrNumber) return null;
     // Expand panel names to individual parameters
     const tests = labReqs.flatMap(l => {
       const exp = LAB_EXPANSIONS[l.name];
@@ -503,7 +506,13 @@ export default function PrescriptionClient({
   // Get existing pending lab order or create new one — prevents duplicate QR codes
   const getOrCreateLabOrder = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
     const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
-    const mrNumber = (apt as any)?.mr_number;
+    let mrNumber = (apt as any)?.mr_number || null;
+    if (!mrNumber) {
+      try {
+        const { data: pRow } = await supabase.from('patients').select('mr_number').ilike('child_name', childName).maybeSingle();
+        mrNumber = pRow?.mr_number || null;
+      } catch {}
+    }
     if (!mrNumber) return null;
     try {
       const r = await fetch(`/api/lab/order?mr=${encodeURIComponent(mrNumber)}`);
@@ -766,7 +775,11 @@ export default function PrescriptionClient({
     }
     // Create/sync lab order to patient portal whenever labs are on the prescription
     if (labRequests.length > 0) {
-      try { await getOrCreateLabOrder(labRequests, rx.childName); } catch {}
+      try {
+        await getOrCreateLabOrder(labRequests, rx.childName);
+        // Signal LabOrdersTab to refresh (it listens for this event)
+        window.dispatchEvent(new CustomEvent('lab-order-created', { detail: { childName: rx.childName } }));
+      } catch {}
     }
     setShowForm(false);
   };

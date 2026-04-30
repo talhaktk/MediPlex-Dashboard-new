@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await sb.from('lab_orders').insert([{
     clinic_id:      user.clinicId || null,
     mr_number:      mrNumber,
+    child_name:     patientName,
     patient_name:   patientName,
     phone:          resolvedPhone,
     order_type:     orderType,
