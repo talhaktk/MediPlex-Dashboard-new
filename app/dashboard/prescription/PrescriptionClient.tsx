@@ -54,7 +54,7 @@ function medId() { return `m-${Math.random().toString(36).slice(2, 7)}`; }
 function emptyMed(): Medicine { return { id: medId(), name: '', dose: '', frequency: 'Twice daily', duration: '5 days', notes: '' }; }
 
 // ── Print ──────────────────────────────────────────────────────────────────
-function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any) {
+function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, qrToken?: string | null, qrExpiry?: string | null, clinicSettings?: any) {
   const key = patientKey(rx.childName);
   const health = getHealth(key);
   const vitals = getLatestVitals(key) || dbVitals;
@@ -123,7 +123,11 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
           <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Valid for 30 days from issue date.</div>
           <div style="border-top:1px solid #374151;width:150px;padding-top:3px;font-size:9px;color:#6b7280;text-align:center">${doctorName}<br>Signature &amp; Stamp</div>
         </div>
-        <div></div>
+        ${qrToken ? `<div style="text-align:center">
+          <div style="font-size:9px;color:#9ca3af;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em">Lab QR Code</div>
+          <img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${encodeURIComponent(typeof window!=='undefined'?window.location.origin+'/lab-upload/'+qrToken:'')}" width="90" height="90" style="border:1px solid #e5e7eb;border-radius:6px;padding:3px;background:#fff"/>
+          ${qrExpiry ? `<div style="font-size:8px;color:#9ca3af;margin-top:2px">Scan at lab · Exp ${new Date(qrExpiry).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>` : ''}
+        </div>` : ''}
       </div>
     </div>
   </div></body></html>`;
