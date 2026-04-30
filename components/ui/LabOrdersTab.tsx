@@ -250,7 +250,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   </div>
                   {(()=>{
                     const hasResults = resultsForOrder(order.id).length > 0;
-                    const done = hasResults || order.status==='completed';
+                    const done = hasResults || order.status==='complete';
                     return (
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
                         style={{background:done?'rgba(22,163,74,0.15)':'rgba(245,158,11,0.15)',

@@ -39,7 +39,8 @@ export default function PatientLabs() {
       .catch(() => setLoading(false));
   }, []);
 
-  const resultsForOrder = (orderId: string) => resultValues.filter(r => r.order_id === orderId);
+  const resultsForOrder = (orderId: any) => resultValues.filter(r => r.order_id == orderId);
+  const filesForOrder   = (orderId: any) => legacy.filter(r => r.order_id == orderId);
 
   const uploadUrl = (token: string) => `${window.location.origin}/lab-upload/${token}`;
 
@@ -203,6 +204,50 @@ export default function PatientLabs() {
                           </div>
                         )}
 
+                        {/* Uploaded files linked to this order (from lab QR upload) */}
+                        {(() => {
+                          const orderFiles = filesForOrder(order.id);
+                          if (!orderFiles.length) return null;
+                          return (
+                            <div className="space-y-2 mt-2">
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Uploaded Files</p>
+                              {orderFiles.map((f: any) => (
+                                <div key={f.id} className="rounded-xl p-3 bg-white" style={{ border: '1px solid #e2e8f0' }}>
+                                  {f.notes && <p className="text-slate-600 text-xs mb-2">{f.notes}</p>}
+                                  {(f.file_urls || []).length > 0 && (
+                                    <div className="space-y-2">
+                                      {(f.file_urls as string[]).some(isImage) && (
+                                        <div className="flex flex-wrap gap-2">
+                                          {(f.file_urls as string[]).filter(isImage).map((url: string, i: number) => (
+                                            <button key={i} onClick={() => setLightbox(url)}
+                                              className="relative group rounded-lg overflow-hidden"
+                                              style={{ width: 72, height: 72, border: '1px solid #e2e8f0' }}>
+                                              <img src={url} alt={`result ${i + 1}`} className="w-full h-full object-cover" />
+                                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                style={{ background: 'rgba(0,0,0,0.45)' }}>
+                                                <Eye size={18} className="text-white" />
+                                              </div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {(f.file_urls as string[]).filter((u: string) => !isImage(u)).map((url: string, i: number) => (
+                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+                                          style={{ background: isPdf(url) ? '#fef2f2' : '#fef9c3', color: isPdf(url) ? '#dc2626' : '#a16207', border: `1px solid ${isPdf(url) ? '#fecaca' : '#fde047'}` }}>
+                                          <FileText size={13} />
+                                          {isPdf(url) ? 'View PDF Report' : 'Open File'}
+                                          <Download size={11} className="ml-auto" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+
                         {order.clinical_notes && (
                           <p className="text-slate-400 text-xs italic">Doctor's note: {order.clinical_notes}</p>
                         )}
@@ -213,11 +258,11 @@ export default function PatientLabs() {
               })}
 
               {/* Legacy uploaded files */}
-              {legacy.length > 0 && (
+              {legacy.filter((l: any) => !l.order_id).length > 0 && (
                 <div>
                   <p className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold mb-2 px-1">Uploaded Reports</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {legacy.map(l => (
+                    {legacy.filter((l: any) => !l.order_id).map(l => (
                       <div key={l.id} className="bg-white rounded-2xl p-4" style={{ border: '1px solid #e2e8f0' }}>
                         <div className="flex items-start gap-3">
                           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#fef9c3' }}>
