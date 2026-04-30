@@ -485,9 +485,34 @@ export default function PrescriptionClient({
       followUp: '', createdAt: new Date().toISOString(),
     });
     setMedicines([emptyMed()]);
-    setLabRequests([]);
     setLabResultsText('');
     setAptSearch('');
+    // Fetch pending lab orders from patient tab for this patient
+    if (apt?.childName || apt?.mrNumber) {
+      const mr = apt?.mrNumber || (data.find((a:any)=>a.childName===apt?.childName) as any)?.mr_number || '';
+      const param = mr ? `mr=${encodeURIComponent(mr)}` : `name=${encodeURIComponent(apt?.childName||'')}`;
+      fetch(`/api/lab/order?${param}`)
+        .then(r=>r.json())
+        .then(d=>{
+          const pending = (d.data||[]).filter((o:any)=>o.status==='pending');
+          if(pending.length>0){
+            const allTests: LabRequest[] = [];
+            pending.forEach((order:any)=>{
+              (order.tests||[]).forEach((t:any)=>{
+                if(!allTests.find(x=>x.name===t.name)){
+                  allTests.push({name:t.name, urgency:t.urgency||'Routine', instructions:t.instructions||''});
+                }
+              });
+            });
+            setLabRequests(allTests);
+          } else {
+            setLabRequests([]);
+          }
+        })
+        .catch(()=>setLabRequests([]));
+    } else {
+      setLabRequests([]);
+    }
     setShowForm(true);
   };
 
