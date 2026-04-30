@@ -911,10 +911,33 @@ export default function PrescriptionClient({
                   </div>
                   <div className="max-h-40 overflow-y-auto space-y-1">
                     {aptFiltered.slice(0, 15).map(a => (
-                      <button key={a.id} onClick={() => setForm(prev => ({
-                        ...prev, appointmentId: a.id, childName: a.childName,
-                        parentName: a.parentName, childAge: a.childAge, date: a.appointmentDate,
-                      }))}
+                      <button key={a.id} onClick={() => {
+                        setForm(prev => ({
+                          ...prev, appointmentId: a.id, childName: a.childName,
+                          parentName: a.parentName, childAge: a.childAge, date: a.appointmentDate,
+                        }));
+                        const mr2 = (a as any)?.mr_number || '';
+                        const p2 = mr2 ? 'mr='+encodeURIComponent(mr2) : 'name='+encodeURIComponent(a.childName||'');
+                        fetch('/api/lab/order?'+p2).then(r=>r.json()).then(d=>{
+                          const pend = (d.data||[]).filter((o:any)=>o.status==='pending');
+                          if(pend.length>0){
+                            const allT: LabRequest[] = [];
+                            pend.forEach((order:any)=>{
+                              const cm: Record<string,string[]> = {};
+                              (order.tests||[]).forEach((t:any)=>{
+                                const cat=t.category||'General';
+                                if(!cm[cat]) cm[cat]=[];
+                                if(!cm[cat].includes(t.name)) cm[cat].push(t.name);
+                              });
+                              Object.entries(cm).forEach(([cat,names])=>{
+                                const tn=names.length>1?cat:names[0];
+                                if(!allT.find(x=>x.name===tn)) allT.push({name:tn,urgency:'Routine',instructions:'',id:tn,cat});
+                              });
+                            });
+                            setLabRequests(allT);
+                          }
+                        }).catch(()=>{});
+                      }}
                         className="w-full text-left px-3 py-2 rounded-lg hover:bg-white text-[12px] transition-colors flex items-center justify-between">
                         <div>
                           <span className="font-medium text-navy">{a.childName}</span>
@@ -1295,7 +1318,7 @@ printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPati
                                   const fbRow = { id: fbId, rx_id: rx.id, mr_number: (apt as any)?.mr_number||null, child_name: rx.childName, parent_name: rx.parentName, whatsapp: phone, status: 'pending' };
                                   await supabase.from('feedback').upsert([fbRow], { onConflict: 'id' });
                                   const fbLink = typeof window !== 'undefined' ? `${window.location.origin}/feedback/${fbId}` : `/feedback/${fbId}`;
-                                  sendWA(phone, `Dear ${rx.parentName},\n\nThank you for visiting MediPlex Pediatric Centre.\n\nWe would love to hear about your experience. Please take a moment to share your feedback:\n\n⭐ Feedback Form: ${fbLink}\n\nThank you.`);
+                                  sendWA(phone, `Dear ${rx.parentName},\n\nThank you for visiting ${clinicName}.\n\nWe would love to hear about your experience. Please take a moment to share your feedback:\n\n⭐ Feedback Form: ${fbLink}\n\nThank you.`);
                                 }} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-yellow-50 transition-colors" title="Send Feedback Request"
                                   style={{background:'#fefce8',border:'1px solid #fde68a'}}>
                                   <span style={{fontSize:12}}>⭐</span>
