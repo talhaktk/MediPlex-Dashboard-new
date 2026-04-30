@@ -14,6 +14,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <Sidebar />
       <div className="main-content flex-1 flex flex-col">
         {children}
+        <footer className="px-8 py-3 text-center border-t border-black/5">
+          <span className="text-[11px] text-gray-400">Powered by </span>
+          <a href="https://mediplex.io" target="_blank" rel="noopener noreferrer"
+            className="text-[11px] font-semibold text-gold hover:underline">MediPlex</a>
+          <span className="text-[11px] text-gray-400"> — AI for Smart Healthcare</span>
+        </footer>
       </div>
     </div>
     </ClinicProvider>
