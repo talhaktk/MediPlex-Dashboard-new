@@ -799,6 +799,7 @@ export default function PrescriptionClient({
       await supabase.from('rx_public').upsert([{ clinic_id: clinicId || null,
         id: rx.id,
         rx_data: rx,
+        mr_number: mrNumber,
         clinic_name: clinicName,
         doctor_name: doctorName,
       }], { onConflict: 'id' });
