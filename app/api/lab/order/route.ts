@@ -107,9 +107,13 @@ export async function GET(req: NextRequest) {
   }
 
   const mrNumber = searchParams.get('mr');
-  if (!mrNumber) return NextResponse.json({ error: 'Missing mr' }, { status: 400 });
+  const patientName = searchParams.get('name');
+  if (!mrNumber && !patientName) return NextResponse.json({ error: 'Missing mr or name' }, { status: 400 });
 
-  const { data, error } = await sb.from('lab_orders').select('*').eq('mr_number', mrNumber).order('created_at', { ascending: false });
+  let query = sb.from('lab_orders').select('*').order('created_at', { ascending: false });
+  if (mrNumber) query = query.eq('mr_number', mrNumber);
+  else if (patientName) query = query.ilike('patient_name', '%'+patientName+'%');
+  const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data || [] });
 }
