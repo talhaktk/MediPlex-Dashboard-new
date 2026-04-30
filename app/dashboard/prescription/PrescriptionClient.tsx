@@ -1286,7 +1286,7 @@ printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPati
                             const fbId = `FB-${rx.id}`;
                             return phone && phone !== '—' ? (
                               <div className="flex gap-1">
-                                <button onClick={() => sendWA(phone, `Dear ${rx.parentName},\n\nYour prescription from MediPlex Pediatric Centre is ready.\n\n📋 View Prescription: ${rxLink}\n\nMedicines: ${rx.medicines.map((m:any)=>m.name).join(', ')}\n\nThank you.`)}
+                                <button onClick={() => sendWA(phone, `Dear ${rx.parentName},\n\nYour prescription from ${clinicName} is ready.\n\n📋 View Prescription: ${rxLink}\n\nMedicines: ${rx.medicines.map((m:any)=>m.name).join(', ')}\n\nThank you.`)}
                                   className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-green-50 transition-colors" title="Send Prescription via WhatsApp"
                                   style={{background:'#f0fdf4',border:'1px solid #bbf7d0'}}>
                                   <span style={{fontSize:12}}>📱</span>
