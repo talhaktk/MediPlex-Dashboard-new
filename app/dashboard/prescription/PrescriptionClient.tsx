@@ -1226,7 +1226,7 @@ export default function PrescriptionClient({
                         <div className="flex gap-1">
                           <button onClick={async () => { let qrToken: string|null=null; let qrExpiry: string|null=null; let pendingLabTests: any[]=[];
 try {
-  const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||rx.mrNumber||'';
+  const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||(rx as any).mrNumber||'';
   const nameParam = encodeURIComponent(rx.childName||'');
   const mrParam = mr ? `mr=${encodeURIComponent(mr)}` : `name=${nameParam}`;
   const r=await fetch(`/api/lab/order?${mrParam}`);
