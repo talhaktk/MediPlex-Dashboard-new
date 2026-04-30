@@ -54,7 +54,7 @@ function medId() { return `m-${Math.random().toString(36).slice(2, 7)}`; }
 function emptyMed(): Medicine { return { id: medId(), name: '', dose: '', frequency: 'Twice daily', duration: '5 days', notes: '' }; }
 
 // ── Print ──────────────────────────────────────────────────────────────────
-function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, labQrToken?: string | null, labQrExpiry?: string | null, clinicSettings?: any) {
+function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, labQrToken?: string | null, labQrExpiry?: string | null, clinicSettings?: any, pendingLabTests?: any[]) {
   const key = patientKey(rx.childName);
   const health = getHealth(key);
   const vitals = getLatestVitals(key) || dbVitals;
@@ -1224,7 +1224,23 @@ export default function PrescriptionClient({
                       </td>
                       <td>
                         <div className="flex gap-1">
-                          <button onClick={async () => { let qrToken: string|null=null; let qrExpiry: string|null=null; try { const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||''; if(mr){const r=await fetch(`/api/lab/order?mr=${mr}`);const d2=await r.json();const pending=(d2.data||[]).find((o:any)=>o.status==='pending');if(pending){qrToken=pending.qr_token;qrExpiry=pending.qr_expires_at;}}} catch {} printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, clinicSettings); }}
+                          <button onClick={async () => { let qrToken: string|null=null; let qrExpiry: string|null=null; let pendingLabTests: any[]=[];
+try {
+  const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||rx.mrNumber||'';
+  const nameParam = encodeURIComponent(rx.childName||'');
+  const mrParam = mr ? `mr=${encodeURIComponent(mr)}` : `name=${nameParam}`;
+  const r=await fetch(`/api/lab/order?${mrParam}`);
+  const d2=await r.json();
+  const allOrders = d2.data||[];
+  // Get most recent pending order
+  const pending=allOrders.find((o:any)=>o.status==='pending');
+  if(pending){
+    qrToken=pending.qr_token;
+    qrExpiry=pending.qr_expires_at;
+    pendingLabTests=pending.tests||[];
+  }
+} catch {}
+printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, clinicSettings, pendingLabTests); }}
                             className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors" title="Print">
                             <Printer size={12} className="text-gray-600" />
                           </button>
