@@ -54,7 +54,7 @@ function medId() { return `m-${Math.random().toString(36).slice(2, 7)}`; }
 function emptyMed(): Medicine { return { id: medId(), name: '', dose: '', frequency: 'Twice daily', duration: '5 days', notes: '' }; }
 
 // ── Print ──────────────────────────────────────────────────────────────────
-function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, qrToken?: string | null, qrExpiry?: string | null, clinicSettings?: any) {
+function printPrescription(rx: Prescription, clinicName: string, doctorName: string, clinicPhone: string, clinicAddress: string, dbVitals?: any, labQrToken?: string | null, labQrExpiry?: string | null, clinicSettings?: any) {
   const key = patientKey(rx.childName);
   const health = getHealth(key);
   const vitals = getLatestVitals(key) || dbVitals;
@@ -88,20 +88,42 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
       <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;color:#374151;font-size:13px">${m.duration}</td>
     </tr>`).join('');
 
+  // Pre-compute all clinic-specific HTML using plain if/else (no nested template literals)
+  let headerHTML: string;
+  if (clinicSettings && clinicSettings.prescription_header_img) {
+    headerHTML = '<div style="width:100%;margin-bottom:0"><img src="' + clinicSettings.prescription_header_img + '" style="width:100%;display:block;max-height:150px;object-fit:cover" alt=""/></div>';
+  } else {
+    headerHTML = '<div class="header"><div><div class="clinic-name">&#127973; ' + clinicName + '</div><div class="clinic-sub">' + clinicAddress + '</div><div class="clinic-sub" style="margin-top:4px">&#128222; ' + clinicPhone + ' &middot; ' + doctorName + '</div></div><div><div class="rx-badge">' + rx.id + '</div><div style="color:rgba(255,255,255,0.5);font-size:11px;text-align:right;margin-top:6px">' + formatUSDate(rx.date) + '</div></div></div>';
+  }
+
+  let footerHTML = '';
+  if (clinicSettings && clinicSettings.prescription_footer_img) {
+    footerHTML = '<div style="width:100%;margin-top:8px"><img src="' + clinicSettings.prescription_footer_img + '" style="width:100%;display:block;max-height:80px;object-fit:cover" alt=""/></div>';
+  }
+
+  let signatureHTML = '';
+  if (clinicSettings && clinicSettings.doctor_signature_url) {
+    signatureHTML = '<img src="' + clinicSettings.doctor_signature_url + '" style="height:40px;margin-bottom:4px;display:block"/>';
+  }
+
+  const displayDoctorName = (clinicSettings && clinicSettings.doctor_name) ? clinicSettings.doctor_name : doctorName;
+
+  let qrHTML = '';
+  if (labQrToken) {
+    const qrData = encodeURIComponent(window.location.origin + '/lab-upload/' + labQrToken);
+    const expiryStr = labQrExpiry ? new Date(labQrExpiry).toLocaleDateString('en-GB', {day:'numeric',month:'long',year:'numeric'}) : '';
+    qrHTML = '<div class="section-title" style="margin-top:10px">&#128300; Lab Results Upload (QR)</div>'
+      + '<div style="display:flex;gap:14px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:8px;padding:10px;margin-bottom:8px">'
+      + '<img src="https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=' + qrData + '" width="90" height="90" style="border:1px solid #f1f5f9;border-radius:6px;flex-shrink:0"/>'
+      + '<div style="font-size:10px;color:#0a1628"><strong style="font-size:11px">Scan to upload results</strong><br/>'
+      + '<span style="color:#64748b">Lab/radiology department should scan this QR code to upload test results directly to the patient record.</span><br/>'
+      + '<span style="color:#94a3b8;font-size:9px;margin-top:4px;display:block">Expires: ' + expiryStr + '</span></div></div>';
+  }
+
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Prescription ${rx.id}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:210mm;margin:0 auto;padding:12px 16px;font-size:11px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:15px;font-weight:700}.clinic-sub{font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:10px 16px}.patient-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;padding:8px 10px;background:#f9f7f3;border-radius:6px}.field-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:1px}.field-val{font-size:11px;font-weight:600;color:#0a1628}.section-title{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin:8px 0 4px;border-bottom:1px solid #f0f0f0;padding-bottom:2px}.cc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.cc-box{background:#fff9e6;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;font-size:11px}.diagnosis-box{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:#856404;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#0a1628;color:white;padding:5px 8px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase}td{padding:4px 8px;border-bottom:1px solid #f5f5f5;font-size:11px}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:10px;color:#166534;margin-bottom:6px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;font-size:10px;color:#1e40af;margin-bottom:6px}@media print{body{padding:0;margin:0}.page{padding:8px 12px}}</style>
   </head><body><div class="page">
-    <div class="header">
-      <div>
-        <div class="clinic-name">🏥 ${clinicName}</div>
-        <div class="clinic-sub">${clinicAddress}</div>
-        <div class="clinic-sub" style="margin-top:4px">📞 ${clinicPhone} · ${doctorName}</div>
-      </div>
-      <div>
-        <div class="rx-badge">${rx.id}</div>
-        <div style="color:rgba(255,255,255,0.5);font-size:11px;text-align:right;margin-top:6px">${formatUSDate(rx.date)}</div>
-      </div>
-    </div>
+    ${headerHTML}
     <div class="body">
       <div class="patient-row">
         <div><div class="field-label">Patient</div><div class="field-val">${rx.childName}</div></div>
@@ -118,13 +140,16 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
       ${(rx as any).labResultsText ? `<div class="section-title">🧾 Lab Results</div><div style="border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:11px;white-space:pre-wrap;background:#f8f8f8">${(rx as any).labResultsText}</div>` : ''}
       ${rx.advice ? `<div class="section-title">💡 Advice</div><div class="advice-box">${rx.advice}</div>` : ''}
       ${rx.followUp ? `<div class="section-title">📅 Follow-up</div><div class="followup-box">Please visit again: <strong>${rx.followUp}</strong></div>` : ''}
+      ${qrHTML}
       <div style="margin-top:12px;padding-top:8px;border-top:1px dashed #e5e7eb;display:flex;justify-content:space-between;align-items:flex-end">
         <div>
           <div style="font-size:11px;color:#9ca3af;margin-bottom:8px">Valid for 30 days from issue date.</div>
-          <div style="border-top:1px solid #374151;width:150px;padding-top:3px;font-size:9px;color:#6b7280;text-align:center">${doctorName}<br>Signature &amp; Stamp</div>
+          ${signatureHTML}
+          <div style="border-top:1px solid #374151;width:150px;padding-top:3px;font-size:9px;color:#6b7280;text-align:center">${displayDoctorName}<br>Signature &amp; Stamp</div>
         </div>
-
+        <div></div>
       </div>
+      ${footerHTML}
     </div>
   </div></body></html>`;
 
@@ -470,16 +495,9 @@ export default function PrescriptionClient({
   const createLabOrderQR = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
     if (!labReqs.length || !childName) return null;
     const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
-    let mrNumber = (apt as any)?.mr_number || null;
-    const phone = (apt as any)?.whatsapp || '';
-    // Fallback: look up mr_number from DB if not in local appointments
-    if (!mrNumber) {
-      try {
-        const { data: pRow } = await supabase.from('patients').select('mr_number').ilike('child_name', childName).maybeSingle();
-        mrNumber = pRow?.mr_number || null;
-      } catch {}
-    }
+    const mrNumber = (apt as any)?.mr_number;
     if (!mrNumber) return null;
+    const phone = (apt as any)?.whatsapp || '';
     // Expand panel names to individual parameters
     const tests = labReqs.flatMap(l => {
       const exp = LAB_EXPANSIONS[l.name];
@@ -501,26 +519,6 @@ export default function PrescriptionClient({
       if (!res.ok) return null;
       return { qrToken: d.qrToken, expiresAt: d.expiresAt };
     } catch { return null; }
-  };
-
-  // Get existing pending lab order or create new one — prevents duplicate QR codes
-  const getOrCreateLabOrder = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
-    const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
-    let mrNumber = (apt as any)?.mr_number || null;
-    if (!mrNumber) {
-      try {
-        const { data: pRow } = await supabase.from('patients').select('mr_number').ilike('child_name', childName).maybeSingle();
-        mrNumber = pRow?.mr_number || null;
-      } catch {}
-    }
-    if (!mrNumber) return null;
-    try {
-      const r = await fetch(`/api/lab/order?mr=${encodeURIComponent(mrNumber)}`);
-      const d = await r.json();
-      const pending = (d.data || []).find((o: any) => o.status === 'pending');
-      if (pending) return { qrToken: pending.qr_token, expiresAt: pending.qr_expires_at };
-    } catch {}
-    return createLabOrderQR(labReqs, childName);
   };
 
   // Pre-fill form from scribe output
@@ -772,14 +770,6 @@ export default function PrescriptionClient({
       toast.success(`Prescription ${rx.id} saved to database`);
     } catch (err: any) {
       toast.success(`Prescription ${rx.id} saved locally`);
-    }
-    // Create/sync lab order to patient portal whenever labs are on the prescription
-    if (labRequests.length > 0) {
-      try {
-        await getOrCreateLabOrder(labRequests, rx.childName);
-        // Signal LabOrdersTab to refresh (it listens for this event)
-        window.dispatchEvent(new CustomEvent('lab-order-created', { detail: { childName: rx.childName } }));
-      } catch {}
     }
     setShowForm(false);
   };
@@ -1188,7 +1178,7 @@ export default function PrescriptionClient({
                   let qrToken: string | null = null;
                   let qrExpiry: string | null = null;
                   if (labRequests.length > 0 && form.childName) {
-                    const result = await getOrCreateLabOrder(labRequests, form.childName);
+                    const result = await createLabOrderQR(labRequests, form.childName);
                     if (result) { qrToken = result.qrToken; qrExpiry = result.expiresAt; }
                   }
                   printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, clinicSettings);

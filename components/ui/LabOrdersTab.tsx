@@ -54,13 +54,6 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
 
   useEffect(() => { load(); }, [load]);
 
-  // Auto-refresh when a prescription creates a new lab order
-  useEffect(() => {
-    const handler = () => load();
-    window.addEventListener('lab-order-created', handler);
-    return () => window.removeEventListener('lab-order-created', handler);
-  }, [load]);
-
   const resultsForOrder = (orderId: any) => results.filter(r => r.order_id == orderId);
 
   const submitLabOrder = async () => {
@@ -257,7 +250,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   </div>
                   {(()=>{
                     const hasResults = resultsForOrder(order.id).length > 0;
-                    const done = hasResults || order.status==='complete';
+                    const done = hasResults || order.status==='completed';
                     return (
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
                         style={{background:done?'rgba(22,163,74,0.15)':'rgba(245,158,11,0.15)',
@@ -270,36 +263,29 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
 
                 {isOpen && (
                   <div className="px-4 pb-4 space-y-3" style={{borderTop:'1px solid rgba(255,255,255,0.05)'}}>
-                    {/* QR Code — styled like patient portal (Image 2) */}
+                    {/* QR Code */}
                     {isPending && !isExpired && order.qr_token && (
-                      <div className="mt-2 rounded-xl overflow-hidden" style={{border:'1px solid #e2e8f0',background:'#fff'}}>
-                        {/* Section header */}
-                        <div className="px-4 py-2 flex items-center gap-2" style={{borderBottom:'1px solid #e2e8f0',background:'#f8fafc'}}>
-                          <span className="text-base">🔬</span>
-                          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">Lab Results Upload (QR)</span>
+                      <div className="flex gap-4 items-start p-3 rounded-xl mt-2" style={{background:'rgba(201,168,76,0.06)',border:'1px solid rgba(201,168,76,0.2)'}}>
+                        <div className="flex-shrink-0 p-2 bg-white rounded-xl">
+                          <QRCodeSVG value={uploadUrl(order.qr_token)} size={90} level="M"/>
                         </div>
-                        <div className="flex gap-4 items-start p-4">
-                          <div className="flex-shrink-0 p-1.5 bg-white rounded-xl" style={{border:'1px solid #e2e8f0'}}>
-                            <QRCodeSVG value={uploadUrl(order.qr_token)} size={100} level="M"/>
+                        <div className="flex-1">
+                          <p className="text-[12px] font-semibold text-white mb-1">Show this QR at the lab</p>
+                          <p className="text-[10px] text-gray-500 mb-2">Lab scans QR → uploads results directly to this patient record</p>
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {(order.tests||[]).map((t:any,i:number)=>(
+                              <span key={i} className="text-[10px] px-2 py-0.5 rounded-full"
+                                style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c'}}>
+                                {t.name||t}{t.urgency&&t.urgency!=='Routine'?` • ${t.urgency}`:''}
+                              </span>
+                            ))}
                           </div>
-                          <div className="flex-1">
-                            <p className="text-[14px] font-bold text-slate-800 mb-1">Scan to upload results</p>
-                            <p className="text-[12px] text-slate-500 mb-2">Lab/radiology department should scan this QR code to upload test results directly to the patient record.</p>
-                            {order.qr_expires_at && (
-                              <p className="text-[12px] text-slate-400">Expires: {new Date(order.qr_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-                          {(order.tests||[]).map((t:any,i:number)=>(
-                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
-                              style={{background:'#dcfce7',color:'#15803d'}}>
-                              {t.name||t}{t.urgency&&t.urgency!=='Routine'?` (${t.urgency})`:''}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex flex-wrap gap-2 px-4 pb-4">
-                          <div className="flex gap-2">
+                          <a href={uploadUrl(order.qr_token)} target="_blank" rel="noopener noreferrer"
+                            className="text-[10px] flex items-center gap-1 text-gray-400 hover:text-gray-600">
+                            <ExternalLink size={10}/> {uploadUrl(order.qr_token).slice(0,50)}...
+                          </a>
+                          {order.qr_expires_at && <p className="text-[9px] text-gray-300 mt-1">Expires: {new Date(order.qr_expires_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>}
+                          <div className="flex gap-2 mt-2">
                             <button onClick={()=>{
                               const w=window.open('','_blank');
                               if(!w)return;
@@ -314,7 +300,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                               <button onClick={()=>{
                                 const p = (order.phone||phone||'').replace(/\D/g,'');
                                 const ph = p.startsWith('0')?'92'+p.slice(1):p;
-                                const msg = 'Lab Order - MediPlex\n\nPatient: '+(order.patient_name||order.child_name)+'\nMR# '+order.mr_number+'\nTests: '+(order.tests||[]).map((t:any)=>t.name||t).join(', ')+'\n\nPlease scan QR at lab or open link:\n'+uploadUrl(order.qr_token);
+                                const msg = 'Lab Order - MediPlex\n\nPatient: '+order.child_name+'\nMR# '+order.mr_number+'\nTests: '+(order.tests||[]).map((t:any)=>t.name||t).join(', ')+'\n\nPlease scan QR at lab or open link:\n'+uploadUrl(order.qr_token);
                                 window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                               }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium"
                                 style={{background:'rgba(37,211,102,0.15)',color:'#16a34a',border:'1px solid rgba(37,211,102,0.3)'}}>
