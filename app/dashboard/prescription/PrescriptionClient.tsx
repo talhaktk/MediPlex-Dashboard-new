@@ -498,9 +498,19 @@ export default function PrescriptionClient({
           if(pending.length>0){
             const allTests: LabRequest[] = [];
             pending.forEach((order:any)=>{
+              // Group by category to show CBC instead of sub-tests
+              const categoryMap: Record<string,string[]> = {};
               (order.tests||[]).forEach((t:any)=>{
-                if(!allTests.find(x=>x.name===t.name)){
-                  allTests.push({name:t.name, urgency:t.urgency||'Routine', instructions:t.instructions||'', id:t.name, cat:'General'});
+                const cat = t.category || 'General';
+                const name = t.name || '';
+                if(!categoryMap[cat]) categoryMap[cat] = [];
+                if(!categoryMap[cat].includes(name)) categoryMap[cat].push(name);
+              });
+              Object.entries(categoryMap).forEach(([cat, names])=>{
+                // Use category name as test name if multiple sub-tests, else use test name
+                const testName = names.length > 1 ? cat : names[0];
+                if(!allTests.find(x=>x.name===testName)){
+                  allTests.push({name:testName, urgency:'Routine', instructions:'', id:testName, cat});
                 }
               });
             });
