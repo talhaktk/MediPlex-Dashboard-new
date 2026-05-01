@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, FlaskConical, Scan, QrCode, ExternalLink, CheckCircle, Clock, FileText, X, Eye, Download, RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { COMMON_LABS, LAB_EXPANSIONS } from '@/components/ui/LabInvestigations';
 
@@ -229,9 +230,21 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             const isOpen = expanded.has(order.id);
             const orderResults = resultsForOrder(order.id);
             const isPending = order.status === 'pending';
+            const isCancelled = order.status === 'cancelled';
             const isExpired = order.qr_expires_at && new Date(order.qr_expires_at) < new Date();
             return (
               <div key={order.id} className="rounded-xl overflow-hidden" style={{background:'#f9fafb',border:'1px solid #e2e8f0'}}>
+                {isPending && (
+                  <button onClick={async()=>{
+                    if(!confirm('Cancel this lab order?')) return;
+                    const {error} = await supabase.from('lab_orders').update({status:'cancelled'}).eq('id', order.id);
+                    if(error) toast.error(error.message);
+                    else { toast.success('Lab order cancelled'); setOrders(prev=>prev.map(o=>o.id===order.id?{...o,status:'cancelled'}:o)); }
+                  }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium flex-shrink-0"
+                    style={{background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.2)'}}>
+                    ✕ Cancel Order
+                  </button>
+                )}
                 <button onClick={()=>setExpanded(prev=>{const n=new Set(prev);n.has(order.id)?n.delete(order.id):n.add(order.id);return n;})}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.02] transition-colors">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
