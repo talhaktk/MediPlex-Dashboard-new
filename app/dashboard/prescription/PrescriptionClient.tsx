@@ -89,15 +89,25 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
     </tr>`).join('');
 
   // Pre-compute all clinic-specific HTML using plain if/else (no nested template literals)
+  const isPrinted = clinicSettings?.print_mode === 'preprinted';
+  const marginTop = clinicSettings?.print_margin_top || 40;
+  const marginBottom = clinicSettings?.print_margin_bottom || 25;
+  const marginLeft = clinicSettings?.print_margin_left || 15;
+  const marginRight = clinicSettings?.print_margin_right || 15;
+  const paperSize = clinicSettings?.paper_size || 'A4';
+  const fontSize = clinicSettings?.print_font_size || '12';
+
   let headerHTML: string;
-  if (clinicSettings && clinicSettings.prescription_header_img) {
+  if (isPrinted) {
+    headerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;margin-bottom:4px"><div style="font-size:10px;color:#6b7280">Rx: ' + rx.id + '</div><div style="font-size:10px;color:#6b7280">' + formatUSDate(rx.date) + '</div></div>';
+  } else if (clinicSettings && clinicSettings.prescription_header_img) {
     headerHTML = '<div style="width:100%;margin-bottom:0"><img src="' + clinicSettings.prescription_header_img + '" style="width:100%;display:block;max-height:150px;object-fit:cover" alt=""/></div>';
   } else {
     headerHTML = '<div class="header"><div><div class="clinic-name">&#127973; ' + clinicName + '</div><div class="clinic-sub">' + clinicAddress + '</div><div class="clinic-sub" style="margin-top:4px">&#128222; ' + clinicPhone + ' &middot; ' + doctorName + '</div></div><div><div class="rx-badge">' + rx.id + '</div><div style="color:rgba(255,255,255,0.5);font-size:11px;text-align:right;margin-top:6px">' + formatUSDate(rx.date) + '</div></div></div>';
   }
 
   let footerHTML = '';
-  if (clinicSettings && clinicSettings.prescription_footer_img) {
+  if (!isPrinted && clinicSettings && clinicSettings.prescription_footer_img) {
     footerHTML = '<div style="width:100%;margin-top:8px"><img src="' + clinicSettings.prescription_footer_img + '" style="width:100%;display:block;max-height:80px;object-fit:cover" alt=""/></div>';
   }
 
@@ -121,7 +131,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Prescription ${rx.id}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:210mm;margin:0 auto;padding:12px 16px;font-size:11px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:15px;font-weight:700}.clinic-sub{font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:10px 16px}.patient-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;padding:8px 10px;background:#f9f7f3;border-radius:6px}.field-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:1px}.field-val{font-size:11px;font-weight:600;color:#0a1628}.section-title{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin:8px 0 4px;border-bottom:1px solid #f0f0f0;padding-bottom:2px}.cc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.cc-box{background:#fff9e6;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;font-size:11px}.diagnosis-box{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:#856404;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#0a1628;color:white;padding:5px 8px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase}td{padding:4px 8px;border-bottom:1px solid #f5f5f5;font-size:11px}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:10px;color:#166534;margin-bottom:6px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;font-size:10px;color:#1e40af;margin-bottom:6px}@media print{body{padding:0;margin:0}.page{padding:8px 12px}}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:210mm;margin:0 auto;padding:12px 16px;font-size:11px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:15px;font-weight:700}.clinic-sub{font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:10px 16px}.patient-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;padding:8px 10px;background:#f9f7f3;border-radius:6px}.field-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:1px}.field-val{font-size:11px;font-weight:600;color:#0a1628}.section-title{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin:8px 0 4px;border-bottom:1px solid #f0f0f0;padding-bottom:2px}.cc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.cc-box{background:#fff9e6;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;font-size:11px}.diagnosis-box{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:#856404;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#0a1628;color:white;padding:5px 8px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase}td{padding:4px 8px;border-bottom:1px solid #f5f5f5;font-size:11px}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:10px;color:#166534;margin-bottom:6px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;font-size:10px;color:#1e40af;margin-bottom:6px}@media print{body{padding:0;margin:0}.page{padding:8px 12px}}\${isPrinted ? '@media print{@page{size:'+paperSize+';margin:'+marginTop+'mm '+marginRight+'mm '+marginBottom+'mm '+marginLeft+'mm}.page{padding:0;font-size:'+fontSize+'px}}' : ''}</style>
   </head><body><div class="page">
     ${headerHTML}
     <div class="body">
