@@ -237,9 +237,9 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                 {isPending && (
                   <button onClick={async()=>{
                     if(!confirm('Cancel this lab order?')) return;
-                    const {error} = await supabase.from('lab_orders').update({status:'cancelled'}).eq('id', order.id);
+                    const {error} = await supabase.from('lab_orders').delete().eq('id', order.id);
                     if(error) toast.error(error.message);
-                    else { toast.success('Lab order cancelled'); setOrders(prev=>prev.map(o=>o.id===order.id?{...o,status:'cancelled'}:o)); }
+                    else { toast.success('Lab order deleted'); setOrders(prev=>prev.filter(o=>o.id!==order.id)); }
                   }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium flex-shrink-0"
                     style={{background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.2)'}}>
                     ✕ Cancel Order
@@ -253,8 +253,8 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium text-navy truncate">
-                      {(order.tests||[]).slice(0,2).map((t:any)=>t.name||t).join(', ')}
-                      {(order.tests||[]).length>2?` +${(order.tests||[]).length-2} more`:''}
+                      {(()=>{ const cats=[...new Set((order.tests||[]).map((t:any)=>t.category||t.name||t))]; return cats.slice(0,2).join(', '); })()}
+                      {(()=>{ const cats=[...new Set((order.tests||[]).map((t:any)=>t.category||t.name||t))]; return cats.length>2?` +${cats.length-2} more`:''; })()}
                     </div>
                     <div className="text-[10px] text-gray-400 mt-0.5">
                       {new Date(order.ordered_at||order.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
@@ -289,7 +289,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                             {(order.tests||[]).map((t:any,i:number)=>(
                               <span key={i} className="text-[10px] px-2 py-0.5 rounded-full"
                                 style={{background:'rgba(201,168,76,0.15)',color:'#c9a84c'}}>
-                                {t.name||t}{t.urgency&&t.urgency!=='Routine'?` • ${t.urgency}`:''}
+                                {t.category||t.name||t}{t.urgency&&t.urgency!=='Routine'?` • ${t.urgency}`:''}
                               </span>
                             ))}
                           </div>

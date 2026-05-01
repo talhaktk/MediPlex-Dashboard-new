@@ -405,7 +405,8 @@ export default function PrescriptionClient({
     const pq = clinicId && !isSuperAdmin
       ? supabase.from('prescriptions').select('*').eq('clinic_id', clinicId).order('created_at',{ascending:false})
       : supabase.from('prescriptions').select('*').order('created_at',{ascending:false});
-    pq.then(({ data: rows }) => {
+    pq.then(({ data: rows, error: pqErr }) => {
+      if(pqErr) console.error('Prescription load error:', pqErr.message);
       const dbRx = (rows || []).map((r:any) => ({
         id: r.id, appointmentId: r.appointment_id || '',
         childName: r.child_name || '', parentName: r.parent_name || '',
