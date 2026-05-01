@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { getHealth, setHealth, addVitals, getLatestVitals, getPrescriptionsByPatient, patientKey, HealthRecord, VitalSigns } from '@/lib/store';
 import StatusPill from '@/components/ui/StatusPill';
 import LabResultsWithPrint from '@/components/ui/LabResultsWithPrint';
+import VoiceTranscribe from '@/components/VoiceTranscribe';
 import LabOrdersTab from '@/components/ui/LabOrdersTab';
 import ConsentForms from '@/components/ui/ConsentForms';
 import TelehealthHistory from '@/components/ui/TelehealthHistory';

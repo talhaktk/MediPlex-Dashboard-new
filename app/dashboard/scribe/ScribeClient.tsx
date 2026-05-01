@@ -1,4 +1,5 @@
 'use client';
+import VoiceTranscribe from '@/components/VoiceTranscribe';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {

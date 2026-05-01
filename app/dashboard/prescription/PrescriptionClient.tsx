@@ -15,6 +15,7 @@ import {
   patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
 } from '@/lib/store';
 import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeStore';
+import VoiceTranscribe from '@/components/VoiceTranscribe';
 import LabInvestigations, { LabRequest, LAB_EXPANSIONS } from '@/components/ui/LabInvestigations';
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
@@ -1035,14 +1036,20 @@ export default function PrescriptionClient({
               {/* Chief Complaint & Signs */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Chief Complaint</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Chief Complaint</label>
+                    <VoiceTranscribe label="" onTranscriptChange={(t)=>setForm(prev=>({...prev,chiefComplaint:(prev.chiefComplaint||'')+' '+t}))}/>
+                  </div>
                   <textarea rows={3} placeholder="e.g.&#10;1. Fever&#10;2. Headache&#10;3. Vomiting"
                     value={form.chiefComplaint || ''}
                     onChange={e => setForm(prev => ({ ...prev, chiefComplaint: e.target.value }))}
                     className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none"/>
                 </div>
                 <div>
-                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Signs & Symptoms</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Signs & Symptoms</label>
+                    <VoiceTranscribe label="" onTranscriptChange={(t)=>setForm(prev=>({...prev,signsSymptoms:(prev.signsSymptoms||'')+' '+t}))}/>
+                  </div>
                   <textarea rows={3} placeholder="e.g.&#10;1. Fever 3 days&#10;2. Dry cough&#10;3. Fatigue"
                     value={form.signsSymptoms || ''}
                     onChange={e => setForm(prev => ({ ...prev, signsSymptoms: e.target.value }))}
@@ -1052,7 +1059,10 @@ export default function PrescriptionClient({
 
               {/* Diagnosis */}
               <div className="mb-4">
-                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Diagnosis</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Diagnosis</label>
+                  <VoiceTranscribe label="" onTranscriptChange={(t)=>setForm(prev=>({...prev,diagnosis:t.trim()}))}/>
+                </div>
                 <input type="text" placeholder="e.g. Acute upper respiratory tract infection"
                   value={form.diagnosis || ''}
                   onChange={e => setForm(prev => ({ ...prev, diagnosis: e.target.value }))}
@@ -1247,7 +1257,10 @@ export default function PrescriptionClient({
               {/* Advice & Follow-up */}
               <div className="grid grid-cols-2 gap-4 mb-5">
                 <div>
-                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Advice & Instructions</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Advice & Instructions</label>
+                    <VoiceTranscribe label="" onTranscriptChange={(t)=>setForm(prev=>({...prev,advice:(prev.advice||'')+' '+t}))}/>
+                  </div>
                   <textarea rows={3} placeholder="General advice..."
                     value={form.advice || ''}
                     onChange={e => setForm(prev => ({ ...prev, advice: e.target.value }))}
