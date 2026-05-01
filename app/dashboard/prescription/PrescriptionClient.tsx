@@ -398,24 +398,42 @@ export default function PrescriptionClient({
   };
 
   useEffect(() => {
-    setPrescriptions(loadRx());
-    const pq = clinicId && !isSuperAdmin ? supabase.from('prescriptions').select('*').eq('clinic_id', clinicId).order('created_at',{ascending:false}) : supabase.from('prescriptions').select('*').order('created_at',{ascending:false}); pq.then(({ data: rows }) => {
-      if (rows && rows.length > 0) {
-        const dbRx = rows.map((r:any) => ({
-          id: r.id, appointmentId: r.appointment_id || '',
-          childName: r.child_name || '', parentName: r.parent_name || '',
-          childAge: r.child_age || '', date: r.date || '',
-          diagnosis: r.diagnosis || '', medicines: Array.isArray(r.medicines) ? r.medicines : [],
-          advice: r.advice || '', followUp: r.follow_up || '', createdAt: r.created_at || '', chiefComplaint: r.chief_complaint||'', signsSymptoms: r.signs_symptoms||'',
-        }));
-        setPrescriptions(prev => {
-          const ids = new Set(prev.map((r:any) => r.id));
-          const merged = [...prev, ...dbRx.filter((r:any) => !ids.has(r.id))];
-          merged.sort((a:any,b:any) => b.createdAt.localeCompare(a.createdAt));
-          saveRxLS(merged);
-          return merged;
-        });
-      }
+    // Load from localStorage first for instant display
+    const localRx = loadRx();
+    setPrescriptions(localRx);
+    // Then merge with database
+    const pq = clinicId && !isSuperAdmin
+      ? supabase.from('prescriptions').select('*').eq('clinic_id', clinicId).order('created_at',{ascending:false})
+      : supabase.from('prescriptions').select('*').order('created_at',{ascending:false});
+    pq.then(({ data: rows }) => {
+      const dbRx = (rows || []).map((r:any) => ({
+        id: r.id, appointmentId: r.appointment_id || '',
+        childName: r.child_name || '', parentName: r.parent_name || '',
+        childAge: r.child_age || '', date: r.date || '',
+        diagnosis: r.diagnosis || '',
+        medicines: Array.isArray(r.medicines) ? r.medicines : [],
+        labs: Array.isArray(r.labs) ? r.labs : [],
+        labResultsText: r.lab_results_text || '',
+        advice: r.advice || '', followUp: r.follow_up || '',
+        createdAt: r.created_at || '',
+        chiefComplaint: r.chief_complaint || '',
+        signsSymptoms: r.signs_symptoms || '',
+      }));
+      setPrescriptions(() => {
+        // DB is source of truth — merge with local, DB wins on conflict
+        const localMap = new Map(localRx.map((r:any) => [r.id, r]));
+        const dbMap = new Map(dbRx.map((r:any) => [r.id, r]));
+        // Merge: DB overwrites local for same ID
+        const merged = [...localMap, ...dbMap].reduce((acc, [id, rx]) => {
+          acc.set(id, rx);
+          return acc;
+        }, new Map());
+        const result = Array.from(merged.values()).sort((a:any,b:any) =>
+          (b.createdAt||'').localeCompare(a.createdAt||'')
+        );
+        saveRxLS(result);
+        return result;
+      });
     });
     const saved = getScribeOutput();
     if (saved) {
@@ -799,9 +817,15 @@ export default function PrescriptionClient({
       const mrNumber = (apt as any)?.mr_number || null;
       await supabase.from('prescriptions').upsert([{ clinic_id: clinicId || null,
         id: rx.id, mr_number: mrNumber,
+        appointment_id: rx.appointmentId || null,
         child_name: rx.childName, parent_name: rx.parentName,
         child_age: rx.childAge || '', date: rx.date || '',
-        diagnosis: rx.diagnosis || '', chief_complaint: (rx as any).chiefComplaint||'', signs_symptoms: (rx as any).signsSymptoms||'', medicines: rx.medicines,
+        diagnosis: rx.diagnosis || '',
+        chief_complaint: (rx as any).chiefComplaint || '',
+        signs_symptoms: (rx as any).signsSymptoms || '',
+        medicines: rx.medicines,
+        labs: (rx as any).labs || [],
+        lab_results_text: (rx as any).labResultsText || '',
         advice: rx.advice || '', follow_up: rx.followUp || '',
       }], { onConflict: 'id' });
       // Save to rx_public for patient link
