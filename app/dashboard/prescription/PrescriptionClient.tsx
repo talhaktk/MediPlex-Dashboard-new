@@ -932,19 +932,21 @@ export default function PrescriptionClient({
                         fetch('/api/lab/order?'+p2).then(r=>r.json()).then(d=>{
                           const pend = (d.data||[]).filter((o:any)=>o.status==='pending');
                           if(pend.length>0){
-                            const allT: LabRequest[] = [];
+                            const cm2: Record<string,string[]> = {};
                             pend.forEach((order:any)=>{
-                              const cm: Record<string,string[]> = {};
                               (order.tests||[]).forEach((t:any)=>{
-                                const cat=t.category||'General';
-                                if(!cm[cat]) cm[cat]=[];
-                                if(!cm[cat].includes(t.name)) cm[cat].push(t.name);
-                              });
-                              Object.entries(cm).forEach(([cat,names])=>{
-                                const tn=names.length>1?cat:names[0];
-                                if(!allT.find(x=>x.name===tn)) allT.push({name:tn,urgency:'Routine',instructions:'',id:tn,cat});
+                                const cat=t.category||t.name||'General';
+                                if(!cm2[cat]) cm2[cat]=[];
+                                if(!cm2[cat].includes(t.name)) cm2[cat].push(t.name);
                               });
                             });
+                            const allT: LabRequest[] = Object.entries(cm2).map(([cat,names])=>({
+                              name: cat,
+                              urgency: 'Routine' as any,
+                              instructions: '',
+                              id: cat,
+                              cat,
+                            }));
                             setLabRequests(allT);
                           }
                         }).catch(()=>{});
