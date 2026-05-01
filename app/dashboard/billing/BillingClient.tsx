@@ -426,8 +426,8 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                 // Get whatsapp from appointments if not in billing
                 let waPhone = (inv as any).whatsapp || '';
                 if (!waPhone && inv.mr_number) {
-                  const {data:aptData} = await supabase.from('appointments').select('whatsapp').eq('mr_number', inv.mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
-                  waPhone = aptData?.whatsapp || '';
+                  const {data:aptData} = await supabase.from('appointments').select('whatsapp_number').eq('mr_number', inv.mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
+                  waPhone = aptData?.whatsapp_number || '';
                 }
                 const p=(waPhone).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
                 const msg='Payment Receipt - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: PKR '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
@@ -501,8 +501,8 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                     <button onClick={async ()=>{
                       let waPhone2 = (patInvoices[0] as any)?.whatsapp || '';
                       if (!waPhone2 && patInvoices[0]?.mr_number) {
-                        const {data:aptData2} = await supabase.from('appointments').select('whatsapp').eq('mr_number', patInvoices[0].mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
-                        waPhone2 = aptData2?.whatsapp || '';
+                        const {data:aptData2} = await supabase.from('appointments').select('whatsapp_number').eq('mr_number', patInvoices[0].mr_number).order('appointment_date',{ascending:false}).limit(1).maybeSingle();
+                        waPhone2 = aptData2?.whatsapp_number || '';
                       }
                       const p=(waPhone2).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
                       const msg='Account Statement - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: PKR '+totalBilled.toLocaleString()+'\nTotal Paid: PKR '+totalPaid2.toLocaleString()+'\nBalance Due: PKR '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';

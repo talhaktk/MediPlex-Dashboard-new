@@ -557,7 +557,7 @@ export default function PrescriptionClient({
     const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
     const mrNumber = (apt as any)?.mr_number;
     if (!mrNumber) return null;
-    const phone = (apt as any)?.whatsapp || '';
+    const phone = (apt as any)?.whatsapp_number || (apt as any)?.whatsapp || '';
     // Expand panel names to individual parameters
     const tests = labReqs.flatMap(l => {
       const exp = LAB_EXPANSIONS[l.name];
@@ -1338,7 +1338,7 @@ printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPati
                           </button>
                           {(() => {
                             const apt = data.find((a:any) => a.childName?.toLowerCase() === rx.childName?.toLowerCase());
-                            const phone = apt?.whatsapp;
+                            const phone = (apt as any)?.whatsapp_number || apt?.whatsapp;
                             const rxLink = typeof window !== 'undefined' ? `${window.location.origin}/rx/${rx.id}` : `/rx/${rx.id}`;
                             const fbId = `FB-${rx.id}`;
                             return phone && phone !== '—' ? (
