@@ -421,16 +421,12 @@ export default function PrescriptionClient({
       }));
       setPrescriptions((): Prescription[] => {
         // DB is source of truth — merge with local, DB wins on conflict
-        const localMap = new Map(localRx.map((r:any) => [r.id, r]));
-        const dbMap = new Map(dbRx.map((r:any) => [r.id, r]));
-        // Merge: DB overwrites local for same ID
-        const merged = [...localMap, ...dbMap].reduce((acc, [id, rx]) => {
-          acc.set(id, rx);
-          return acc;
-        }, new Map());
-        const result = Array.from(merged.values()).sort((a:any,b:any) =>
+        const mergedMap: Record<string, any> = {};
+        localRx.forEach((r:any) => { mergedMap[r.id] = r; });
+        dbRx.forEach((r:any) => { mergedMap[r.id] = r; }); // DB overwrites
+        const result = Object.values(mergedMap).sort((a:any,b:any) =>
           (b.createdAt||'').localeCompare(a.createdAt||'')
-        );
+        ) as Prescription[];
         saveRxLS(result);
         return result;
       });
