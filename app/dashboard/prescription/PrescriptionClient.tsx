@@ -419,7 +419,7 @@ export default function PrescriptionClient({
         chiefComplaint: r.chief_complaint || '',
         signsSymptoms: r.signs_symptoms || '',
       }));
-      setPrescriptions(() => {
+      setPrescriptions((): Prescription[] => {
         // DB is source of truth — merge with local, DB wins on conflict
         const localMap = new Map(localRx.map((r:any) => [r.id, r]));
         const dbMap = new Map(dbRx.map((r:any) => [r.id, r]));
