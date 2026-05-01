@@ -253,8 +253,8 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-[13px] font-medium text-navy truncate">
-                      {(()=>{ const cats=[...new Set((order.tests||[]).map((t:any)=>t.category||t.name||t))]; return cats.slice(0,2).join(', '); })()}
-                      {(()=>{ const cats=[...new Set((order.tests||[]).map((t:any)=>t.category||t.name||t))]; return cats.length>2?` +${cats.length-2} more`:''; })()}
+                      {(()=>{ const cats=Array.from(new Set((order.tests||[]).map((t:any)=>t.category||t.name||t))); return cats.slice(0,2).join(', '); })()}
+                      {(()=>{ const cats=Array.from(new Set((order.tests||[]).map((t:any)=>t.category||t.name||t))); return cats.length>2?` +${cats.length-2} more`:''; })()}
                     </div>
                     <div className="text-[10px] text-gray-400 mt-0.5">
                       {new Date(order.ordered_at||order.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}
