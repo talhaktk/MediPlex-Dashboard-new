@@ -330,7 +330,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
     </style></head><body>
     <div class="header">
       <div>
-        <div class="clinic-name">${process.env.NEXT_PUBLIC_CLINIC_NAME||'MediPlex Pediatric Clinic'}</div>
+        <div class="clinic-name">${clinicSettings?.clinic_name||'Clinic'}</div>
         <div class="clinic-sub">${process.env.NEXT_PUBLIC_CLINIC_ADDRESS||''}</div>
         <div class="clinic-sub">${process.env.NEXT_PUBLIC_CLINIC_PHONE||''} · ${process.env.NEXT_PUBLIC_CLINIC_EMAIL||''}</div>
       </div>
@@ -368,7 +368,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
       </table>
     </div>
     ${inv.notes?`<div class="section"><div class="section-title">Notes</div><div style="font-size:13px;color:#374151">${inv.notes}</div></div>`:''}
-    <div class="footer">Thank you for visiting ${process.env.NEXT_PUBLIC_CLINIC_NAME||'MediPlex Pediatric Clinic'} · ${process.env.NEXT_PUBLIC_DOCTOR_NAME||'Dr. Talha'}</div>
+    <div class="footer">Thank you for visiting ${clinicSettings?.clinic_name||'our clinic'} · ${clinicSettings?.doctor_name||''}</div>
     </body></html>`;
     const w = window.open('','_blank');
     if (!w) { toast.error('Allow popups to print'); return; }
@@ -430,7 +430,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                   waPhone = aptData?.whatsapp || '';
                 }
                 const p=(waPhone).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
-                const msg='Payment Receipt - MediPlex\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: PKR '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
+                const msg='Payment Receipt - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: PKR '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
                 if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                 else toast.error('No WhatsApp number on file');
               }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
@@ -505,7 +505,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                         waPhone2 = aptData2?.whatsapp || '';
                       }
                       const p=(waPhone2).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
-                      const msg='Account Statement - MediPlex\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: PKR '+totalBilled.toLocaleString()+'\nTotal Paid: PKR '+totalPaid2.toLocaleString()+'\nBalance Due: PKR '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
+                      const msg='Account Statement - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: PKR '+totalBilled.toLocaleString()+'\nTotal Paid: PKR '+totalPaid2.toLocaleString()+'\nBalance Due: PKR '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
                       if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                       else toast.error('No WhatsApp number on file');
                     }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
