@@ -3,15 +3,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useClinic } from '@/lib/clinicContext';
 
-let _settings: any = null;
-const _listeners: Set<()=>void> = new Set();
-
-function notifyAll() { _listeners.forEach(fn => fn()); }
+let _cache: Record<string, any> = {};
 
 export function useClinicSettings() {
   const { clinicId } = useClinic();
-  const [settings, setSettings] = useState<any>(_settings);
-  const [loading, setLoading] = useState(!_settings);
+  const [settings, setSettings] = useState<any>(_cache[clinicId||''] || null);
+  const [loading, setLoading] = useState(!_cache[clinicId||'']);
 
   const fetch = useCallback(async () => {
     if (!clinicId) return;
@@ -20,34 +17,33 @@ export function useClinicSettings() {
       .select('*')
       .eq('clinic_id', clinicId)
       .maybeSingle();
-    _settings = data;
-    setSettings(data);
+    if (data) {
+      _cache[clinicId] = data;
+      setSettings(data);
+    }
     setLoading(false);
-    notifyAll();
   }, [clinicId]);
 
   useEffect(() => {
-    // Listen for settings saved event
+    if (!clinicId) return;
+
+    // Initial fetch
+    if (!_cache[clinicId]) fetch();
+
+    // Listen for local save events
     const handler = () => fetch();
     window.addEventListener('clinic-settings-saved', handler);
-    _listeners.add(handler);
 
-    // Also listen to Supabase realtime
-    const channel = supabase
-      .channel('clinic_settings_changes')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'clinic_settings',
-        filter: clinicId ? `clinic_id=eq.${clinicId}` : undefined,
-      }, () => fetch())
-      .subscribe();
-
-    if (!_settings && clinicId) fetch();
+    // Realtime: set up BEFORE subscribe
+    const channel = supabase.channel('cs_' + clinicId);
+    channel.on(
+      'postgres_changes' as any,
+      { event: 'UPDATE', schema: 'public', table: 'clinic_settings', filter: `clinic_id=eq.${clinicId}` },
+      () => fetch()
+    ).subscribe();
 
     return () => {
       window.removeEventListener('clinic-settings-saved', handler);
-      _listeners.delete(handler);
       supabase.removeChannel(channel);
     };
   }, [clinicId, fetch]);
