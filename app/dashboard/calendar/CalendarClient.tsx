@@ -50,7 +50,7 @@ export default function CalendarClient({ data: initialData }: { data: Appointmen
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('clinic_settings').select('*').eq('id',1).maybeSingle()
+    supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId||'').maybeSingle()
       .then(({ data }) => { if (data) setSchedule(data); });
   }, []);
 

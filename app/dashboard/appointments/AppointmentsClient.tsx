@@ -79,7 +79,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
 
   // Fetch schedule settings once
   useEffect(() => {
-    supabase.from('clinic_settings').select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days').eq('id',1).maybeSingle()
+    supabase.from('clinic_settings').select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days,buffer_time,appointment_types,online_booking').eq('clinic_id', clinicId||'').maybeSingle()
       .then(({ data }) => { if (data) setSchedule(data); });
   }, []);
 

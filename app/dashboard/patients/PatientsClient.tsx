@@ -75,7 +75,7 @@ const [search, setSearch] = useState('');
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [dbVitals, setDbVitals] = useState<any[]>([]);
   const [clinicSettings, setClinicSettings] = useState<any>(null);
-  useEffect(()=>{ supabase.from('clinic_settings').select('clinic_name,doctor_name').eq('id',1).maybeSingle().then(({data})=>{if(data)setClinicSettings(data);}); },[]);
+  useEffect(()=>{ supabase.from('clinic_settings').select('clinic_name,doctor_name,reminder_message,whatsapp_reminders,prescription_header_img,prescription_footer_img').eq('clinic_id', clinicId||'').maybeSingle().then(({data})=>{if(data)setClinicSettings(data);}); },[]);
   const [patientDob, setPatientDob] = useState<string>('');
   const [aptVitals, setAptVitals] = useState<any[]>([]);
   const [scribeOutputs, setScribeOutputs] = useState<any[]>([]);
