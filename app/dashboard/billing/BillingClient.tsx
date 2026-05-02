@@ -46,7 +46,7 @@ function applyInvoicePrefix(id: string, prefix: string): string {
 
 function mapRow(r: any): Invoice {
   return {
-    id:            String(r.invoice_number || r.id || '').replace(/^INV-/, (clinicSettings?.invoice_prefix||'INV')+'-'),
+    id:            String(r.invoice_number || r.id || ''),
     appointmentId: String(r.appointment_id ?? ''),
     mr_number:     r.mr_number     ?? '',
     childName:     r.child_name    ?? '',
@@ -309,7 +309,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
     const due  = Math.max(0, net - inv.paid);
     const isProcedure = inv.recordType === 'procedure';
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-    <title>${isProcedure ? 'Procedure' : 'Invoice'} ${inv.id}</title>
+    <title>${isProcedure ? 'Procedure' : 'Invoice'} ${(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id}</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:Arial,sans-serif;color:#0a1628;padding:40px;font-size:13px}
@@ -343,7 +343,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
       </div>
       <div>
         <div class="invoice-label">${isProcedure?'PROCEDURE INVOICE':'INVOICE'}</div>
-        <div class="invoice-id">${inv.id}</div>
+        <div class="invoice-id">${(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id}</div>
         <div class="invoice-label" style="margin-top:4px">Date: ${formatUSDate(inv.date)}</div>
       </div>
     </div>
@@ -411,7 +411,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
             <div className="text-[11px] text-gray-400">Click any paid invoice to print receipt</div>
           </div>
           {invoices.filter(i=>i.paid>0).map(inv=>(
-            <div key={inv.id} className="bg-white rounded-2xl p-4 flex items-center gap-4" style={{border:'1px solid #e5e7eb'}}>
+            <div key={(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id} className="bg-white rounded-2xl p-4 flex items-center gap-4" style={{border:'1px solid #e5e7eb'}}>
               <div className="flex-1">
                 <div className="font-semibold text-navy text-[13px]">{inv.childName}</div>
                 <div className="text-[11px] text-gray-500 mt-0.5">{inv.date} · {inv.appointmentId||'—'}</div>
@@ -676,7 +676,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                 {cashReport.dayInvoices.length===0 ? (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-[13px]">No invoices for {cashDate}</td></tr>
                 ) : cashReport.dayInvoices.map(inv=>(
-                  <tr key={inv.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
+                  <tr key={(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
                     <td className="px-4 py-2.5 font-medium text-navy text-[13px]">{inv.childName}</td>
                     <td className="px-4 py-2.5 text-[12px]">PKR {inv.feeAmount.toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-[12px] text-emerald-600">{inv.discount>0?'PKR '+inv.discount.toLocaleString():'—'}</td>
@@ -1114,8 +1114,8 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                 const net = inv.feeAmount - inv.discount;
                 const due = Math.max(0, net - inv.paid);
                 return (
-                  <tr key={inv.id} className="hover:bg-amber-50/20 transition-colors">
-                    <td className="font-mono text-[11px] text-gray-500 font-medium">{inv.id}</td>
+                  <tr key={(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id} className="hover:bg-amber-50/20 transition-colors">
+                    <td className="font-mono text-[11px] text-gray-500 font-medium">{(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id}</td>
                     <td><TypeBadge type={inv.recordType} /></td>
                     <td>
                       <div className="font-medium text-navy text-[13px]">{inv.childName}</div>
