@@ -121,6 +121,16 @@ export default function RemindersClient({ data, clinicName: clinicNameProp, doct
   }, [data, filter, search, riskFilter]);
 
   const buildMsg = (type: string, a: Appointment) => {
+    // Use custom reminder message if set in settings
+    if (type === 'reminder_24h' && settings?.reminder_message) {
+      return settings.reminder_message
+        .replace(/{name}/g, a.parentName)
+        .replace(/{patient}/g, a.childName)
+        .replace(/{date}/g, formatUSDate(a.appointmentDate))
+        .replace(/{time}/g, a.appointmentTime || '')
+        .replace(/{clinic}/g, clinicName)
+        + '\n\nThank you 🙏\n\nPowered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare';
+    }
     const date = formatUSDate(a.appointmentDate);
     const time = a.appointmentTime;
     const msgs: Record<string,string> = {

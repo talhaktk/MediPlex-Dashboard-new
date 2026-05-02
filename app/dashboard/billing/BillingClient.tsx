@@ -39,6 +39,11 @@ function genId() {
 }
 
 // ── Map DB row → Invoice ──────────────────────────────────────────────────────
+function applyInvoicePrefix(id: string, prefix: string): string {
+  if (!prefix || prefix === 'INV') return id;
+  return id.replace(/^INV-/, prefix + '-');
+}
+
 function mapRow(r: any): Invoice {
   return {
     id:            String(r.invoice_number || r.id || ''),
@@ -155,6 +160,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
   const consultInvoices   = invoices.filter(i => i.recordType !== 'procedure');
   const procedureInvoices = invoices.filter(i => i.recordType === 'procedure');
 
+  const taxPct = Number(clinicSettings?.tax_percentage || 0);
   const totalRevenue  = invoices.reduce((s, i) => s + i.paid, 0);
   const totalPending  = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
   const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
@@ -240,6 +246,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
       createdAt:     new Date().toISOString(),
       recordType:    type,
       procedureName: '',
+      feeAmount: clinicSettings?.default_consultation_fee || 0,
     });
     setAptSearch('');
     setShowForm(true);
@@ -265,7 +272,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
       date:             form.date          || new Date().toISOString().split('T')[0],
       visit_type:       form.visitType     || '',
       reason:           form.reason        || '',
-      consultation_fee: form.feeAmount,
+      consultation_fee: form.feeAmount || clinicSettings?.default_consultation_fee || 0,
       discount:         form.discount      || 0,
       amount_paid:      form.paid          || 0,
       payment_method:   form.paymentMethod || 'Cash',

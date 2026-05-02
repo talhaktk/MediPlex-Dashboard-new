@@ -1054,7 +1054,23 @@ export default function PrescriptionClient({
 
               {/* Diagnosis */}
               <div className="mb-4">
-                <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Diagnosis</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Diagnosis</label>
+                  {clinicSettings?.soap_templates?.length > 0 && (
+                    <div className="relative group">
+                      <button className="text-[11px] text-gold hover:text-amber-600 font-medium">📋 Templates</button>
+                      <div className="absolute right-0 top-6 z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden hidden group-hover:block">
+                        {(clinicSettings.soap_templates||[]).map((t:any,i:number)=>(
+                          <button key={i} onClick={()=>setForm(prev=>({...prev,diagnosis:t.name,chiefComplaint:(prev.chiefComplaint||'')+(prev.chiefComplaint?'\n':'')+t.content}))}
+                            className="w-full text-left px-3 py-2.5 hover:bg-amber-50 border-b border-gray-100 last:border-0">
+                            <div className="text-[12px] font-medium text-navy">{t.name}</div>
+                            <div className="text-[11px] text-gray-400 truncate">{t.content?.slice(0,50)}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <input type="text" placeholder="e.g. Acute upper respiratory tract infection"
                   value={form.diagnosis || ''}
                   onChange={e => setForm(prev => ({ ...prev, diagnosis: e.target.value }))}
