@@ -34,7 +34,24 @@ ALTER TABLE clinic_settings
   ADD COLUMN IF NOT EXISTS doctor_photo_url           TEXT,
   ADD COLUMN IF NOT EXISTS doctor_bio                 TEXT,
   ADD COLUMN IF NOT EXISTS doctor_qualification       TEXT,
-  ADD COLUMN IF NOT EXISTS doctor_license             TEXT;
+  ADD COLUMN IF NOT EXISTS doctor_license             TEXT,
+  ADD COLUMN IF NOT EXISTS timezone                   TEXT DEFAULT 'Asia/Karachi',
+  ADD COLUMN IF NOT EXISTS tax_percentage             NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS tax_id                     TEXT,
+  ADD COLUMN IF NOT EXISTS default_consultation_fee   NUMERIC DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS max_per_slot               INTEGER DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS whatsapp_number            TEXT,
+  ADD COLUMN IF NOT EXISTS clinic_website             TEXT,
+  ADD COLUMN IF NOT EXISTS clinic_province            TEXT,
+  ADD COLUMN IF NOT EXISTS npi_number                 TEXT,
+  ADD COLUMN IF NOT EXISTS doctor_signature_url       TEXT,
+  ADD COLUMN IF NOT EXISTS mr_prefix                  TEXT DEFAULT 'MR',
+  ADD COLUMN IF NOT EXISTS mr_digits                  INTEGER DEFAULT 4,
+  ADD COLUMN IF NOT EXISTS morning_start              TEXT DEFAULT '09:00',
+  ADD COLUMN IF NOT EXISTS morning_end                TEXT DEFAULT '13:00',
+  ADD COLUMN IF NOT EXISTS evening_start              TEXT DEFAULT '14:00',
+  ADD COLUMN IF NOT EXISTS evening_end                TEXT DEFAULT '18:00',
+  ADD COLUMN IF NOT EXISTS invoice_prefix             TEXT DEFAULT 'INV';
 `;
 
 export async function POST() {

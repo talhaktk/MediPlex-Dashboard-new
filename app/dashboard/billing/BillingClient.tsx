@@ -67,10 +67,11 @@ function mapRow(r: any): Invoice {
   };
 }
 
-function computeStatus(fee: number, discount: number, paid: number): Invoice['paymentStatus'] {
-  const net = fee - discount;
-  if (paid >= net) return 'Paid';
-  if (paid > 0)    return 'Partial';
+function computeStatus(fee: number, discount: number, paid: number, taxPct = 0): Invoice['paymentStatus'] {
+  const sub = fee - discount;
+  const total = sub + Math.round(sub * taxPct / 100);
+  if (paid >= total) return 'Paid';
+  if (paid > 0)      return 'Partial';
   return 'Unpaid';
 }
 
@@ -266,7 +267,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
       toast.error('Procedure name is required'); return;
     }
 
-    const status = computeStatus(form.feeAmount || 0, form.discount || 0, form.paid || 0);
+    const status = computeStatus(form.feeAmount || 0, form.discount || 0, form.paid || 0, taxPct);
     const invoiceId = (form.id && form.id.startsWith('INV-')) ? form.id : genId();
 
     const payload: Record<string, any> = {
@@ -311,7 +312,9 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
 
   // ── Print ────────────────────────────────────────────────────────────────────
   const printInvoice = (inv: Invoice) => {
-    const net  = inv.feeAmount - inv.discount;
+    const sub  = inv.feeAmount - inv.discount;
+    const taxAmt = Math.round(sub * taxPct / 100);
+    const net  = sub + taxAmt;
     const due  = Math.max(0, net - inv.paid);
     const isProcedure = inv.recordType === 'procedure';
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -374,7 +377,8 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
         <tbody>
           <tr><td>${isProcedure?`Procedure: ${inv.procedureName}`:'Consultation Fee'}</td><td style="text-align:right">${currency} ${inv.feeAmount.toLocaleString()}</td></tr>
           ${inv.discount>0?`<tr><td style="color:#1a7f5e">Discount</td><td style="text-align:right;color:#1a7f5e">- ${currency} ${inv.discount.toLocaleString()}</td></tr>`:''}
-          <tr class="total-row"><td>Net Amount</td><td style="text-align:right">${currency} ${net.toLocaleString()}</td></tr>
+          ${taxAmt>0?`<tr><td style="color:#6b7280">Tax / GST (${taxPct}%)</td><td style="text-align:right;color:#6b7280">${currency} ${taxAmt.toLocaleString()}</td></tr>`:''}
+          <tr class="total-row"><td>Total Amount</td><td style="text-align:right">${currency} ${net.toLocaleString()}</td></tr>
           <tr><td>Amount Paid (${inv.paymentMethod})</td><td style="text-align:right;color:#1a7f5e">${currency} ${inv.paid.toLocaleString()}</td></tr>
           <tr class="due-row"><td>Balance Due</td><td style="text-align:right">${currency} ${due.toLocaleString()}</td></tr>
         </tbody>
@@ -1056,19 +1060,43 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
           </div>
 
           {/* Net summary */}
-          <div className="mt-4 rounded-xl p-4 grid grid-cols-3 gap-4 text-center"
-            style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}>
-            {[
-              { label: 'Net Amount',  value: `${currency} ${((form.feeAmount||0)-(form.discount||0)).toLocaleString()}`, color: '#0a1628' },
-              { label: 'Paid',        value: `${currency} ${(form.paid||0).toLocaleString()}`,                           color: '#1a7f5e' },
-              { label: 'Balance Due', value: `${currency} ${Math.max(0,(form.feeAmount||0)-(form.discount||0)-(form.paid||0)).toLocaleString()}`, color: '#c53030' },
-            ].map(s => (
-              <div key={s.label}>
-                <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>
-                <div className="text-[18px] font-bold" style={{ color: s.color }}>{s.value}</div>
+          {(() => {
+            const fSub = (form.feeAmount||0) - (form.discount||0);
+            const fTax = Math.round(fSub * taxPct / 100);
+            const fTotal = fSub + fTax;
+            const fDue = Math.max(0, fTotal - (form.paid||0));
+            return (
+              <div className="mt-4 rounded-xl p-4 text-center space-y-2"
+                style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}>
+                <div className={`grid gap-4 ${taxPct > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  {taxPct > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Subtotal</div>
+                      <div className="text-[15px] font-bold text-navy">{currency} {fSub.toLocaleString()}</div>
+                    </div>
+                  )}
+                  {taxPct > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Tax {taxPct}%</div>
+                      <div className="text-[15px] font-bold text-gray-500">{currency} {fTax.toLocaleString()}</div>
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{taxPct > 0 ? 'Total' : 'Net Amount'}</div>
+                    <div className="text-[18px] font-bold text-navy">{currency} {fTotal.toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Paid</div>
+                    <div className="text-[18px] font-bold" style={{ color: '#1a7f5e' }}>{currency} {(form.paid||0).toLocaleString()}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">Balance Due</div>
+                    <div className="text-[18px] font-bold" style={{ color: '#c53030' }}>{currency} {fDue.toLocaleString()}</div>
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
           <div className="mt-4">
             <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Notes</label>

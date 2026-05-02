@@ -896,9 +896,11 @@ function ChangePassword() {
     if(form.newPw.length<6){toast.error('Min 6 characters');return;}
     setSaving(true);
     const user = session?.user as any;
-    const {error} = await supabase.from('logins').update({password_hash:form.newPw}).eq('email',user?.email||'').eq('password_hash',form.current);
+    const { data: match } = await supabase.from('logins').select('id').eq('email',user?.email||'').eq('password_hash',form.current).maybeSingle();
+    if(!match){ setSaving(false); toast.error('Current password is incorrect'); return; }
+    const {error} = await supabase.from('logins').update({password_hash:form.newPw}).eq('email',user?.email||'');
     setSaving(false);
-    if(error) toast.error('Current password incorrect');
+    if(error) toast.error('Update failed: ' + error.message);
     else { toast.success('Password changed!'); setForm({current:'',newPw:'',confirm:''}); }
   };
   return (
