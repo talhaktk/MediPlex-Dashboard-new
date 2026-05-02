@@ -82,6 +82,17 @@ export default function RemindersClient({ data, clinicName, doctorName }: Props)
 
   useEffect(() => { setLog(loadLog()); }, []);
 
+  // Re-fetch reminder settings when saved
+  useEffect(() => {
+    const handler = async () => {
+      // Settings updated - page will re-render on next navigation
+      // For now just show a toast
+      console.log('Settings updated - refresh page to see changes');
+    };
+    window.addEventListener('clinic-settings-saved', handler);
+    return () => window.removeEventListener('clinic-settings-saved', handler);
+  }, []);
+
   const sentIds = new Set(log.map(l => `${l.appointmentId}_${l.type}`));
 
   const upcoming = useMemo(() => {

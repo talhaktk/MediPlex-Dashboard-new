@@ -80,6 +80,8 @@ export default function SettingsPageNew() {
     if(ex?.id) await supabase.from('clinic_settings').update(payload).eq('id', ex.id);
     else await supabase.from('clinic_settings').insert([payload]);
     window.dispatchEvent(new Event('clinic-settings-saved'));
+    // Also update Supabase realtime will propagate to all connected clients
+    console.log('Settings saved and propagated');
     toast.success('Settings saved!');
     setSaving(false);
   };

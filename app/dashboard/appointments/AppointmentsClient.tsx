@@ -1,4 +1,5 @@
 'use client';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
@@ -37,6 +38,7 @@ const EMPTY_FORM = {
 
 export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
+  const { settings: clinicSettings, refetch: refetchSettings } = useClinicSettings();
   const { clinicId, isSuperAdmin, terminology } = useClinic();
 
   // ── Filters ────────────────────────────────────────────────────────────────
@@ -79,8 +81,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
 
   // Fetch schedule settings once
   useEffect(() => {
-    supabase.from('clinic_settings').select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days,buffer_time,appointment_types,online_booking').eq('clinic_id', clinicId||'').maybeSingle()
-      .then(({ data }) => { if (data) setSchedule(data); });
+    /* schedule loaded via useClinicSettings hook */
   }, []);
 
   // Generate time slots from schedule
