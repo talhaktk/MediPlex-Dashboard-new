@@ -8,7 +8,6 @@ import {
   Building2, User, Calendar, CreditCard, FileText, Bell,
   Shield, Plug, Users, Save, Upload, Plus, X, ChevronDown, Palette
 } from 'lucide-react';
-import ScheduleSettings from '@/components/ui/ScheduleSettings';
 
 const TABS = [
   { key:'clinic',      label:'Clinic Profile',   icon:Building2 },
@@ -403,12 +402,90 @@ ${f('clinic_name')||'Your Clinic'}`}</div>
         {/* ── SCHEDULING ── */}
         {tab==='scheduling' && (
           <div className="space-y-5">
-            <ScheduleSettings/>
+            <div className="bg-white rounded-2xl p-5 border border-black/5">
+              <h3 className="font-semibold text-navy mb-4">Working Days</h3>
+              <div className="flex gap-2 flex-wrap">
+                {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>{
+                  const days = (f('working_days')||'Mon,Tue,Wed,Thu,Fri,Sat').split(',');
+                  const active = days.includes(day);
+                  return (
+                    <button key={day} onClick={()=>{
+                      const updated = active ? days.filter((d:string)=>d!==day) : [...days,day];
+                      set('working_days', updated.join(','));
+                    }} className="px-4 py-2 rounded-xl text-[13px] font-medium transition-all"
+                      style={{background:active?'#0a1628':'#f9f7f3',color:active?'#fff':'#6b7280',border:active?'1px solid #0a1628':'1px solid #e5e7eb'}}>
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-black/5">
+              <h3 className="font-semibold text-navy mb-4">Session Times</h3>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="text-[13px] font-semibold text-navy flex items-center gap-2">🌅 Morning Session</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Start</label>
+                      <input type="time" value={f('morning_start')||'09:00'} onChange={e=>set('morning_start',e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">End</label>
+                      <input type="time" value={f('morning_end')||'13:00'} onChange={e=>set('morning_end',e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-[13px] font-semibold text-navy flex items-center gap-2">🌆 Evening Session</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Start</label>
+                      <input type="time" value={f('evening_start')||'14:00'} onChange={e=>set('evening_start',e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-gray-400 uppercase tracking-widest font-medium block mb-1">End</label>
+                      <input type="time" value={f('evening_end')||'18:00'} onChange={e=>set('evening_end',e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold"/>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-white rounded-2xl p-5 border border-black/5">
               <h3 className="font-semibold text-navy mb-4">Appointment Settings</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-1.5">Buffer Time Between Appointments</label>
+                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-2">Slot Duration (minutes)</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[5,10,15,20,25,30,45,60].map(m=>(
+                      <button key={m} onClick={()=>set('slot_duration',m)}
+                        className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all"
+                        style={{background:(f('slot_duration')||15)===m?'#c9a84c':'#f9f7f3',color:(f('slot_duration')||15)===m?'#fff':'#6b7280',border:(f('slot_duration')||15)===m?'1px solid #c9a84c':'1px solid #e5e7eb'}}>
+                        {m} min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-2">Max Patients Per Slot</label>
+                  <div className="flex gap-2">
+                    {[1,2,3,4,5].map(n=>(
+                      <button key={n} onClick={()=>set('max_per_slot',n)}
+                        className="w-10 h-10 rounded-xl text-[14px] font-semibold transition-all"
+                        style={{background:(f('max_per_slot')||1)===n?'#0a1628':'#f9f7f3',color:(f('max_per_slot')||1)===n?'#fff':'#6b7280',border:(f('max_per_slot')||1)===n?'1px solid #0a1628':'1px solid #e5e7eb'}}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-gray-500 uppercase tracking-widest font-medium block mb-2">Buffer Time Between Appointments</label>
                   <select value={f('buffer_time')||0} onChange={e=>set('buffer_time',Number(e.target.value))}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-[13px] text-navy outline-none focus:border-gold">
                     {[0,5,10,15,20,30].map(m=><option key={m} value={m}>{m===0?'No buffer':`${m} min`}</option>)}
@@ -419,9 +496,10 @@ ${f('clinic_name')||'Your Clinic'}`}</div>
                 </div>
               </div>
             </div>
+
             <div className="bg-white rounded-2xl p-5 border border-black/5">
               <h3 className="font-semibold text-navy mb-4">Appointment Types</h3>
-              <p className="text-[12px] text-gray-400 mb-3">Define types of appointments available at your clinic.</p>
+              <p className="text-[12px] text-gray-400 mb-3">Define types of appointments with custom duration and fees.</p>
               <div className="space-y-2 mb-3">
                 {(f('appointment_types')||[]).map((apt:any, i:number)=>(
                   <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl bg-gray-50">
@@ -437,7 +515,7 @@ ${f('clinic_name')||'Your Clinic'}`}</div>
           </div>
         )}
 
-        {/* ── BILLING ── */}
+                {/* ── BILLING ── */}
         {tab==='billing' && (
           <div className="space-y-5">
             <div className="bg-white rounded-2xl p-5 border border-black/5">
