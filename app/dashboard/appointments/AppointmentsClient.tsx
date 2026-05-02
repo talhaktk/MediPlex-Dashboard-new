@@ -4,7 +4,6 @@ function generateMR(prefix: string, digits: number, existingCount: number): stri
   const num = (existingCount + 1).toString().padStart(digits, '0');
   return `${prefix}-${num}`;
 }
-import { useClinicSettings } from '@/lib/useClinicSettings';
 
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
