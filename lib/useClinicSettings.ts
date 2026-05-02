@@ -3,14 +3,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useClinic } from '@/lib/clinicContext';
 
-let _cache: Record<string, any> = {};
+// Simple module-level cache
+const cache: Record<string, any> = {};
+const listeners: Set<()=>void> = new Set();
+
+export function invalidateSettings() {
+  Object.keys(cache).forEach(k => delete cache[k]);
+  listeners.forEach(fn => fn());
+}
 
 export function useClinicSettings() {
   const { clinicId } = useClinic();
-  const [settings, setSettings] = useState<any>(_cache[clinicId||''] || null);
-  const [loading, setLoading] = useState(!_cache[clinicId||'']);
+  const [settings, setSettings] = useState<any>(clinicId ? cache[clinicId] || null : null);
+  const [loading, setLoading] = useState(clinicId ? !cache[clinicId] : false);
 
-  const fetch = useCallback(async () => {
+  const fetchSettings = useCallback(async () => {
     if (!clinicId) return;
     const { data } = await supabase
       .from('clinic_settings')
@@ -18,7 +25,7 @@ export function useClinicSettings() {
       .eq('clinic_id', clinicId)
       .maybeSingle();
     if (data) {
-      _cache[clinicId] = data;
+      cache[clinicId] = data;
       setSettings(data);
     }
     setLoading(false);
@@ -26,27 +33,18 @@ export function useClinicSettings() {
 
   useEffect(() => {
     if (!clinicId) return;
+    if (!cache[clinicId]) fetchSettings();
+    else setSettings(cache[clinicId]);
 
-    // Initial fetch
-    if (!_cache[clinicId]) fetch();
-
-    // Listen for local save events
-    const handler = () => fetch();
+    const handler = () => { delete cache[clinicId]; fetchSettings(); };
     window.addEventListener('clinic-settings-saved', handler);
-
-    // Realtime: set up BEFORE subscribe
-    const channel = supabase.channel('cs_' + clinicId);
-    channel.on(
-      'postgres_changes' as any,
-      { event: 'UPDATE', schema: 'public', table: 'clinic_settings', filter: `clinic_id=eq.${clinicId}` },
-      () => fetch()
-    ).subscribe();
+    listeners.add(handler);
 
     return () => {
       window.removeEventListener('clinic-settings-saved', handler);
-      supabase.removeChannel(channel);
+      listeners.delete(handler);
     };
-  }, [clinicId, fetch]);
+  }, [clinicId, fetchSettings]);
 
-  return { settings, loading, refetch: fetch };
+  return { settings, loading, refetch: fetchSettings };
 }
