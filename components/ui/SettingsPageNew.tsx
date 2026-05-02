@@ -82,6 +82,8 @@ export default function SettingsPageNew() {
     window.dispatchEvent(new Event('clinic-settings-saved'));
     // Also update Supabase realtime will propagate to all connected clients
     console.log('Settings saved and propagated');
+    // Also update Supabase realtime will propagate to all connected clients
+    console.log('Settings saved and propagated');
     toast.success('Settings saved!');
     setSaving(false);
   };
