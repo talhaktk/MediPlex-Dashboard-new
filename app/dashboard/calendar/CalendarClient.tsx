@@ -52,7 +52,7 @@ export default function CalendarClient({ data: initialData }: { data: Appointmen
   useEffect(() => {
     supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId||'').maybeSingle()
       .then(({ data }) => { if (data) setSchedule(data); });
-  }, []);
+  }, [clinicId]);
 
   // Generate time slots
   const generateSlots = (sch: any) => {
