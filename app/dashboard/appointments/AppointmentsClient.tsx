@@ -90,7 +90,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
       .eq('clinic_id', clinicId)
       .maybeSingle()
       .then(({ data }) => { if (data) setSchedule(data); });
-  }, []);
+  }, [clinicId]);
 
   // Generate time slots from schedule
   const generateTimeSlots = (sch: any) => {
