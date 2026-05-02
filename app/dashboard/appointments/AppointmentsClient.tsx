@@ -82,9 +82,14 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
   const [schedule, setSchedule] = useState<any>(null);
   const [slotConflict, setSlotConflict] = useState<string>('');
 
-  // Fetch schedule settings once
+  // Fetch schedule settings from clinic_settings
   useEffect(() => {
-    /* schedule loaded via useClinicSettings hook */
+    if (!clinicId) return;
+    supabase.from('clinic_settings')
+      .select('morning_start,morning_end,evening_start,evening_end,slot_duration,max_per_slot,working_days,buffer_time')
+      .eq('clinic_id', clinicId)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setSchedule(data); });
   }, []);
 
   // Generate time slots from schedule
