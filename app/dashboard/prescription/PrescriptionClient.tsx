@@ -1272,7 +1272,29 @@ export default function PrescriptionClient({
                     className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold resize-none" />
                 </div>
                 <div>
-                  <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Follow-up</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Follow-up</label>
+                    {clinicSettings?.referral_templates?.length > 0 && (
+                      <div className="relative group">
+                        <button className="text-[11px] text-blue-500 hover:text-blue-700 font-medium">📄 Referral Templates</button>
+                        <div className="absolute right-0 top-6 z-50 w-72 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden hidden group-hover:block">
+                          <div className="px-3 py-2 text-[10px] text-gray-400 uppercase tracking-widest border-b">Referral Templates</div>
+                          {(clinicSettings.referral_templates||[]).map((t:any,i:number)=>(
+                            <button key={i} onClick={()=>{
+                              const w=window.open('','_blank');
+                              if(!w)return;
+                              w.document.write(`<!DOCTYPE html><html><head><title>Referral Letter</title><style>body{font-family:Arial;padding:40px;max-width:700px;margin:0 auto;color:#0a1628}h2{color:#0a1628}.header{text-align:center;margin-bottom:30px}.content{line-height:1.8}@media print{button{display:none}}</style></head><body><div class="header"><h2>Referral Letter</h2><p style="color:#6b7280">${clinicName} · ${doctorName}</p></div><div class="content"><p><strong>To:</strong> The Specialist Physician</p><p><strong>Re:</strong> ${form.childName||'Patient'}, Age: ${form.childAge||'—'}</p><br/><p>${t.content}</p><br/><p>Diagnosis: ${form.diagnosis||'—'}</p><p>Please review and manage accordingly.</p><br/><p>Yours sincerely,<br/>${doctorName}</p></div><button onclick="window.print()" style="margin:20px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print</button></body></html>`);
+                              w.document.close();
+                            }}
+                              className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b border-gray-100 last:border-0">
+                              <div className="text-[12px] font-medium text-navy">{t.name}</div>
+                              <div className="text-[11px] text-gray-400 truncate">{t.content?.slice(0,50)}</div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <textarea rows={3} placeholder="e.g. After 7 days if not improved..."
                     value={form.followUp || ''}
                     onChange={e => setForm(prev => ({ ...prev, followUp: e.target.value }))}
@@ -1282,6 +1304,24 @@ export default function PrescriptionClient({
 
               <div className="flex gap-2 pt-4 border-t border-black/5">
                 <button onClick={validateAndSave} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
+                {clinicSettings?.consent_templates?.length > 0 && (
+                  <div className="relative group">
+                    <button className="btn-outline text-[12px] py-2 px-3">📋 Consent</button>
+                    <div className="absolute bottom-10 left-0 z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden hidden group-hover:block">
+                      {(clinicSettings.consent_templates||[]).map((t:any,i:number)=>(
+                        <button key={i} onClick={()=>{
+                          const w=window.open('','_blank');
+                          if(!w)return;
+                          w.document.write(`<!DOCTYPE html><html><head><title>Consent Form</title><style>body{font-family:Arial;padding:40px;max-width:700px;margin:0 auto}.sig{border-top:1px solid #374151;width:200px;margin-top:40px;padding-top:4px;font-size:12px;color:#6b7280}@media print{button{display:none}}</style></head><body><h2>${t.name}</h2><p style="color:#6b7280;margin-bottom:20px">${clinicName} · ${new Date().toLocaleDateString()}</p><p style="line-height:1.8">${t.content}</p><div style="display:flex;justify-content:space-between;margin-top:60px"><div class="sig">Patient/Guardian Signature</div><div class="sig">Doctor Signature</div></div><button onclick="window.print()" style="margin:20px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print</button></body></html>`);
+                          w.document.close();
+                        }}
+                          className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-100 last:border-0">
+                          <div className="text-[12px] font-medium text-navy">{t.name}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <button onClick={async () => {
                   saveRxForm();
                   const rx: Prescription = { ...form as Prescription, medicines: medicines.filter(m => m.name), labs: labRequests, labResultsText } as any;

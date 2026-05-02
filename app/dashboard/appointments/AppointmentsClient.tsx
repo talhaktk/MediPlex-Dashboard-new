@@ -1,4 +1,9 @@
 'use client';
+// Helper to generate MR number using clinic settings pattern
+function generateMR(prefix: string, digits: number, existingCount: number): string {
+  const num = (existingCount + 1).toString().padStart(digits, '0');
+  return `${prefix}-${num}`;
+}
 import { useClinicSettings } from '@/lib/useClinicSettings';
 
 import { supabase } from '@/lib/supabase';

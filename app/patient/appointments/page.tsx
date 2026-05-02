@@ -1,4 +1,6 @@
 'use client';
+// Online booking is controlled by clinic settings (online_booking toggle)
+// If disabled, show message instead of booking form
 import { t, Lang } from '@/lib/translations';
 
 import { useEffect, useState } from 'react';

@@ -46,7 +46,7 @@ function applyInvoicePrefix(id: string, prefix: string): string {
 
 function mapRow(r: any): Invoice {
   return {
-    id:            String(r.invoice_number || r.id || ''),
+    id:            String(r.invoice_number || r.id || '').replace(/^INV-/, (clinicSettings?.invoice_prefix||'INV')+'-'),
     appointmentId: String(r.appointment_id ?? ''),
     mr_number:     r.mr_number     ?? '',
     childName:     r.child_name    ?? '',
@@ -239,6 +239,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
       reason:        apt?.reason     ?? '',
       feeAmount:     500,
       discount:      0,
+      feeAmount:     clinicSettings?.default_consultation_fee || 0,
       paid:          0,
       paymentMethod: 'Cash',
       paymentStatus: 'Unpaid',
