@@ -64,6 +64,10 @@ export default function SettingsPageNew() {
 
   useEffect(() => {
     if(!clinicId) return;
+    // Run DB migration to ensure all settings columns exist
+    fetch('/api/settings/migrate', { method: 'POST' })
+      .then(r => r.json())
+      .then(d => { if(!d.ok && d.sql) console.info('Run in Supabase SQL Editor:\n', d.sql); });
     supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle()
       .then(({data}) => { if(data) setForm(data); setLoading(false); });
     supabase.from('logins').select('id,name,email,user_role,is_active').eq('clinic_id', clinicId)
@@ -75,17 +79,37 @@ export default function SettingsPageNew() {
 
   const save = async () => {
     setSaving(true);
-    const {data:ex} = await supabase.from('clinic_settings').select('id').eq('clinic_id', clinicId||'').maybeSingle();
-    const payload = {...form, clinic_id: clinicId, updated_at: new Date().toISOString()};
-    if(ex?.id) await supabase.from('clinic_settings').update(payload).eq('id', ex.id);
-    else await supabase.from('clinic_settings').insert([payload]);
-    window.dispatchEvent(new Event('clinic-settings-saved'));
-    // Also update Supabase realtime will propagate to all connected clients
-    console.log('Settings saved and propagated');
-    // Also update Supabase realtime will propagate to all connected clients
-    console.log('Settings saved and propagated');
-    toast.success('Settings saved!');
-    setSaving(false);
+    try {
+      const { data: ex, error: fetchErr } = await supabase
+        .from('clinic_settings').select('id').eq('clinic_id', clinicId||'').maybeSingle();
+      if (fetchErr) throw fetchErr;
+
+      // Exclude 'id' from payload — primary key must not be in the update data
+      const { id: _id, created_at: _ca, ...rest } = form as any;
+      const payload = { ...rest, clinic_id: clinicId, updated_at: new Date().toISOString() };
+
+      let saveError;
+      if (ex?.id) {
+        ({ error: saveError } = await supabase.from('clinic_settings').update(payload).eq('id', ex.id));
+      } else {
+        ({ error: saveError } = await supabase.from('clinic_settings').insert([payload]));
+      }
+      if (saveError) throw saveError;
+
+      window.dispatchEvent(new Event('clinic-settings-saved'));
+      toast.success('Settings saved!');
+
+      // Reload from DB to confirm persisted values
+      const { data: refreshed } = await supabase
+        .from('clinic_settings').select('*').eq('clinic_id', clinicId||'').maybeSingle();
+      if (refreshed) setForm(refreshed);
+
+    } catch (err: any) {
+      toast.error('Save failed: ' + (err?.message || 'Unknown error'));
+      console.error('Settings save error:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const uploadFile = async (file: File, path: string): Promise<string> => {

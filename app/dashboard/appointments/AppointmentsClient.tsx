@@ -107,7 +107,7 @@ export default function AppointmentsClient({ data: initialData }: { data: Appoin
         const ampm = h>=12?'PM':'AM';
         const h12 = h>12?h-12:h===0?12:h;
         slots.push(`${h12}:${m.toString().padStart(2,'0')} ${ampm}`);
-        mins += (sch.slot_duration||15) + (sch.buffer_time||0);
+        mins += (sch.slot_duration||15);
       }
     };
     addSlots(sch.morning_start||'09:00', sch.morning_end||'12:00');

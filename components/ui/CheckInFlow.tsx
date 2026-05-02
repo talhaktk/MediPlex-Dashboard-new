@@ -1,7 +1,7 @@
 'use client';
 
 import { supabase } from '@/lib/supabase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Appointment } from '@/types';
 import { formatUSDate, generateNextMRNumber, upsertPatientByMR } from '@/lib/sheets';
 import { X, Save, ChevronRight, Receipt, Activity, Hash, RefreshCw } from 'lucide-react';
@@ -11,9 +11,10 @@ import {
   getInvoiceByApt, patientKey, InvoiceRecord, VitalSigns
 } from '@/lib/store';
 import { useClinic } from '@/lib/clinicContext';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 
-const METHODS      = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
-const BLOOD_GROUPS = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+const DEFAULT_METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
+const BLOOD_GROUPS    = ['', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
 function genInvId() { return `INV-${Date.now().toString(36).toUpperCase()}`; }
 
@@ -27,6 +28,8 @@ type Step = 'mr' | 'invoice' | 'vitals';
 
 export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Props) {
   const { clinicId } = useClinic();
+  const { settings: csSettings } = useClinicSettings();
+  const currency = csSettings?.currency || 'PKR';
   const existingInv = getInvoiceByApt(a.id);
 
   // If appointment already has MR#, skip MR step
@@ -45,7 +48,7 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
     date:          a.appointmentDate,
     visitType:     a.visitType,
     reason:        a.reason,
-    feeAmount:     existingInv?.feeAmount || 500,
+    feeAmount:     existingInv?.feeAmount || csSettings?.default_consultation_fee || 500,
     discount:      existingInv?.discount  || 0,
     paid:          existingInv?.paid      || 0,
     paymentMethod: existingInv?.paymentMethod || 'Cash',
@@ -62,6 +65,20 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
     recordedAt: new Date().toISOString().split('T')[0],
   });
 
+  // When clinic settings load, apply default fee (only if no existing invoice and fee is still the hardcoded 500)
+  useEffect(() => {
+    if (!existingInv && csSettings?.default_consultation_fee) {
+      setInv(p => ({
+        ...p,
+        feeAmount: p.feeAmount === 500 ? Number(csSettings.default_consultation_fee) : p.feeAmount,
+      }));
+    }
+  }, [csSettings?.default_consultation_fee]);
+
+  const paymentMethods: string[] = csSettings?.accepted_payment_methods?.length
+    ? csSettings.accepted_payment_methods
+    : DEFAULT_METHODS;
+
   const net = (inv.feeAmount || 0) - (inv.discount || 0);
   const due = Math.max(0, net - (inv.paid || 0));
   const payStatus: InvoiceRecord['paymentStatus'] =
@@ -70,7 +87,7 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
   // ── MR# helpers ─────────────────────────────────────────────────────────────
   const handleGenerateMR = async () => {
     setMrLoading(true);
-    const mr = await generateNextMRNumber();
+    const mr = await generateNextMRNumber(csSettings?.mr_prefix || 'A', csSettings?.mr_digits || 10);
     setMrInput(mr);
     setMrLoading(false);
   };
@@ -337,9 +354,9 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
 
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: 'Consultation Fee (PKR)', key: 'feeAmount', type: 'number' },
-                  { label: 'Discount (PKR)',          key: 'discount',  type: 'number' },
-                  { label: 'Amount Paid (PKR)',        key: 'paid',      type: 'number' },
+                  { label: `Consultation Fee (${currency})`, key: 'feeAmount', type: 'number' },
+                  { label: `Discount (${currency})`,          key: 'discount',  type: 'number' },
+                  { label: `Amount Paid (${currency})`,        key: 'paid',      type: 'number' },
                 ].map(f => (
                   <div key={f.key}>
                     <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">{f.label}</label>
@@ -354,7 +371,7 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
                   <select value={inv.paymentMethod}
                     onChange={e => setInv(p => ({ ...p, paymentMethod: e.target.value }))}
                     className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
-                    {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                    {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </div>
               </div>
@@ -362,9 +379,9 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
               <div className="grid grid-cols-3 gap-3 rounded-xl p-4 text-center"
                 style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}>
                 {[
-                  { label: 'Net Amount',  value: `PKR ${net.toLocaleString()}`,          color: '#0a1628' },
-                  { label: 'Paid',        value: `PKR ${(inv.paid || 0).toLocaleString()}`, color: '#1a7f5e' },
-                  { label: 'Balance Due', value: `PKR ${due.toLocaleString()}`,           color: due > 0 ? '#c53030' : '#1a7f5e' },
+                  { label: 'Net Amount',  value: `${currency} ${net.toLocaleString()}`,          color: '#0a1628' },
+                  { label: 'Paid',        value: `${currency} ${(inv.paid || 0).toLocaleString()}`, color: '#1a7f5e' },
+                  { label: 'Balance Due', value: `${currency} ${due.toLocaleString()}`,           color: due > 0 ? '#c53030' : '#1a7f5e' },
                 ].map(s => (
                   <div key={s.label}>
                     <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>

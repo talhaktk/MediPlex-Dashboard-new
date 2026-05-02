@@ -5,6 +5,7 @@ import { Appointment, MonthlyStats, ReasonStat, AgeStat, DashboardStats } from '
 import { filterAppointments, computeMonthlyStats, exportToCSV, formatUSDate } from '@/lib/sheets';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 import { useSession } from 'next-auth/react';
 import AgingReport from '@/components/ui/AgingReport';
 import {
@@ -84,6 +85,8 @@ interface Props {
 }
 
 export default function AnalyticsClient({ data, stats, ...rest }: Props) {
+  const { settings: csSettings } = useClinicSettings();
+  const currency = csSettings?.currency || 'PKR';
   const monthly = rest.monthly      || rest.monthlyStats || [];
   const reasons = rest.reasons      || rest.reasonStats  || [];
   const ages    = rest.ages         || rest.ageStats     || [];
@@ -258,10 +261,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
       '<tbody>' + monthRows + '</tbody></table>',
       '<h2>C - Billing Summary (Consultations + Procedures)</h2>',
       '<div class="grid4">',
-      '<div class="card"><div class="val" style="color:#1a7f5e">PKR ' + totalRevenue.toLocaleString() + '</div><div class="lbl">Total Revenue</div></div>',
-      '<div class="card"><div class="val" style="color:#c53030">PKR ' + totalPending.toLocaleString() + '</div><div class="lbl">Pending</div></div>',
-      '<div class="card"><div class="val" style="color:#0369a1">PKR ' + consultRev.toLocaleString() + '</div><div class="lbl">Consultation Revenue</div></div>',
-      '<div class="card"><div class="val" style="color:#6d28d9">PKR ' + procedureRev.toLocaleString() + '</div><div class="lbl">Procedure Revenue</div></div>',
+      '<div class="card"><div class="val" style="color:#1a7f5e">' + currency + ' ' + totalRevenue.toLocaleString() + '</div><div class="lbl">Total Revenue</div></div>',
+      '<div class="card"><div class="val" style="color:#c53030">' + currency + ' ' + totalPending.toLocaleString() + '</div><div class="lbl">Pending</div></div>',
+      '<div class="card"><div class="val" style="color:#0369a1">' + currency + ' ' + consultRev.toLocaleString() + '</div><div class="lbl">Consultation Revenue</div></div>',
+      '<div class="card"><div class="val" style="color:#6d28d9">' + currency + ' ' + procedureRev.toLocaleString() + '</div><div class="lbl">Procedure Revenue</div></div>',
       '</div>',
       '<div class="footer">MediPlex Pediatric Clinic - Confidential - ' + new Date().toLocaleDateString() + '</div>',
       '</body></html>',
@@ -492,8 +495,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="text-[10px] text-gray-400 uppercase tracking-widest font-medium mb-2">Billing</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               {[
-                {label:'Revenue (Period)',val:`PKR ${totalRevenue.toLocaleString()}`,color:'#1a7f5e'},
-                {label:'Pending (Period)',val:`PKR ${totalPending.toLocaleString()}`,color:RED},
+                {label:'Revenue (Period)',val:`${currency} ${totalRevenue.toLocaleString()}`,color:'#1a7f5e'},
+                {label:'Pending (Period)',val:`${currency} ${totalPending.toLocaleString()}`,color:RED},
                 {label:'Paid Invoices',val:filteredInvoices.filter(i=>i.paymentStatus==='Paid').length,color:'#1a7f5e'},
                 {label:'Unpaid Invoices',val:filteredInvoices.filter(i=>i.paymentStatus==='Unpaid').length,color:RED},
               ].map(s=>(
@@ -506,12 +509,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-black/5">
               <div className="rounded-xl px-4 py-3" style={{background:'#e0f2fe',border:'1px solid rgba(3,105,161,0.15)'}}>
                 <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:'#0369a1'}}>Consultations</div>
-                <div className="text-[15px] font-bold" style={{color:'#0369a1'}}>PKR {consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+                <div className="text-[15px] font-bold" style={{color:'#0369a1'}}>{currency} {consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
                 <div className="text-[10px] text-blue-600">{consultInvoices.length} invoices</div>
               </div>
               <div className="rounded-xl px-4 py-3" style={{background:'#ede9fe',border:'1px solid rgba(109,40,217,0.15)'}}>
                 <div className="text-[10px] uppercase tracking-widest font-medium mb-0.5" style={{color:PURPLE}}>Procedures</div>
-                <div className="text-[15px] font-bold" style={{color:PURPLE}}>PKR {procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+                <div className="text-[15px] font-bold" style={{color:PURPLE}}>{currency} {procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
                 <div className="text-[10px] text-purple-600">{procedureInvoices.length} invoices</div>
               </div>
             </div>
@@ -537,10 +540,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           {canSeeFinancials && (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                {label:'Total Revenue',  val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#f0fdf4'},
-                {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
-                {label:'Net Profit',     val:`PKR ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
-                {label:'Outstanding',    val:`PKR ${totalPending.toLocaleString()}`,  color:'#d97706', bg:'#fefce8'},
+                {label:'Total Revenue',  val:`${currency} ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#f0fdf4'},
+                {label:'Total Expenses', val:`${currency} ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+                {label:'Net Profit',     val:`${currency} ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
+                {label:'Outstanding',    val:`${currency} ${totalPending.toLocaleString()}`,  color:'#d97706', bg:'#fefce8'},
               ].map(s=>(
                 <div key={s.label} className="card p-4">
                   <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
@@ -839,10 +842,10 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
         <div className="space-y-5">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {label:'Total Revenue',   val:`PKR ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2'},
-              {label:'Total Pending',   val:`PKR ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0'},
-              {label:'Total Expenses',  val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
-              {label:'Net Profit',      val:`PKR ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
+              {label:'Total Revenue',   val:`${currency} ${totalRevenue.toLocaleString()}`,  color:'#1a7f5e', bg:'#e8f7f2'},
+              {label:'Total Pending',   val:`${currency} ${totalPending.toLocaleString()}`,  color:RED,       bg:'#fff0f0'},
+              {label:'Total Expenses',  val:`${currency} ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+              {label:'Net Profit',      val:`${currency} ${netProfit.toLocaleString()}`,     color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
             ].map(s=>(
               <div key={s.label} className="card p-4">
                 <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-1">{s.label}</div>
@@ -854,12 +857,12 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="card p-4" style={{border:'1px solid rgba(3,105,161,0.2)'}}>
               <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{color:'#0369a1'}}>Consultations</div>
-              <div className="text-[22px] font-bold" style={{color:'#0369a1'}}>PKR {consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+              <div className="text-[22px] font-bold" style={{color:'#0369a1'}}>{currency} {consultInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
               <div className="text-[11px] text-gray-400 mt-1">{consultInvoices.length} invoices · {consultInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
             </div>
             <div className="card p-4" style={{border:'1px solid rgba(109,40,217,0.2)'}}>
               <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{color:PURPLE}}>Procedures</div>
-              <div className="text-[22px] font-bold" style={{color:PURPLE}}>PKR {procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
+              <div className="text-[22px] font-bold" style={{color:PURPLE}}>{currency} {procedureInvoices.reduce((s,i)=>s+i.paid,0).toLocaleString()}</div>
               <div className="text-[11px] text-gray-400 mt-1">{procedureInvoices.length} invoices · {procedureInvoices.filter(i=>i.paymentStatus==='Paid').length} paid</div>
             </div>
           </div>
@@ -879,7 +882,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                   })}>
                     <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
                     <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={60} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
-                    <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`PKR ${Number(v).toLocaleString()}`,String(name)]}/>
+                    <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`${currency} ${Number(v).toLocaleString()}`,String(name)]}/>
                     <Legend wrapperStyle={{fontSize:11}}/>
                     <Bar dataKey="revenue" name="Revenue" fill={BLUE} radius={[3,3,0,0]}/>
                     <Bar dataKey="expenses" name="Expenses" fill="#dc2626" radius={[3,3,0,0]}/>
@@ -898,7 +901,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                   <BarChart data={monthlyBilling}>
                     <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
                     <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={60} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
-                    <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`PKR ${Number(v).toLocaleString()}`,String(name)]}/>
+                    <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`${currency} ${Number(v).toLocaleString()}`,String(name)]}/>
                     <Legend wrapperStyle={{fontSize:11}}/>
                     <Bar dataKey="consultRevenue"   name="Consultations" stackId="a" fill={BLUE}   radius={[0,0,0,0]}/>
                     <Bar dataKey="procedureRevenue" name="Procedures"    stackId="a" fill={PURPLE} radius={[3,3,0,0]}/>
@@ -925,9 +928,9 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                       <tr key={m.month}>
                         <td className="font-medium text-navy">{m.month}</td>
                         <td><span className="font-semibold text-navy">{m.invoices}</span></td>
-                        <td><span className="font-medium" style={{color:'#1a7f5e'}}>PKR {m.revenue.toLocaleString()}</span></td>
-                        <td><span className="font-medium" style={{color:'#0369a1'}}>PKR {m.consultRevenue.toLocaleString()}</span></td>
-                        <td><span className="font-medium" style={{color:PURPLE}}>PKR {m.procedureRevenue.toLocaleString()}</span></td>
+                        <td><span className="font-medium" style={{color:'#1a7f5e'}}>{currency} {m.revenue.toLocaleString()}</span></td>
+                        <td><span className="font-medium" style={{color:'#0369a1'}}>{currency} {m.consultRevenue.toLocaleString()}</span></td>
+                        <td><span className="font-medium" style={{color:PURPLE}}>{currency} {m.procedureRevenue.toLocaleString()}</span></td>
                         <td><span className="font-medium" style={{color:'#1a7f5e'}}>{m.paid}</span></td>
                         <td><span className="font-medium" style={{color:RED}}>{m.unpaid}</span></td>
                         <td><span className="font-medium" style={{color:AMBER}}>{m.partial}</span></td>
@@ -968,9 +971,9 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                           <div className="text-[11px] text-gray-400">{inv.recordType==='procedure'?inv.procedureName:inv.parentName}</div>
                         </td>
                         <td className="text-[12px] text-navy whitespace-nowrap">{formatUSDate(inv.date)}</td>
-                        <td className="text-[12px] font-medium text-navy">PKR {inv.feeAmount.toLocaleString()}</td>
-                        <td className="text-[12px] font-medium" style={{color:'#1a7f5e'}}>PKR {inv.paid.toLocaleString()}</td>
-                        <td className="text-[12px] font-medium" style={{color:due>0?RED:'#1a7f5e'}}>{due>0?`PKR ${due.toLocaleString()}`:'✓ Cleared'}</td>
+                        <td className="text-[12px] font-medium text-navy">{currency} {inv.feeAmount.toLocaleString()}</td>
+                        <td className="text-[12px] font-medium" style={{color:'#1a7f5e'}}>{currency} {inv.paid.toLocaleString()}</td>
+                        <td className="text-[12px] font-medium" style={{color:due>0?RED:'#1a7f5e'}}>{due>0?`${currency} ${due.toLocaleString()}`:'✓ Cleared'}</td>
                         <td><span className={`pill ${inv.paymentStatus==='Paid'?'pill-confirmed':inv.paymentStatus==='Partial'?'pill-rescheduled':'pill-cancelled'}`}>{inv.paymentStatus}</span></td>
                       </tr>
                     );
@@ -986,9 +989,9 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
           {/* Monthly expenses breakdown */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              {label:'Total Expenses', val:`PKR ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
-              {label:'This Month', val:`PKR ${expenses.filter(e=>e.date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s,e)=>s+Number(e.amount),0).toLocaleString()}`, color:'#ea580c', bg:'#fff7ed'},
-              {label:'Net Profit', val:`PKR ${netProfit.toLocaleString()}`, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
+              {label:'Total Expenses', val:`${currency} ${totalExpenses.toLocaleString()}`, color:'#dc2626', bg:'#fef2f2'},
+              {label:'This Month', val:`${currency} ${expenses.filter(e=>e.date?.startsWith(new Date().toISOString().slice(0,7))).reduce((s,e)=>s+Number(e.amount),0).toLocaleString()}`, color:'#ea580c', bg:'#fff7ed'},
+              {label:'Net Profit', val:`${currency} ${netProfit.toLocaleString()}`, color:netProfit>=0?'#1a7f5e':'#dc2626', bg:netProfit>=0?'#f0fdf4':'#fef2f2'},
               {label:'Expense Records', val:filteredExpenses.length, color:'#0a1628', bg:'#f9f7f3'},
             ].map(s=>(
               <div key={s.label} className="card p-4">
@@ -1013,7 +1016,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                 })}>
                   <XAxis dataKey="month" tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false}/>
                   <YAxis tick={{fontSize:10,fill:'#8a9bb0'}} axisLine={false} tickLine={false} width={60} tickFormatter={(v:number)=>`${(v/1000).toFixed(0)}k`}/>
-                  <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`PKR ${Number(v).toLocaleString()}`,String(name)]}/>
+                  <Tooltip {...TT} formatter={(v:unknown,name:unknown)=>[`${currency} ${Number(v).toLocaleString()}`,String(name)]}/>
                   <Legend wrapperStyle={{fontSize:11}}/>
                   <Bar dataKey="revenue" name="Revenue" fill={BLUE} radius={[3,3,0,0]}/>
                   <Bar dataKey="expenses" name="Expenses" fill="#dc2626" radius={[3,3,0,0]}/>
@@ -1035,7 +1038,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                     <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
                       <div className="h-full rounded-full" style={{width:`${(amt/totalExpenses)*100}%`,background:'#dc2626'}}/>
                     </div>
-                    <div className="text-[12px] font-medium text-red-600 w-28 text-right">PKR {amt.toLocaleString()}</div>
+                    <div className="text-[12px] font-medium text-red-600 w-28 text-right">{currency} {amt.toLocaleString()}</div>
                   </div>
                 ))}
               </div>
@@ -1050,7 +1053,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                 .sort((a,b)=>b[0].localeCompare(a[0])).map(([month,amt]:any)=>(
                 <div key={month} className="flex items-center justify-between px-5 py-3">
                   <div className="text-[13px] font-medium text-navy">{new Date(month+'-01').toLocaleString('en-US',{month:'long',year:'numeric'})}</div>
-                  <div className="text-[13px] font-semibold text-red-600">PKR {amt.toLocaleString()}</div>
+                  <div className="text-[13px] font-semibold text-red-600">{currency} {amt.toLocaleString()}</div>
                 </div>
               ))}
             </div>
@@ -1069,8 +1072,8 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
         <div className="space-y-5">
           <div className="grid grid-cols-3 gap-3">
             {[
-              {label:'Avg Revenue/Visit', value:`PKR ${avgRevenuePerVisit.toLocaleString()}`, color:'#c9a84c'},
-              {label:'Est. No-show Loss',  value:`PKR ${noShowRevenueLoss.toLocaleString()}`,  color:'#c53030'},
+              {label:'Avg Revenue/Visit', value:`${currency} ${avgRevenuePerVisit.toLocaleString()}`, color:'#c9a84c'},
+              {label:'Est. No-show Loss',  value:`${currency} ${noShowRevenueLoss.toLocaleString()}`,  color:'#c53030'},
               {label:'Total Doctors',      value:doctorRevenue.length,                         color:'#2b6cb0'},
             ].map(s=>(
               <div key={s.label} className="bg-white rounded-2xl p-4" style={{border:'1px solid #e5e7eb'}}>
@@ -1096,7 +1099,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[13px] font-medium text-navy">{dr}</span>
-                          <span className="text-[12px] font-semibold text-navy">PKR {stats.revenue.toLocaleString()}</span>
+                          <span className="text-[12px] font-semibold text-navy">{currency} {stats.revenue.toLocaleString()}</span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                           <div className="h-full rounded-full" style={{width:`${(stats.revenue/maxRev)*100}%`,background:['#c9a84c','#1a7f5e','#2b6cb0','#9f7aea','#e53e3e'][i%5]}}/>
@@ -1214,7 +1217,7 @@ export default function AnalyticsClient({ data, stats, ...rest }: Props) {
                   {label:'Completed',           value:cancellationStats.completed, color:'#1a7f5e'},
                   {label:'Cancelled',           value:`${cancellationStats.cancelled} (${cancellationStats.cancelRate}%)`, color:'#d97706'},
                   {label:'No-shows',            value:`${cancellationStats.noShow} (${cancellationStats.noShowRate}%)`, color:'#c53030'},
-                  {label:'Est. Revenue Lost',   value:`PKR ${noShowRevenueLoss.toLocaleString()}`, color:'#c53030'},
+                  {label:'Est. Revenue Lost',   value:`${currency} ${noShowRevenueLoss.toLocaleString()}`, color:'#c53030'},
                 ].map(s=>(
                   <div key={s.label} className="flex items-center justify-between">
                     <span className="text-[12px] text-gray-600">{s.label}</span>

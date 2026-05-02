@@ -2,6 +2,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 import ExpensesTab from '@/components/ui/ExpensesTab';
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
@@ -91,9 +92,11 @@ function TypeBadge({ type }: { type: RecordType }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function BillingClient({ clinicSettings = null, data }: { data: Appointment[]; clinicSettings?: any }) {
+export default function BillingClient({ clinicSettings: serverSettings = null, data }: { data: Appointment[]; clinicSettings?: any }) {
   const [invoices,   setInvoices]   = useState<Invoice[]>([]);
   const { clinicId, isSuperAdmin } = useClinic();
+  const { settings: liveSettings } = useClinicSettings();
+  const clinicSettings = liveSettings ?? serverSettings;
   const [search,     setSearch]     = useState('');
   const [filterPay,  setFilterPay]  = useState('all');
   const [filterType, setFilterType] = useState('all');   // 'all' | 'consultation' | 'procedure'
@@ -162,6 +165,9 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
 
   const taxPct = Number(clinicSettings?.tax_percentage || 0);
   const currency = clinicSettings?.currency || 'PKR';
+  const paymentMethods: string[] = clinicSettings?.accepted_payment_methods?.length
+    ? clinicSettings.accepted_payment_methods
+    : METHODS;
   const totalRevenue  = invoices.reduce((s, i) => s + i.paid, 0);
   const totalPending  = invoices.reduce((s, i) => s + Math.max(0, i.feeAmount - i.discount - i.paid), 0);
   const paidCount     = invoices.filter(i => i.paymentStatus === 'Paid').length;
@@ -416,14 +422,14 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                 <div className="font-semibold text-navy text-[13px]">{inv.childName}</div>
                 <div className="text-[11px] text-gray-500 mt-0.5">{inv.date} · {inv.appointmentId||'—'}</div>
                 <div className="flex gap-3 mt-1 text-[12px]">
-                  <span className="text-emerald-600 font-medium">Paid: PKR {inv.paid.toLocaleString()}</span>
+                  <span className="text-emerald-600 font-medium">Paid: {currency} {inv.paid.toLocaleString()}</span>
                   {inv.paymentMethod && <span className="text-gray-400">{inv.paymentMethod}</span>}
                 </div>
               </div>
               <button onClick={()=>{
                 const w=window.open('','_blank');
                 if(!w)return;
-                w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>body{font-family:Arial;padding:20px;max-width:350px;margin:0 auto;color:#0a1628}.hdr{background:#0a1628;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;text-align:center}.body{border:1px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 8px 8px}.row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.divider{border-top:1px dashed #e5e7eb;margin:8px 0}.total{font-weight:700;font-size:15px}.stamp{text-align:center;margin-top:12px;font-size:11px;color:#9ca3af}@media print{button{display:none}}</style></head><body><div class="hdr"><div style="font-size:15px;font-weight:700">Payment Receipt</div><div style="font-size:10px;opacity:0.7">'+(clinicSettings?.clinic_name||'MediPlex')+'</</div></div><div class="body"><div class="row"><span>Patient</span><strong>${inv.childName}</strong></div><div class="row"><span>Date</span><span>${inv.date}</span></div><div class="row"><span>Receipt #</span><span>RCP-${inv.id?.slice(-6)||'000000'}</span></div><div class="divider"></div><div class="row"><span>Fee</span><span>${currency} ${inv.feeAmount.toLocaleString()}</span></div>${inv.discount>0?'<div class="row"><span>Discount</span><span style="color:#16a34a">- PKR '+inv.discount.toLocaleString()+'</span></div>':''}<div class="row total"><span>Amount Paid</span><span style="color:#16a34a">${currency} ${inv.paid.toLocaleString()}</span></div>${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'<div class="row"><span>Balance Due</span><span style="color:#dc2626">PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString()+'</span></div>':''}<div class="divider"></div><div class="row"><span>Payment Method</span><span>${inv.paymentMethod||'Cash'}</span></div><div class="stamp">Thank you for choosing our clinic<br/>This is a computer generated receipt</div></div><button onclick="window.print()" style="margin:12px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Receipt</button></body></html>`);
+                w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>body{font-family:Arial;padding:20px;max-width:350px;margin:0 auto;color:#0a1628}.hdr{background:#0a1628;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;text-align:center}.body{border:1px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 8px 8px}.row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.divider{border-top:1px dashed #e5e7eb;margin:8px 0}.total{font-weight:700;font-size:15px}.stamp{text-align:center;margin-top:12px;font-size:11px;color:#9ca3af}@media print{button{display:none}}</style></head><body><div class="hdr"><div style="font-size:15px;font-weight:700">Payment Receipt</div><div style="font-size:10px;opacity:0.7">'+(clinicSettings?.clinic_name||'MediPlex')+'</</div></div><div class="body"><div class="row"><span>Patient</span><strong>${inv.childName}</strong></div><div class="row"><span>Date</span><span>${inv.date}</span></div><div class="row"><span>Receipt #</span><span>RCP-${inv.id?.slice(-6)||'000000'}</span></div><div class="divider"></div><div class="row"><span>Fee</span><span>${currency} ${inv.feeAmount.toLocaleString()}</span></div>${inv.discount>0?'<div class="row"><span>Discount</span><span style="color:#16a34a">- '+currency+' '+inv.discount.toLocaleString()+'</span></div>':''}<div class="row total"><span>Amount Paid</span><span style="color:#16a34a">${currency} ${inv.paid.toLocaleString()}</span></div>${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'<div class="row"><span>Balance Due</span><span style="color:#dc2626">'+currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString()+'</span></div>':''}<div class="divider"></div><div class="row"><span>Payment Method</span><span>${inv.paymentMethod||'Cash'}</span></div><div class="stamp">Thank you for choosing our clinic<br/>This is a computer generated receipt</div></div><button onclick="window.print()" style="margin:12px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Receipt</button></body></html>`);
                 w.document.close();setTimeout(()=>w.print(),400);
               }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
                 style={{background:'rgba(26,127,94,0.1)',color:'#1a7f5e',border:'1px solid rgba(26,127,94,0.2)'}}>
@@ -437,7 +443,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                   waPhone = aptData?.whatsapp_number || '';
                 }
                 const p=(waPhone).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
-                const msg='Payment Receipt - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: PKR '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: PKR '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
+                const msg='Payment Receipt - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: '+currency+' '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: '+currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():' (PAID IN FULL)')+'\n\nThank you for choosing our clinic.';
                 if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                 else toast.error('No WhatsApp number on file');
               }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
@@ -460,7 +466,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                   <input value={bulkDiscount.mrNumber} onChange={e=>setBulkDiscount(p=>({...p,mrNumber:e.target.value}))}
                     placeholder="MR Number" className="border rounded-lg px-2 py-1.5 text-[12px] w-28 outline-none focus:border-gold"/>
                   <input value={bulkDiscount.discount} onChange={e=>setBulkDiscount(p=>({...p,discount:e.target.value}))}
-                    placeholder="Discount PKR" type="number" className="border rounded-lg px-2 py-1.5 text-[12px] w-28 outline-none focus:border-gold"/>
+                    placeholder={`Discount ${currency}`} type="number" className="border rounded-lg px-2 py-1.5 text-[12px] w-28 outline-none focus:border-gold"/>
                   <button onClick={async()=>{
                     if(!bulkDiscount.mrNumber||!bulkDiscount.discount){toast.error('Enter MR and discount');return;}
                     const {error}=await supabase.from('billing').update({discount:Number(bulkDiscount.discount)}).eq('mr_number',bulkDiscount.mrNumber).eq('clinic_id',clinicId||'').eq('payment_status','Unpaid');
@@ -491,14 +497,14 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                     <div className="text-[13px] font-bold" style={{color:balance>0?'#dc2626':'#16a34a'}}>
                       {balance>0?`${currency} ${balance.toLocaleString()} due`:'Settled ✓'}
                     </div>
-                    <div className="text-[10px] text-gray-400">Total billed: PKR {totalBilled.toLocaleString()}</div>
+                    <div className="text-[10px] text-gray-400">Total billed: {currency} {totalBilled.toLocaleString()}</div>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={()=>{
                     const w=window.open('','_blank');if(!w)return;
-                    const rows=patInvoices.map(inv=>`<tr><td>${inv.date}</td><td>${inv.appointmentId||'Visit'}</td><td>${currency} ${inv.feeAmount.toLocaleString()}</td><td>PKR ${inv.discount.toLocaleString()}</td><td>${currency} ${inv.paid.toLocaleString()}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():'Paid'}</td></tr>`).join('');
-                    w.document.write(`<!DOCTYPE html><html><head><title>Statement</title><style>body{font-family:Arial;padding:20px;max-width:700px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.total-row{font-weight:700;background:#f9f7f3}.footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h2 style="margin:0">Patient Statement</h2><div style="font-size:12px;color:#6b7280">${clinicSettings?.clinic_name||'MediPlex'} · ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div></div><div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#0a1628">${patient}</div><div style="font-size:11px;color:#6b7280">MR# ${patInvoices[0]?.mr_number||'—'}</div></div></div><table><thead><tr><th>Date</th><th>Description</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="2">TOTAL</td><td>PKR ${totalBilled.toLocaleString()}</td><td></td><td>PKR ${totalPaid2.toLocaleString()}</td><td style="color:${balance>0?'#dc2626':'#16a34a'}">${balance>0?currency+' '+balance.toLocaleString()+' DUE':'SETTLED'}</td></tr></tbody></table><div class="footer">This is a computer-generated statement. For queries contact the clinic.</div><div style="text-align:center;font-size:10px;color:#9ca3af;margin-top:10px;padding-top:8px;border-top:1px solid #f3f4f6">Powered by <a href="https://mediplex.io" style="color:#c9a84c;text-decoration:none;font-weight:600">MediPlex</a> — AI for Smart Healthcare</div><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Statement</button></body></html>`);
+                    const rows=patInvoices.map(inv=>`<tr><td>${inv.date}</td><td>${inv.appointmentId||'Visit'}</td><td>${currency} ${inv.feeAmount.toLocaleString()}</td><td>${currency} ${inv.discount.toLocaleString()}</td><td>${currency} ${inv.paid.toLocaleString()}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():'Paid'}</td></tr>`).join('');
+                    w.document.write(`<!DOCTYPE html><html><head><title>Statement</title><style>body{font-family:Arial;padding:20px;max-width:700px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.total-row{font-weight:700;background:#f9f7f3}.footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h2 style="margin:0">Patient Statement</h2><div style="font-size:12px;color:#6b7280">${clinicSettings?.clinic_name||'MediPlex'} · ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div></div><div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#0a1628">${patient}</div><div style="font-size:11px;color:#6b7280">MR# ${patInvoices[0]?.mr_number||'—'}</div></div></div><table><thead><tr><th>Date</th><th>Description</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="2">TOTAL</td><td>${currency} ${totalBilled.toLocaleString()}</td><td></td><td>${currency} ${totalPaid2.toLocaleString()}</td><td style="color:${balance>0?'#dc2626':'#16a34a'}">${balance>0?currency+' '+balance.toLocaleString()+' DUE':'SETTLED'}</td></tr></tbody></table><div class="footer">This is a computer-generated statement. For queries contact the clinic.</div><div style="text-align:center;font-size:10px;color:#9ca3af;margin-top:10px;padding-top:8px;border-top:1px solid #f3f4f6">Powered by <a href="https://mediplex.io" style="color:#c9a84c;text-decoration:none;font-weight:600">MediPlex</a> — AI for Smart Healthcare</div><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Statement</button></body></html>`);
                     w.document.close();setTimeout(()=>w.print(),400);
                   }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
                     style={{background:'rgba(43,108,176,0.1)',color:'#2b6cb0',border:'1px solid rgba(43,108,176,0.2)'}}>
@@ -512,7 +518,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                         waPhone2 = aptData2?.whatsapp_number || '';
                       }
                       const p=(waPhone2).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
-                      const msg='Account Statement - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: PKR '+totalBilled.toLocaleString()+'\nTotal Paid: PKR '+totalPaid2.toLocaleString()+'\nBalance Due: PKR '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
+                      const msg='Account Statement - '+(clinicSettings?.clinic_name||'Clinic')+'\n\nDear '+patient+',\n\nYour account summary:\nTotal Billed: '+currency+' '+totalBilled.toLocaleString()+'\nTotal Paid: '+currency+' '+totalPaid2.toLocaleString()+'\nBalance Due: '+currency+' '+balance.toLocaleString()+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
                       if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                       else toast.error('No WhatsApp number on file');
                     }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
@@ -552,7 +558,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Standard Price (PKR)</label>
+                  <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Standard Price ({currency})</label>
                   <input value={priceForm.price} onChange={e=>setPriceForm(p=>({...p,price:e.target.value}))}
                     type="number" placeholder="e.g. 1500" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
                 </div>
@@ -602,7 +608,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                       <tr key={p.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
                         <td className="px-4 py-2.5 text-[13px] font-medium text-navy">{p.procedure_name}</td>
                         <td className="px-4 py-2.5 text-[12px] text-gray-500">{p.doctor_name||'All Doctors'}</td>
-                        <td className="px-4 py-2.5 text-[13px] font-semibold text-navy">PKR {Number(p.price).toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-[13px] font-semibold text-navy">{currency} {Number(p.price).toLocaleString()}</td>
                         <td className="px-4 py-2.5 text-[12px] text-emerald-600">{p.discounted_price?currency+' '+Number(p.discounted_price).toLocaleString():'—'}</td>
                         <td className="px-4 py-2.5">
                           <button onClick={async()=>{
@@ -630,8 +636,8 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
               className="border rounded-lg px-3 py-1.5 text-[12px] outline-none focus:border-gold"/>
             <button onClick={()=>{
               const w=window.open('','_blank');if(!w)return;
-              const rows=cashReport.dayInvoices.map(inv=>`<tr><td>${inv.childName}</td><td>${inv.appointmentId||'—'}</td><td>${currency} ${inv.feeAmount.toLocaleString()}</td><td>PKR ${inv.discount.toLocaleString()}</td><td>${currency} ${inv.paid.toLocaleString()}</td><td>${inv.paymentMethod||'Cash'}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'Due':'Paid'}</td></tr>`).join('');
-              w.document.write(`<!DOCTYPE html><html><head><title>Cash Report</title><style>body{font-family:Arial;padding:20px;max-width:800px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.card{background:#f9f7f3;border-radius:8px;padding:12px;text-align:center}.card-val{font-size:18px;font-weight:700;color:#0a1628}.card-lbl{font-size:10px;color:#9ca3af;margin-top:2px}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">Daily Cash Report</h2><div style="font-size:12px;color:#6b7280">${new Date(cashDate).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div></div><div class="summary"><div class="card"><div class="card-val">PKR ${cashReport.totalBilled.toLocaleString()}</div><div class="card-lbl">Total Billed</div></div><div class="card"><div class="card-val" style="color:#16a34a">PKR ${cashReport.totalCollected.toLocaleString()}</div><div class="card-lbl">Collected</div></div><div class="card"><div class="card-val" style="color:#dc2626">PKR ${cashReport.totalDue.toLocaleString()}</div><div class="card-lbl">Outstanding</div></div><div class="card"><div class="card-val">${cashReport.dayInvoices.length}</div><div class="card-lbl">Patients</div></div></div><table><thead><tr><th>Patient</th><th>Invoice</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Method</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Report</button><div style="text-align:center;font-size:10px;color:#9ca3af;margin-top:10px;padding-top:8px;border-top:1px solid #f3f4f6">Powered by <a href="https://mediplex.io" style="color:#c9a84c;text-decoration:none;font-weight:600">MediPlex</a> — AI for Smart Healthcare</div></body></html>`);
+              const rows=cashReport.dayInvoices.map(inv=>`<tr><td>${inv.childName}</td><td>${inv.appointmentId||'—'}</td><td>${currency} ${inv.feeAmount.toLocaleString()}</td><td>${currency} ${inv.discount.toLocaleString()}</td><td>${currency} ${inv.paid.toLocaleString()}</td><td>${inv.paymentMethod||'Cash'}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'Due':'Paid'}</td></tr>`).join('');
+              w.document.write(`<!DOCTYPE html><html><head><title>Cash Report</title><style>body{font-family:Arial;padding:20px;max-width:800px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.card{background:#f9f7f3;border-radius:8px;padding:12px;text-align:center}.card-val{font-size:18px;font-weight:700;color:#0a1628}.card-lbl{font-size:10px;color:#9ca3af;margin-top:2px}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">Daily Cash Report</h2><div style="font-size:12px;color:#6b7280">${new Date(cashDate).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</div></div></div><div class="summary"><div class="card"><div class="card-val">${currency} ${cashReport.totalBilled.toLocaleString()}</div><div class="card-lbl">Total Billed</div></div><div class="card"><div class="card-val" style="color:#16a34a">${currency} ${cashReport.totalCollected.toLocaleString()}</div><div class="card-lbl">Collected</div></div><div class="card"><div class="card-val" style="color:#dc2626">${currency} ${cashReport.totalDue.toLocaleString()}</div><div class="card-lbl">Outstanding</div></div><div class="card"><div class="card-val">${cashReport.dayInvoices.length}</div><div class="card-lbl">Patients</div></div></div><table><thead><tr><th>Patient</th><th>Invoice</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Method</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Report</button><div style="text-align:center;font-size:10px;color:#9ca3af;margin-top:10px;padding-top:8px;border-top:1px solid #f3f4f6">Powered by <a href="https://mediplex.io" style="color:#c9a84c;text-decoration:none;font-weight:600">MediPlex</a> — AI for Smart Healthcare</div></body></html>`);
               w.document.close();setTimeout(()=>w.print(),400);
             }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium btn-gold">
               🖨️ Print Report
@@ -678,9 +684,9 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                 ) : cashReport.dayInvoices.map(inv=>(
                   <tr key={(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id} className="hover:bg-gray-50" style={{borderBottom:'1px solid #f9fafb'}}>
                     <td className="px-4 py-2.5 font-medium text-navy text-[13px]">{inv.childName}</td>
-                    <td className="px-4 py-2.5 text-[12px]">PKR {inv.feeAmount.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-[12px]">{currency} {inv.feeAmount.toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-[12px] text-emerald-600">{inv.discount>0?currency+' '+inv.discount.toLocaleString():'—'}</td>
-                    <td className="px-4 py-2.5 text-[12px] font-semibold text-emerald-700">PKR {inv.paid.toLocaleString()}</td>
+                    <td className="px-4 py-2.5 text-[12px] font-semibold text-emerald-700">{currency} {inv.paid.toLocaleString()}</td>
                     <td className="px-4 py-2.5 text-[12px] text-gray-500">{inv.paymentMethod||'Cash'}</td>
                     <td className="px-4 py-2.5">
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
@@ -743,7 +749,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Amount Claimed</label>
                   <input value={claimForm.amount_claimed} onChange={e=>setClaimForm(p=>({...p,amount_claimed:e.target.value}))}
-                    type="number" placeholder="PKR amount" className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
+                    type="number" placeholder={`${currency} amount`} className="w-full border rounded-lg px-3 py-2 text-[12px] outline-none focus:border-gold"/>
                 </div>
                 <div>
                   <label className="text-[10px] text-gray-400 uppercase tracking-widest block mb-1">Claim Date</label>
@@ -813,9 +819,9 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                       </td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-600">{claim.insurance_provider}</td>
                       <td className="px-3 py-2.5 text-[11px] text-gray-500 font-mono">{claim.policy_number||'—'}</td>
-                      <td className="px-3 py-2.5 text-[12px] text-navy">PKR {Number(claim.amount_claimed||0).toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-[12px] text-emerald-600">PKR {Number(claim.amount_approved||0).toLocaleString()}</td>
-                      <td className="px-3 py-2.5 text-[12px] font-semibold text-emerald-700">PKR {Number(claim.amount_paid||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-navy">{currency} {Number(claim.amount_claimed||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[12px] text-emerald-600">{currency} {Number(claim.amount_approved||0).toLocaleString()}</td>
+                      <td className="px-3 py-2.5 text-[12px] font-semibold text-emerald-700">{currency} {Number(claim.amount_paid||0).toLocaleString()}</td>
                       <td className="px-3 py-2.5 text-center">
                         <span className="text-[12px] font-semibold text-navy">{claim.resubmit_count||0}</span>
                       </td>
@@ -1021,20 +1027,20 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
 
             <div>
               <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">
-                {formType === 'procedure' ? 'Procedure Fee (PKR)' : 'Consultation Fee (PKR)'}
+                {formType === 'procedure' ? `Procedure Fee (${currency})` : `Consultation Fee (${currency})`}
               </label>
               <input type="number" min="0" value={form.feeAmount || ''}
                 onChange={e => setForm(prev => ({ ...prev, feeAmount: Number(e.target.value) }))}
                 className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Discount (PKR)</label>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Discount ({currency})</label>
               <input type="number" min="0" value={form.discount || ''}
                 onChange={e => setForm(prev => ({ ...prev, discount: Number(e.target.value) }))}
                 className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
             </div>
             <div>
-              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Amount Paid (PKR)</label>
+              <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1.5">Amount Paid ({currency})</label>
               <input type="number" min="0" value={form.paid || ''}
                 onChange={e => setForm(prev => ({ ...prev, paid: Number(e.target.value) }))}
                 className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
@@ -1044,7 +1050,7 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
               <select value={form.paymentMethod || 'Cash'}
                 onChange={e => setForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
                 className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold">
-                {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                {paymentMethods.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
             </div>
           </div>
@@ -1128,8 +1134,8 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
                         : inv.visitType || '—'
                       }
                     </td>
-                    <td className="text-[12px] font-medium text-navy">PKR {inv.feeAmount.toLocaleString()}</td>
-                    <td className="text-[12px] font-medium" style={{ color: '#1a7f5e' }}>PKR {inv.paid.toLocaleString()}</td>
+                    <td className="text-[12px] font-medium text-navy">{currency} {inv.feeAmount.toLocaleString()}</td>
+                    <td className="text-[12px] font-medium" style={{ color: '#1a7f5e' }}>{currency} {inv.paid.toLocaleString()}</td>
                     <td className="text-[12px] font-medium" style={{ color: due > 0 ? '#c53030' : '#1a7f5e' }}>
                       {due > 0 ? `${currency} ${due.toLocaleString()}` : '✓ Cleared'}
                     </td>

@@ -152,21 +152,22 @@ export function normalizeMR(raw: string): string {
   return `A${String(n).padStart(10,'0')}`;
 }
 
-export async function generateNextMRNumber(): Promise<string> {
+export async function generateNextMRNumber(mrPrefix = 'A', mrDigits = 10): Promise<string> {
   try {
     const [{ data: aptData }, { data: patData }] = await Promise.all([
       supabase.from('appointments').select('mr_number').not('mr_number','is',null).neq('mr_number',''),
       supabase.from('patients').select('mr_number').not('mr_number','is',null).neq('mr_number',''),
     ]);
+    const prefixRegex = new RegExp(`^${mrPrefix}-?0*`, 'i');
     let maxNum = 0;
     for (const row of [...(aptData||[]),...(patData||[])]) {
-      const raw = (row.mr_number||'').replace(/^A-?0*/i,'');
+      const raw = (row.mr_number||'').replace(prefixRegex,'');
       const n   = parseInt(raw);
       if (!isNaN(n) && n > maxNum) maxNum = n;
     }
-    return `A${String(maxNum+1).padStart(10,'0')}`;
+    return `${mrPrefix}${String(maxNum+1).padStart(mrDigits,'0')}`;
   } catch {
-    return `A${String(Date.now()).slice(-8).padStart(10,'0')}`;
+    return `${mrPrefix}${String(Date.now()).slice(-8).padStart(mrDigits,'0')}`;
   }
 }
 
