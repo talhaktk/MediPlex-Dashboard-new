@@ -246,7 +246,6 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
       createdAt:     new Date().toISOString(),
       recordType:    type,
       procedureName: '',
-      feeAmount: clinicSettings?.default_consultation_fee || 0,
     });
     setAptSearch('');
     setShowForm(true);
