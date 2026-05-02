@@ -42,7 +42,6 @@ const EMPTY_FORM = {
 
 export default function AppointmentsClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
-  const { settings: clinicSettings, refetch: refetchSettings } = useClinicSettings();
   const { clinicId, isSuperAdmin, terminology } = useClinic();
 
   // ── Filters ────────────────────────────────────────────────────────────────
