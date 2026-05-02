@@ -1,4 +1,5 @@
 'use client';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Appointment } from '@/types';
@@ -38,6 +39,7 @@ const EMPTY_FORM: NewAptForm = {
 
 export default function CalendarClient({ data: initialData }: { data: Appointment[] }) {
   const [data, setData] = useState<Appointment[]>(initialData);
+  const { settings: calSettings } = useClinicSettings();
   const { clinicId, isSuperAdmin } = useClinic();
   const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -50,7 +52,7 @@ export default function CalendarClient({ data: initialData }: { data: Appointmen
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from('clinic_settings').select('*').eq('clinic_id', clinicId||'').maybeSingle()
+    Promise.resolve({ data: calSettings })
       .then(({ data }) => { if (data) setSchedule(data); });
   }, []);
 

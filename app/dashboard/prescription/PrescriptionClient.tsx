@@ -19,6 +19,7 @@ import LabInvestigations, { LabRequest, LAB_EXPANSIONS } from '@/components/ui/L
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
 import { useClinic, withClinicFilter, withClinicId } from '@/lib/clinicContext';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 
 // ── WhatsApp send helper ─────────────────────────────────────────────────────
 function sendWA(phone: string, msg: string) {
@@ -342,6 +343,7 @@ export default function PrescriptionClient({
   clinicPhone: string; clinicAddress: string;
 }) {
   const { clinicId, isSuperAdmin } = useClinic();
+  const { settings: liveSettings } = useClinicSettings();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [drugSearch, setDrugSearch] = useState<Record<string,string>>({});

@@ -331,8 +331,8 @@ export default function BillingClient({ clinicSettings = null, data }: { data: A
     <div class="header">
       <div>
         <div class="clinic-name">${clinicSettings?.clinic_name||'Clinic'}</div>
-        <div class="clinic-sub">${process.env.NEXT_PUBLIC_CLINIC_ADDRESS||''}</div>
-        <div class="clinic-sub">${process.env.NEXT_PUBLIC_CLINIC_PHONE||''} · ${process.env.NEXT_PUBLIC_CLINIC_EMAIL||''}</div>
+        <div class="clinic-sub">${clinicSettings?.clinic_address||''}</div>
+        <div class="clinic-sub">${clinicSettings?.clinic_phone||''} · ${clinicSettings?.clinic_email||''}</div>
       </div>
       <div>
         <div class="invoice-label">${isProcedure?'PROCEDURE INVOICE':'INVOICE'}</div>

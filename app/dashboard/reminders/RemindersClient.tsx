@@ -1,4 +1,5 @@
 'use client';
+import { useClinicSettings } from '@/lib/useClinicSettings';
 
 import { useState, useMemo, useEffect } from 'react';
 import { Appointment } from '@/types';
@@ -70,7 +71,10 @@ function saveLog(l: ReminderLog[]) { try { localStorage.setItem(LS_KEY, JSON.str
 function daysUntil(d: string) { const t=new Date(); t.setHours(0,0,0,0); const a=new Date(d); a.setHours(0,0,0,0); return Math.round((a.getTime()-t.getTime())/86400000); }
 function sendWA(phone: string, msg: string) { let p=phone.replace(/\D/g,''); if(p.startsWith('0')) p='92'+p.slice(1); window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`,'_blank'); }
 
-export default function RemindersClient({ data, clinicName, doctorName }: Props) {
+export default function RemindersClient({ data, clinicName: clinicNameProp, doctorName: doctorNameProp }: Props) {
+  const { settings } = useClinicSettings();
+  const clinicName = settings?.clinic_name || clinicNameProp;
+  const doctorName = settings?.doctor_name || doctorNameProp;
   const [log, setLog] = useState<ReminderLog[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'today'|'tomorrow'|'week'|'all'>('week');
