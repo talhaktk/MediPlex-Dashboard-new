@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import WisprVoicePlugin from '@/components/WisprVoicePlugin';
 import { SettingsSavedBanner } from '@/components/ui/SettingsSavedBanner';
+import { SessionTimeoutGuard } from '@/components/ui/SessionTimeoutGuard';
 import { ClinicProvider } from '@/lib/clinicContext';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,6 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {children}
         <WisprVoicePlugin/>
         <SettingsSavedBanner/>
+        <SessionTimeoutGuard/>
         <footer className="px-8 py-3 text-center border-t border-black/5">
           <span className="text-[11px] text-gray-400">Powered by </span>
           <a href="https://mediplex.io" target="_blank" rel="noopener noreferrer"
