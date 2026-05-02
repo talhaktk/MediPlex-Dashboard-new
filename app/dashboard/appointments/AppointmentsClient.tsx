@@ -685,7 +685,17 @@ const result = await createAppointmentFull({...addForm, clinic_id: clinicId} as 
                     <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium block mb-1">Date *</label>
                     <input type="date"
                       value={addForm.appointment_date}
-                      onChange={e => setAddForm(p => ({ ...p, appointment_date: e.target.value }))}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setAddForm(p => ({ ...p, appointment_date: val }));
+                        if (val && schedule?.working_days) {
+                          const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                          const dayName = days[new Date(val + 'T00:00:00').getDay()];
+                          if (!schedule.working_days.split(',').includes(dayName)) {
+                            toast.error(`${dayName} is not a working day (${schedule.working_days})`);
+                          }
+                        }
+                      }}
                       className="w-full border border-black/10 rounded-lg px-3 py-2 text-[13px] text-navy bg-white outline-none focus:border-gold" />
                   </div>
                   <div>

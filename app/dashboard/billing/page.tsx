@@ -25,7 +25,7 @@ export default async function BillingPage() {
   const { data: appointments } = await q;
 
   const { data: clinicSettings } = clinicId
-    ? await sb.from('clinic_settings').select('clinic_name,clinic_phone,clinic_address,doctor_name,prescription_header_img,prescription_footer_img,invoice_prefix,invoice_footer,currency').eq('clinic_id', clinicId).maybeSingle()
+    ? await sb.from('clinic_settings').select('*').eq('clinic_id', clinicId).maybeSingle()
     : { data: null };
 
   return (

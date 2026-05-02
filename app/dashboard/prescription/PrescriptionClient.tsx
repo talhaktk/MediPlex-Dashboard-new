@@ -119,6 +119,11 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
 
   const displayDoctorName = (clinicSettings && clinicSettings.doctor_name) ? clinicSettings.doctor_name : doctorName;
 
+  let printedPageCSS = '';
+  if (isPrinted) {
+    printedPageCSS = '@media print{@page{size:' + paperSize + ';margin:' + marginTop + 'mm ' + marginRight + 'mm ' + marginBottom + 'mm ' + marginLeft + 'mm}.page{padding:0;font-size:' + fontSize + 'px}}';
+  }
+
   let qrHTML = '';
   if (labQrToken) {
     const qrData = encodeURIComponent(window.location.origin + '/lab-upload/' + labQrToken);
@@ -132,7 +137,7 @@ function printPrescription(rx: Prescription, clinicName: string, doctorName: str
   }
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Prescription ${rx.id}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:210mm;margin:0 auto;padding:12px 16px;font-size:11px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:15px;font-weight:700}.clinic-sub{font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:10px 16px}.patient-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;padding:8px 10px;background:#f9f7f3;border-radius:6px}.field-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:1px}.field-val{font-size:11px;font-weight:600;color:#0a1628}.section-title{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin:8px 0 4px;border-bottom:1px solid #f0f0f0;padding-bottom:2px}.cc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.cc-box{background:#fff9e6;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;font-size:11px}.diagnosis-box{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:#856404;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#0a1628;color:white;padding:5px 8px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase}td{padding:4px 8px;border-bottom:1px solid #f5f5f5;font-size:11px}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:10px;color:#166534;margin-bottom:6px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;font-size:10px;color:#1e40af;margin-bottom:6px}@media print{body{padding:0;margin:0}.page{padding:8px 12px}}\${isPrinted ? '@media print{@page{size:'+paperSize+';margin:'+marginTop+'mm '+marginRight+'mm '+marginBottom+'mm '+marginLeft+'mm}.page{padding:0;font-size:'+fontSize+'px}}' : ''}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#0a1628;font-size:13px}.page{max-width:210mm;margin:0 auto;padding:12px 16px;font-size:11px}.header{background:linear-gradient(135deg,#0a1628,#142240);color:white;padding:10px 16px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center}.clinic-name{font-size:15px;font-weight:700}.clinic-sub{font-size:9px;color:rgba(255,255,255,0.6);margin-top:2px}.rx-badge{background:rgba(201,168,76,0.2);border:1px solid rgba(201,168,76,0.4);color:#c9a84c;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.body{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 8px 8px;padding:10px 16px}.patient-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px;padding:8px 10px;background:#f9f7f3;border-radius:6px}.field-label{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:1px}.field-val{font-size:11px;font-weight:600;color:#0a1628}.section-title{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;font-weight:700;margin:8px 0 4px;border-bottom:1px solid #f0f0f0;padding-bottom:2px}.cc-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}.cc-box{background:#fff9e6;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;font-size:11px}.diagnosis-box{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;color:#856404;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:6px}th{background:#0a1628;color:white;padding:5px 8px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase}td{padding:4px 8px;border-bottom:1px solid #f5f5f5;font-size:11px}.advice-box{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:5px 10px;font-size:10px;color:#166534;margin-bottom:6px}.followup-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;font-size:10px;color:#1e40af;margin-bottom:6px}@media print{body{padding:0;margin:0}.page{padding:8px 12px}}${printedPageCSS}</style>
   </head><body><div class="page">
     ${headerHTML}
     <div class="body">
@@ -344,6 +349,8 @@ export default function PrescriptionClient({
 }) {
   const { clinicId, isSuperAdmin } = useClinic();
   const { settings: liveSettings } = useClinicSettings();
+  // liveSettings stays fresh after settings are saved; fall back to server-side prop on first load
+  const effectiveSettings = liveSettings ?? clinicSettings;
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [drugSearch, setDrugSearch] = useState<Record<string,string>>({});
@@ -1056,11 +1063,11 @@ export default function PrescriptionClient({
               <div className="mb-4">
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Diagnosis</label>
-                  {clinicSettings?.soap_templates?.length > 0 && (
+                  {effectiveSettings?.soap_templates?.length > 0 && (
                     <div className="relative group">
                       <button className="text-[11px] text-gold hover:text-amber-600 font-medium">📋 Templates</button>
                       <div className="absolute right-0 top-6 z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden hidden group-hover:block">
-                        {(clinicSettings.soap_templates||[]).map((t:any,i:number)=>(
+                        {(effectiveSettings.soap_templates||[]).map((t:any,i:number)=>(
                           <button key={i} onClick={()=>setForm(prev=>({...prev,diagnosis:t.name,chiefComplaint:(prev.chiefComplaint||'')+(prev.chiefComplaint?'\n':'')+t.content}))}
                             className="w-full text-left px-3 py-2.5 hover:bg-amber-50 border-b border-gray-100 last:border-0">
                             <div className="text-[12px] font-medium text-navy">{t.name}</div>
@@ -1274,12 +1281,12 @@ export default function PrescriptionClient({
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Follow-up</label>
-                    {clinicSettings?.referral_templates?.length > 0 && (
+                    {effectiveSettings?.referral_templates?.length > 0 && (
                       <div className="relative group">
                         <button className="text-[11px] text-blue-500 hover:text-blue-700 font-medium">📄 Referral Templates</button>
                         <div className="absolute right-0 top-6 z-50 w-72 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden hidden group-hover:block">
                           <div className="px-3 py-2 text-[10px] text-gray-400 uppercase tracking-widest border-b">Referral Templates</div>
-                          {(clinicSettings.referral_templates||[]).map((t:any,i:number)=>(
+                          {(effectiveSettings.referral_templates||[]).map((t:any,i:number)=>(
                             <button key={i} onClick={()=>{
                               const w=window.open('','_blank');
                               if(!w)return;
@@ -1304,11 +1311,11 @@ export default function PrescriptionClient({
 
               <div className="flex gap-2 pt-4 border-t border-black/5">
                 <button onClick={validateAndSave} className="btn-gold text-[12px] py-2 px-4 gap-1.5"><Save size={13} /> Save Prescription</button>
-                {clinicSettings?.consent_templates?.length > 0 && (
+                {effectiveSettings?.consent_templates?.length > 0 && (
                   <div className="relative group">
                     <button className="btn-outline text-[12px] py-2 px-3">📋 Consent</button>
                     <div className="absolute bottom-10 left-0 z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden hidden group-hover:block">
-                      {(clinicSettings.consent_templates||[]).map((t:any,i:number)=>(
+                      {(effectiveSettings.consent_templates||[]).map((t:any,i:number)=>(
                         <button key={i} onClick={()=>{
                           const w=window.open('','_blank');
                           if(!w)return;
@@ -1331,7 +1338,7 @@ export default function PrescriptionClient({
                     const result = await createLabOrderQR(labRequests, form.childName);
                     if (result) { qrToken = result.qrToken; qrExpiry = result.expiresAt; }
                   }
-                  printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, clinicSettings);
+                  printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, effectiveSettings);
                 }} className="btn-outline text-[12px] py-2 px-4 gap-1.5"><Printer size={13} /> Save & Print</button>
                 <button onClick={() => setShowForm(false)} className="btn-outline text-[12px] py-2 px-3">Cancel</button>
               </div>
@@ -1390,7 +1397,7 @@ try {
     pendingLabTests=pending.tests||[];
   }
 } catch {}
-printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, clinicSettings, pendingLabTests); }}
+printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, effectiveSettings, pendingLabTests); }}
                             className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-blue-50 transition-colors" title="Print">
                             <Printer size={12} className="text-gray-600" />
                           </button>
