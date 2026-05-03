@@ -15,6 +15,7 @@ import {
   patientKey, HealthRecord, VitalSigns, PrescriptionRecord as StorePrescription
 } from '@/lib/store';
 import { getScribeOutput, clearScribeOutput, ScribeOutput } from '@/lib/scribeStore';
+import AIDiagnosisAssist from '@/components/ui/AIDiagnosisAssist';
 import LabInvestigations, { LabRequest, LAB_EXPANSIONS } from '@/components/ui/LabInvestigations';
 import { searchDrugs, checkInteractions as bnfCheckInteractions } from '@/lib/bnf';
 import { supabase } from '@/lib/supabase';
@@ -1061,6 +1062,16 @@ export default function PrescriptionClient({
 
               {/* Diagnosis */}
               <div className="mb-4">
+                {(form.chiefComplaint||form.signsSymptoms) && (
+                  <AIDiagnosisAssist
+                    chiefComplaint={form.chiefComplaint||''} signsSymptoms={form.signsSymptoms||''}
+                    patientAge={form.childAge||''} patientName={form.childName||''}
+                    vitals={dbPatientVitals}
+                    onSelectDiagnosis={(dx)=>setForm(prev=>({...prev,diagnosis:dx}))}
+                    onSelectMedicines={(meds)=>setMedicines(meds)}
+                    onSelectAdvice={(advice)=>setForm(prev=>({...prev,advice}))}
+                  />
+                )}
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-[11px] text-gray-400 uppercase tracking-widest font-medium">Diagnosis</label>
                   {effectiveSettings?.soap_templates?.length > 0 && (
