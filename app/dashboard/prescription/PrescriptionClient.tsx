@@ -1382,11 +1382,11 @@ export default function PrescriptionClient({
 try {
   const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||(rx as any).mrNumber||'';
   const nameParam = encodeURIComponent(rx.childName||'');
-  const { data: allOrders } = mr
-    ? await supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending')
-    : await supabase.from('lab_orders').select('*').eq('child_name', nameParam).eq('status','pending');
-  const orders = allOrders || [];
-  const pending = orders[0];
+  const mrParam = mr ? `mr=${encodeURIComponent(mr)}` : `name=${nameParam}`;
+  const r=await fetch(`/api/lab/order?${mrParam}`);
+  const d2=await r.json();
+  const allOrders = d2.data||[];
+  const pending=allOrders.find((o:any)=>o.status==='pending');
   if(pending){
     qrToken=pending.qr_token;
     qrExpiry=pending.qr_expires_at;

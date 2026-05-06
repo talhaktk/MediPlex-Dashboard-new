@@ -48,7 +48,8 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
       fetch(`/api/lab/order?mr=${encodeURIComponent(mrNumber)}`).then(r=>r.json()),
       supabase.from('lab_results').select('*').eq('mr_number', mrNumber).order('uploaded_at',{ascending:false}),
     ]);
-    setOrders(ordersRes.data || []);
+    const allOrders = ordersRes.data || [];
+      setOrders(allOrders);
     setResults(resultsRes.data || []);
     setLoading(false);
   }, [mrNumber]);
