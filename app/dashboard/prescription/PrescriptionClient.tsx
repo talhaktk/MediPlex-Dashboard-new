@@ -526,7 +526,7 @@ export default function PrescriptionClient({
     if (apt?.childName || (apt as any)?.mr_number) {
       const mr = (apt as any)?.mr_number || (data.find((a:any)=>a.childName===apt?.childName) as any)?.mr_number || '';
       if (mr) {
-        const { data: orders } = await supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending');
+        supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending').then(({ data: orders }) => {
         if (orders && orders.length > 0) {
           const catMap: Record<string,boolean> = {};
           const allTests: LabRequest[] = [];
@@ -538,6 +538,7 @@ export default function PrescriptionClient({
           });
           setLabRequests(allTests);
         } else { setLabRequests([]); }
+        });
       } else { setLabRequests([]); }
     } else {
       setLabRequests([]);
