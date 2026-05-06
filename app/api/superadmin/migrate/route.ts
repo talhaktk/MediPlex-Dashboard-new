@@ -9,7 +9,7 @@ const admin = createClient(
 );
 
 // SQL to run manually in Supabase SQL Editor if exec_sql RPC is not available
-export const SUPERADMIN_MIGRATION_SQL = `
+const SUPERADMIN_MIGRATION_SQL = `
 -- ── organisations ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS organisations (
   id           TEXT PRIMARY KEY,
