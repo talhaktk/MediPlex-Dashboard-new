@@ -121,23 +121,42 @@ export default function RemindersClient({ data, clinicName: clinicNameProp, doct
   }, [data, filter, search, riskFilter]);
 
   const buildMsg = (type: string, a: Appointment) => {
-    // Use custom reminder message if set in settings
+    const isPediatrics = ['pediatric', 'paediatric', 'paeds', 'peds'].some(k =>
+      (settings?.speciality || '').toLowerCase().includes(k)
+    );
+
+    const date = formatUSDate(a.appointmentDate);
+    const time = a.appointmentTime;
+
+    // Custom reminder message template (respects patient vs parent addressing)
     if (type === 'reminder_24h' && settings?.reminder_message) {
+      const nameForTemplate = isPediatrics ? a.parentName : a.childName;
       return settings.reminder_message
-        .replace(/{name}/g, a.parentName)
+        .replace(/{name}/g, nameForTemplate)
         .replace(/{patient}/g, a.childName)
-        .replace(/{date}/g, formatUSDate(a.appointmentDate))
-        .replace(/{time}/g, a.appointmentTime || '')
+        .replace(/{date}/g, date)
+        .replace(/{time}/g, time || '')
         .replace(/{clinic}/g, clinicName)
         + '\n\nThank you 🙏\n\nPowered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare';
     }
-    const date = formatUSDate(a.appointmentDate);
-    const time = a.appointmentTime;
-    const msgs: Record<string,string> = {
-      confirmation: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n✅ *Appointment Confirmed*\n\nDear parent, appointment for *${a.childName}* has been confirmed:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n�� ${clinicName}\n👨‍⚕️ ${doctorName}\n\nPlease arrive 10 minutes early.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
-      reminder_24h: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n⏰ *Appointment Reminder — Tomorrow*\n\n*${a.childName}*'s appointment is tomorrow:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n\nPlease confirm attendance.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
-      reminder_4h:  `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n🔔 *Appointment in 4 Hours*\n\n*${a.childName}*'s appointment is today at *${time}*\n🏥 ${clinicName}\n\nPlease leave on time!\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
-      followup:     `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n💊 *Follow-up Check*\n\nHope *${a.childName}* is feeling better after the visit on ${date}.\n\nFor any concerns please contact us.\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+
+    // Pediatrics: address the parent, reference the child
+    if (isPediatrics) {
+      const msgs: Record<string, string> = {
+        confirmation: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n✅ *Appointment Confirmed*\n\nDear parent, appointment for *${a.childName}* has been confirmed:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nPlease arrive 10 minutes early.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+        reminder_24h: `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n⏰ *Appointment Reminder — Tomorrow*\n\n*${a.childName}*'s appointment is tomorrow:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n\nPlease confirm attendance.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+        reminder_4h:  `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n🔔 *Appointment in 4 Hours*\n\n*${a.childName}*'s appointment is today at *${time}*\n🏥 ${clinicName}\n\nPlease leave on time!\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+        followup:     `Assalam-o-Alaikum *${a.parentName}* sahib,\n\n💊 *Follow-up Check*\n\nHope *${a.childName}* is feeling better after the visit on ${date}.\n\nFor any concerns please contact us.\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      };
+      return msgs[type] || msgs.confirmation;
+    }
+
+    // Non-pediatrics: address the patient directly
+    const msgs: Record<string, string> = {
+      confirmation: `Assalam-o-Alaikum *${a.childName}*,\n\n✅ *Appointment Confirmed*\n\nDear *${a.childName}*, your appointment has been confirmed:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nPlease arrive 10 minutes early.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      reminder_24h: `Assalam-o-Alaikum *${a.childName}*,\n\n⏰ *Appointment Reminder — Tomorrow*\n\nDear *${a.childName}*, your appointment is tomorrow:\n📅 Date: *${date}*\n⏰ Time: *${time}*\n🏥 ${clinicName}\n\nPlease confirm your attendance.\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      reminder_4h:  `Assalam-o-Alaikum *${a.childName}*,\n\n🔔 *Appointment in 4 Hours*\n\nDear *${a.childName}*, your appointment is today at *${time}*\n🏥 ${clinicName}\n\nPlease leave on time!\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
+      followup:     `Assalam-o-Alaikum *${a.childName}*,\n\n💊 *Follow-up Check*\n\nDear *${a.childName}*, we hope you are feeling better after your visit on ${date}.\n\nFor any concerns, please contact us.\n🏥 ${clinicName}\n👨‍⚕️ ${doctorName}\n\nJazakAllah Khair 🤲\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`,
     };
     return msgs[type] || msgs.confirmation;
   };

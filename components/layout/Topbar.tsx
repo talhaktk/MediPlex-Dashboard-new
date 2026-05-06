@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, RefreshCw } from 'lucide-react';
+import { Bell, RefreshCw, Menu } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useSession } from 'next-auth/react';
@@ -77,9 +77,18 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   };
 
   return (
-    <header className="h-16 bg-white border-b border-black/5 flex items-center px-8 gap-4 sticky top-0 z-30">
-      <div className="flex-1">
-        <h1 className="font-display font-semibold text-navy text-[17px] leading-tight">{title}</h1>
+    <header className="h-16 bg-white border-b border-black/5 flex items-center px-4 md:px-8 gap-3 md:gap-4 sticky top-0 z-30">
+      {/* Hamburger — mobile only */}
+      <button
+        className="show-mobile-only w-8 h-8 rounded-lg flex items-center justify-center text-navy hover:bg-gray-100 transition-all flex-shrink-0"
+        onClick={() => window.dispatchEvent(new CustomEvent('toggle-sidebar'))}
+        aria-label="Toggle menu"
+      >
+        <Menu size={18} />
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <h1 className="font-display font-semibold text-navy text-[17px] leading-tight truncate">{title}</h1>
         {subtitle && <p className="text-[11px] text-gray-400 font-light mt-0.5">{subtitle}</p>}
       </div>
 

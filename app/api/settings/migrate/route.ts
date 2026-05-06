@@ -59,6 +59,16 @@ ALTER TABLE lab_orders
 ALTER TABLE subscriptions
   ADD COLUMN IF NOT EXISTS ai_scribe_limit INTEGER,
   ADD COLUMN IF NOT EXISTS ai_scribe_used  INTEGER DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id         SERIAL PRIMARY KEY,
+  clinic_id  TEXT,
+  user_id    TEXT,
+  endpoint   TEXT UNIQUE NOT NULL,
+  p256dh     TEXT NOT NULL,
+  auth       TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 `;
 
 export async function POST() {

@@ -22,13 +22,15 @@
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.5",

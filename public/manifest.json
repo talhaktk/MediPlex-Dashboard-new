@@ -1,0 +1,52 @@
+{
+  "name": "MediPlex — Clinic Dashboard",
+  "short_name": "MediPlex",
+  "description": "Premium clinic management — appointments, patients, billing, AI scribe",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a1628",
+  "theme_color": "#0a1628",
+  "lang": "en",
+  "categories": ["medical", "health", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Appointments",
+      "short_name": "Appts",
+      "description": "View today's appointments",
+      "url": "/dashboard/appointments",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Patients",
+      "short_name": "Patients",
+      "description": "Search and manage patients",
+      "url": "/dashboard/patients",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "AI Scribe",
+      "short_name": "Scribe",
+      "description": "AI-powered clinical documentation",
+      "url": "/dashboard/scribe",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

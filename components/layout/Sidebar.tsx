@@ -36,6 +36,7 @@ export default function Sidebar() {
   const [doctorName,    setDoctorName]    = React.useState('');
   const [speciality,    setSpeciality]    = React.useState('');
   const [unreadMsgs,    setUnreadMsgs]    = React.useState(0);
+  const [mobileOpen,    setMobileOpen]    = React.useState(false);
 
   const clinicId = (session?.user as any)?.clinicId || '';
 
@@ -66,6 +67,13 @@ export default function Sidebar() {
     return () => window.removeEventListener('clinic-settings-saved', fetchSettings);
   }, [fetchSettings]);
 
+  // Mobile sidebar toggle via custom event from Topbar hamburger
+  React.useEffect(() => {
+    const toggle = () => setMobileOpen(v => !v);
+    window.addEventListener('toggle-sidebar', toggle);
+    return () => window.removeEventListener('toggle-sidebar', toggle);
+  }, []);
+
   const user = session?.user as { name?: string; role?: string; initials?: string } | undefined;
   const name = user?.name || doctorName || 'Doctor';
   const role = user?.role ?? 'admin';
@@ -77,7 +85,13 @@ export default function Sidebar() {
   const roleColor = role === 'admin' ? '#c9a84c' : role === 'doctor' ? '#1a7f5e' : '#2b6cb0';
   const handleSignOut = async () => { await signOut({ redirect: false }); router.push('/login'); };
   return (
-    <aside className="sidebar">
+    <>
+    {/* Mobile overlay */}
+    <div
+      className={`sidebar-overlay${mobileOpen ? ' active' : ''}`}
+      onClick={() => setMobileOpen(false)}
+    />
+    <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
       <div className="px-6 py-5 border-b border-white/5">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center text-navy font-bold text-sm flex-shrink-0" style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)' }}>M+</div>
@@ -132,5 +146,6 @@ export default function Sidebar() {
         <button onClick={handleSignOut} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all w-full"><LogOut size={15} />Sign Out</button>
       </div>
     </aside>
+    </>
   );
 }
