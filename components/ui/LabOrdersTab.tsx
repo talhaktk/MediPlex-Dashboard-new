@@ -238,7 +238,6 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
                 {isPending && (
                   <button onClick={async()=>{
                     if(!confirm('Delete this lab order and all associated results?')) return;
-                    await supabase.from('lab_results').delete().eq('order_id', order.id);
                     const {error} = await supabase.from('lab_orders').delete().eq('id', order.id);
                     if(error) toast.error(error.message);
                     else { toast.success('Lab order deleted'); setOrders(prev=>prev.filter(o=>o.id!==order.id)); setResults(prev=>prev.filter(r=>r.order_id!==order.id)); }
