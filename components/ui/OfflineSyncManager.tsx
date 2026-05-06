@@ -67,6 +67,49 @@ export default function OfflineSyncManager() {
         }
       } catch {}
 
+      // ── Lab orders ─────────────────────────────────────────────────────────
+      try {
+        const { data: labOrders } = await supabase
+          .from('lab_orders')
+          .select('*')
+          .eq('clinic_id', clinicId)
+          .order('created_at', { ascending: false })
+          .limit(300);
+        if (labOrders?.length) await cacheList('lab_orders', labOrders);
+      } catch {}
+
+      // ── Lab results ────────────────────────────────────────────────────────
+      try {
+        const { data: labResults } = await supabase
+          .from('lab_results')
+          .select('*')
+          .order('uploaded_at', { ascending: false })
+          .limit(300);
+        if (labResults?.length) await cacheList('lab_results', labResults);
+      } catch {}
+
+      // ── Prescriptions / scribe outputs ────────────────────────────────────
+      try {
+        const { data: scripts } = await supabase
+          .from('scribe_outputs')
+          .select('*')
+          .eq('clinic_id', clinicId)
+          .order('generated_at', { ascending: false })
+          .limit(200);
+        if (scripts?.length) await cacheList('prescriptions', scripts);
+      } catch {}
+
+      // ── Billing (for offline invoice/receipt view) ─────────────────────────
+      try {
+        const { data: bills } = await supabase
+          .from('billing')
+          .select('*')
+          .eq('clinic_id', clinicId)
+          .order('created_at', { ascending: false })
+          .limit(300);
+        if (bills?.length) await cacheList('prescriptions', bills.map(b => ({ ...b, id: `bill-${b.id || b.invoice_number}` })));
+      } catch {}
+
       await setSyncMeta('last_sync', new Date().toISOString());
       await setSyncMeta('clinic_id', clinicId);
 

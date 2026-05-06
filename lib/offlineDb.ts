@@ -1,17 +1,20 @@
 // IndexedDB cache for offline patient record access
 const DB_NAME    = 'mediplex-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // bumped: added lab_orders, lab_results, prescriptions stores
 
-type Store = 'appointments' | 'patients' | 'sync_meta';
+type Store = 'appointments' | 'patients' | 'sync_meta' | 'lab_orders' | 'lab_results' | 'prescriptions';
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = (e.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains('appointments')) db.createObjectStore('appointments', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('patients'))     db.createObjectStore('patients',     { keyPath: 'mr_number' });
-      if (!db.objectStoreNames.contains('sync_meta'))    db.createObjectStore('sync_meta',    { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('appointments'))  db.createObjectStore('appointments',  { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('patients'))      db.createObjectStore('patients',      { keyPath: 'mr_number' });
+      if (!db.objectStoreNames.contains('sync_meta'))     db.createObjectStore('sync_meta',     { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('lab_orders'))    db.createObjectStore('lab_orders',    { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('lab_results'))   db.createObjectStore('lab_results',   { keyPath: 'id' });
+      if (!db.objectStoreNames.contains('prescriptions')) db.createObjectStore('prescriptions', { keyPath: 'id' });
     };
     req.onsuccess  = () => resolve(req.result);
     req.onerror    = () => reject(req.error);
