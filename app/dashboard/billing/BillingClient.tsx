@@ -35,8 +35,11 @@ type Invoice = {
 
 const METHODS = ['Cash', 'Card', 'Online Transfer', 'Insurance', 'Waived'];
 
-function genId() {
-  return `INV-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+function nextInvoiceId(invoices: Invoice[], prefix = 'INV'): string {
+  const p = prefix || 'INV';
+  const nums = invoices.map(inv => { const m = String(inv.id).match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; });
+  const next = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
+  return `${p}-${String(next).padStart(3, '0')}`;
 }
 
 // ── Map DB row → Invoice ──────────────────────────────────────────────────────
@@ -115,6 +118,19 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
   const [showBulkDiscount, setShowBulkDiscount] = useState(false);
   const [cashDate, setCashDate] = useState(new Date().toISOString().split('T')[0]);
   const [billingTab, setBillingTab] = useState<'invoices'|'receipts'|'statements'|'pricelist'|'cashreport'|'claims'|'expenses'>('invoices');
+  const [orgName, setOrgName] = useState('');
+
+  // ── Fetch org name ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!clinicId) return;
+    supabase.from('clinics').select('org_id').eq('id', clinicId).maybeSingle()
+      .then(async ({ data: clinic }) => {
+        if (clinic?.org_id) {
+          const { data: org } = await supabase.from('organisations').select('name').eq('id', clinic.org_id).maybeSingle();
+          if (org?.name) setOrgName(org.name);
+        }
+      });
+  }, [clinicId]);
 
   // ── Fetch + realtime ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -237,7 +253,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
   const openForm = (type: RecordType, apt?: Appointment) => {
     setFormType(type);
     setForm({
-      id:            genId(),
+      id:            nextInvoiceId(invoices, clinicSettings?.invoice_prefix || 'INV'),
       appointmentId: apt ? String(apt.id) : '',
       mr_number:     (apt as any)?.mr_number ?? '',
       childName:     apt?.childName  ?? '',
@@ -268,7 +284,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
     }
 
     const status = computeStatus(form.feeAmount || 0, form.discount || 0, form.paid || 0, taxPct);
-    const invoiceId = (form.id && form.id.startsWith('INV-')) ? form.id : genId();
+    const invoiceId = form.id || nextInvoiceId(invoices, clinicSettings?.invoice_prefix || 'INV');
 
     const payload: Record<string, any> = {
       invoice_number:   invoiceId,
@@ -348,6 +364,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
       <div style="display:flex;align-items:flex-start;gap:14px">
         ${clinicSettings?.logo_url?`<img src="${clinicSettings.logo_url}" alt="Logo" style="height:56px;width:56px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;flex-shrink:0"/>`:''}
         <div>
+          ${orgName?`<div style="font-size:10px;font-weight:700;color:#c9a84c;letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px">${orgName}</div>`:''}
           <div class="clinic-name">${clinicSettings?.clinic_name||'Clinic'}</div>
           ${clinicSettings?.doctor_name?`<div style="font-size:12px;font-weight:600;color:#c9a84c;margin-top:1px">${clinicSettings.doctor_name}${clinicSettings?.doctor_qualification?' · '+clinicSettings.doctor_qualification:''}</div>`:''}
           <div class="clinic-sub">${clinicSettings?.clinic_address||''}</div>
@@ -437,7 +454,11 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
               <button onClick={()=>{
                 const w=window.open('','_blank');
                 if(!w)return;
-                w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>body{font-family:Arial;padding:20px;max-width:350px;margin:0 auto;color:#0a1628}.hdr{background:#0a1628;color:#fff;padding:12px 16px;border-radius:8px 8px 0 0;text-align:center}.body{border:1px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 8px 8px}.row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.divider{border-top:1px dashed #e5e7eb;margin:8px 0}.total{font-weight:700;font-size:15px}.stamp{text-align:center;margin-top:12px;font-size:11px;color:#9ca3af}@media print{button{display:none}}</style></head><body><div class="hdr"><div style="font-size:15px;font-weight:700">Payment Receipt</div><div style="font-size:10px;opacity:0.7">'+(clinicSettings?.clinic_name||'MediPlex')+'</</div></div><div class="body"><div class="row"><span>Patient</span><strong>${inv.childName}</strong></div><div class="row"><span>Date</span><span>${inv.date}</span></div><div class="row"><span>Receipt #</span><span>RCP-${inv.id?.slice(-6)||'000000'}</span></div><div class="divider"></div><div class="row"><span>Fee</span><span>${currency} ${inv.feeAmount.toLocaleString()}</span></div>${inv.discount>0?'<div class="row"><span>Discount</span><span style="color:#16a34a">- '+currency+' '+inv.discount.toLocaleString()+'</span></div>':''}<div class="row total"><span>Amount Paid</span><span style="color:#16a34a">${currency} ${inv.paid.toLocaleString()}</span></div>${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'<div class="row"><span>Balance Due</span><span style="color:#dc2626">'+currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString()+'</span></div>':''}<div class="divider"></div><div class="row"><span>Payment Method</span><span>${inv.paymentMethod||'Cash'}</span></div><div class="stamp">Thank you for choosing our clinic<br/>This is a computer generated receipt</div></div><button onclick="window.print()" style="margin:12px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Receipt</button></body></html>`);
+                const rSub=inv.feeAmount-inv.discount;
+                const rTax=Math.round(rSub*taxPct/100);
+                const rNet=rSub+rTax;
+                const rDue=Math.max(0,rNet-inv.paid);
+                w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title><style>body{font-family:Arial;padding:20px;max-width:380px;margin:0 auto;color:#0a1628}.hdr{background:#0a1628;color:#fff;padding:14px 16px;border-radius:8px 8px 0 0}.hdr-inner{display:flex;align-items:center;gap:10px}.clinic-logo{width:42px;height:42px;object-fit:contain;border-radius:6px;border:1px solid rgba(201,168,76,0.3);flex-shrink:0}.clinic-name{font-size:14px;font-weight:700;line-height:1.2}.clinic-sub{font-size:10px;opacity:0.55;margin-top:2px}.org-name{font-size:9px;color:#c9a84c;font-weight:600;margin-bottom:2px}.receipt-title{text-align:center;background:rgba(201,168,76,0.15);border-bottom:1px solid rgba(201,168,76,0.25);padding:8px;font-size:13px;font-weight:700;color:#c9a84c;letter-spacing:.04em}.body{border:1px solid #e5e7eb;border-top:none;padding:16px;border-radius:0 0 8px 8px}.row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px}.divider{border-top:1px dashed #e5e7eb;margin:8px 0}.total{font-weight:700;font-size:15px}.stamp{text-align:center;margin-top:12px;font-size:11px;color:#9ca3af}@media print{button{display:none}}</style></head><body><div class="hdr"><div class="hdr-inner">${clinicSettings?.logo_url?`<img src="${clinicSettings.logo_url}" class="clinic-logo"/>`:'<div style="width:42px;height:42px;border-radius:8px;background:linear-gradient(135deg,#c9a84c,#e8c87a);display:flex;align-items:center;justify-content:center;font-weight:700;color:#0a1628;font-size:14px;flex-shrink:0">M+</div>'}<div>${orgName?`<div class="org-name">${orgName}</div>`:''}<div class="clinic-name">${clinicSettings?.clinic_name||'Clinic'}</div>${clinicSettings?.doctor_name?`<div style="font-size:10px;color:#c9a84c;font-weight:600">${clinicSettings.doctor_name}${clinicSettings?.doctor_qualification?' · '+clinicSettings.doctor_qualification:''}</div>`:''}</div></div></div><div class="receipt-title">PAYMENT RECEIPT</div><div class="body"><div class="row"><span>Patient</span><strong>${inv.childName}</strong></div><div class="row"><span>Date</span><span>${inv.date}</span></div><div class="row"><span>Receipt #</span><span>RCP-${inv.id?.slice(-6)||'000000'}</span></div><div class="divider"></div><div class="row"><span>Fee</span><span>${currency} ${inv.feeAmount.toLocaleString()}</span></div>${inv.discount>0?`<div class="row"><span>Discount</span><span style="color:#16a34a">- ${currency} ${inv.discount.toLocaleString()}</span></div>`:''}${rTax>0?`<div class="row"><span>GST / Tax (${taxPct}%)</span><span style="color:#6b7280">${currency} ${rTax.toLocaleString()}</span></div>`:''}<div class="row total"><span>Total</span><span>${currency} ${rNet.toLocaleString()}</span></div><div class="row total"><span>Amount Paid</span><span style="color:#16a34a">${currency} ${inv.paid.toLocaleString()}</span></div>${rDue>0?`<div class="row"><span>Balance Due</span><span style="color:#dc2626">${currency} ${rDue.toLocaleString()}</span></div>`:''}<div class="divider"></div><div class="row"><span>Payment Method</span><span>${inv.paymentMethod||'Cash'}</span></div><div class="stamp">Thank you for choosing ${clinicSettings?.clinic_name||'our clinic'}<br/>This is a computer generated receipt</div></div><button onclick="window.print()" style="margin:12px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Receipt</button></body></html>`);
                 w.document.close();setTimeout(()=>w.print(),400);
               }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
                 style={{background:'rgba(26,127,94,0.1)',color:'#1a7f5e',border:'1px solid rgba(26,127,94,0.2)'}}>
@@ -451,7 +472,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
                   waPhone = aptData?.whatsapp_number || '';
                 }
                 const p=(waPhone).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
-                const msg='*'+( clinicSettings?.clinic_name||'Clinic')+'*'+(clinicSettings?.doctor_name?'\n'+clinicSettings.doctor_name:'')+'\n\nPayment Receipt\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: '+currency+' '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: '+currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():'\nStatus: PAID IN FULL')+(clinicSettings?.clinic_phone?'\n\nContact: '+clinicSettings.clinic_phone:'')+'\n\nThank you for your visit.';
+                const msg=(orgName?'*'+orgName+'*\n':'')+'*'+( clinicSettings?.clinic_name||'Clinic')+'*'+(clinicSettings?.doctor_name?'\n'+clinicSettings.doctor_name:'')+'\n\nPayment Receipt\nPatient: '+inv.childName+'\nDate: '+inv.date+'\nAmount Paid: '+currency+' '+inv.paid.toLocaleString()+(Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'\nBalance Due: '+currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():'\nStatus: PAID IN FULL')+(clinicSettings?.clinic_phone?'\n\nContact: '+clinicSettings.clinic_phone:'')+'\n\nThank you for your visit.';
                 if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                 else toast.error('No WhatsApp number on file');
               }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium flex-shrink-0"
@@ -512,7 +533,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
                   <button onClick={()=>{
                     const w=window.open('','_blank');if(!w)return;
                     const rows=patInvoices.map(inv=>`<tr><td>${inv.date}</td><td>${inv.appointmentId||'Visit'}</td><td>${currency} ${inv.feeAmount.toLocaleString()}</td><td>${currency} ${inv.discount.toLocaleString()}</td><td>${currency} ${inv.paid.toLocaleString()}</td><td style="color:${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?'#dc2626':'#16a34a'}">${Math.max(0,inv.feeAmount-inv.discount-inv.paid)>0?currency+' '+Math.max(0,inv.feeAmount-inv.discount-inv.paid).toLocaleString():'Paid'}</td></tr>`).join('');
-                    w.document.write(`<!DOCTYPE html><html><head><title>Statement</title><style>body{font-family:Arial;padding:20px;max-width:700px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.total-row{font-weight:700;background:#f9f7f3}.footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #c9a84c"><div style="display:flex;align-items:flex-start;gap:12px">${clinicSettings?.logo_url?`<img src="${clinicSettings.logo_url}" style="height:52px;width:52px;object-fit:contain;border-radius:6px;border:1px solid #e5e7eb"/>`:'<div style="width:44px;height:44px;background:linear-gradient(135deg,#0a1628,#142240);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#c9a84c;font-weight:700;font-size:13px;flex-shrink:0">M+</div>'}<div><div style="font-size:18px;font-weight:700;color:#0a1628">${clinicSettings?.clinic_name||'Clinic'}</div>${clinicSettings?.doctor_name?`<div style="font-size:12px;font-weight:600;color:#c9a84c">${clinicSettings.doctor_name}${clinicSettings?.doctor_qualification?' · '+clinicSettings.doctor_qualification:''}</div>`:''}${clinicSettings?.clinic_phone?`<div style="font-size:11px;color:#6b7280">${clinicSettings.clinic_phone}</div>`:''}</div></div><div style="text-align:right"><div style="font-size:13px;color:#6b7280;font-weight:600">PATIENT STATEMENT</div><div style="font-size:16px;font-weight:700;color:#0a1628;margin-top:4px">${patient}</div><div style="font-size:11px;color:#6b7280">MR# ${patInvoices[0]?.mr_number||'—'}</div><div style="font-size:11px;color:#6b7280">${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div></div></div><table><thead><tr><th>Date</th><th>Description</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="2">TOTAL</td><td>${currency} ${totalBilled.toLocaleString()}</td><td></td><td>${currency} ${totalPaid2.toLocaleString()}</td><td style="color:${balance>0?'#dc2626':'#16a34a'}">${balance>0?currency+' '+balance.toLocaleString()+' DUE':'SETTLED'}</td></tr></tbody></table><div class="footer">This is a computer-generated statement. For queries contact the clinic.</div><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Statement</button></body></html>`);
+                    w.document.write(`<!DOCTYPE html><html><head><title>Statement</title><style>body{font-family:Arial;padding:20px;max-width:700px;margin:0 auto}h2{color:#0a1628}table{width:100%;border-collapse:collapse}th{background:#0a1628;color:#fff;padding:8px 12px;text-align:left;font-size:11px}td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px}.total-row{font-weight:700;background:#f9f7f3}.footer{margin-top:20px;font-size:11px;color:#9ca3af;text-align:center}@media print{button{display:none}}</style></head><body><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #c9a84c"><div style="display:flex;align-items:flex-start;gap:12px">${clinicSettings?.logo_url?`<img src="${clinicSettings.logo_url}" style="height:52px;width:52px;object-fit:contain;border-radius:6px;border:1px solid #e5e7eb"/>`:'<div style="width:44px;height:44px;background:linear-gradient(135deg,#0a1628,#142240);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#c9a84c;font-weight:700;font-size:13px;flex-shrink:0">M+</div>'}<div>${orgName?`<div style="font-size:10px;font-weight:700;color:#c9a84c;letter-spacing:.04em;text-transform:uppercase;margin-bottom:2px">${orgName}</div>`:''}<div style="font-size:18px;font-weight:700;color:#0a1628">${clinicSettings?.clinic_name||'Clinic'}</div>${clinicSettings?.doctor_name?`<div style="font-size:12px;font-weight:600;color:#c9a84c">${clinicSettings.doctor_name}${clinicSettings?.doctor_qualification?' · '+clinicSettings.doctor_qualification:''}</div>`:''}${clinicSettings?.clinic_phone?`<div style="font-size:11px;color:#6b7280">${clinicSettings.clinic_phone}</div>`:''}</div></div><div style="text-align:right"><div style="font-size:13px;color:#6b7280;font-weight:600">PATIENT STATEMENT</div><div style="font-size:16px;font-weight:700;color:#0a1628;margin-top:4px">${patient}</div><div style="font-size:11px;color:#6b7280">MR# ${patInvoices[0]?.mr_number||'—'}</div><div style="font-size:11px;color:#6b7280">${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}</div></div></div><table><thead><tr><th>Date</th><th>Description</th><th>Fee</th><th>Discount</th><th>Paid</th><th>Balance</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="2">TOTAL</td><td>${currency} ${totalBilled.toLocaleString()}</td><td></td><td>${currency} ${totalPaid2.toLocaleString()}</td><td style="color:${balance>0?'#dc2626':'#16a34a'}">${balance>0?currency+' '+balance.toLocaleString()+' DUE':'SETTLED'}</td></tr></tbody></table><div class="footer">This is a computer-generated statement. For queries contact the clinic.</div><button onclick="window.print()" style="margin:16px auto;display:block;padding:8px 20px;background:#0a1628;color:#c9a84c;border:none;border-radius:8px;cursor:pointer">🖨️ Print Statement</button></body></html>`);
                     w.document.close();setTimeout(()=>w.print(),400);
                   }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
                     style={{background:'rgba(43,108,176,0.1)',color:'#2b6cb0',border:'1px solid rgba(43,108,176,0.2)'}}>
@@ -526,7 +547,7 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
                         waPhone2 = aptData2?.whatsapp_number || '';
                       }
                       const p=(waPhone2).replace(/\D/g,'');const ph=p.startsWith('0')?'92'+p.slice(1):p;
-                      const msg='*'+(clinicSettings?.clinic_name||'Clinic')+'*'+(clinicSettings?.doctor_name?'\n'+clinicSettings.doctor_name:'')+'\n\nAccount Statement\nDear '+patient+',\n\nYour account summary:\nTotal Billed: '+currency+' '+totalBilled.toLocaleString()+'\nTotal Paid: '+currency+' '+totalPaid2.toLocaleString()+'\nBalance Due: '+currency+' '+balance.toLocaleString()+(clinicSettings?.clinic_phone?'\n\nContact: '+clinicSettings.clinic_phone:'')+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
+                      const msg=(orgName?'*'+orgName+'*\n':'')+'*'+(clinicSettings?.clinic_name||'Clinic')+'*'+(clinicSettings?.doctor_name?'\n'+clinicSettings.doctor_name:'')+'\n\nAccount Statement\nDear '+patient+',\n\nYour account summary:\nTotal Billed: '+currency+' '+totalBilled.toLocaleString()+'\nTotal Paid: '+currency+' '+totalPaid2.toLocaleString()+'\nBalance Due: '+currency+' '+balance.toLocaleString()+(clinicSettings?.clinic_phone?'\n\nContact: '+clinicSettings.clinic_phone:'')+'\n\nPlease clear your outstanding balance at your earliest convenience.\n\nThank you.';
                       if(ph) window.open('https://wa.me/'+ph+'?text='+encodeURIComponent(msg),'_blank');
                       else toast.error('No WhatsApp number on file');
                     }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium"
@@ -1149,7 +1170,8 @@ export default function BillingClient({ clinicSettings: serverSettings = null, d
                 </td></tr>
               )}
               {filtered.map(inv => {
-                const net = inv.feeAmount - inv.discount;
+                const sub2 = inv.feeAmount - inv.discount;
+                const net = sub2 + Math.round(sub2 * taxPct / 100);
                 const due = Math.max(0, net - inv.paid);
                 return (
                   <tr key={(clinicSettings?.invoice_prefix&&inv.id.startsWith('INV-'))?inv.id.replace('INV-',(clinicSettings.invoice_prefix)+'-'):inv.id} className="hover:bg-amber-50/20 transition-colors">

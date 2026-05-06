@@ -15,6 +15,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
   const [doctorName, setDoctorName] = useState('Doctor');
   const [initials, setInitials] = useState('DR');
   const [refreshing, setRefreshing] = useState(false);
+  const [timezone, setTimezone] = useState('Asia/Karachi');
 
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60_000);
@@ -43,6 +44,12 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
         }
       });
   }, []);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    supabase.from('clinic_settings').select('timezone').eq('clinic_id', clinicId).maybeSingle()
+      .then(({ data }) => { if (data?.timezone) setTimezone(data.timezone); });
+  }, [clinicId]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -78,7 +85,7 @@ export default function Topbar({ title, subtitle }: { title: string; subtitle?: 
 
       <div className="flex items-center gap-3">
         <div className="text-[12px] text-gray-400 font-light hidden md:block">
-          {now.toLocaleString("en-US", { timeZone: "Asia/Karachi", weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })} PKT
+          {now.toLocaleString("en-US", { timeZone: timezone, weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })} {new Intl.DateTimeFormat('en-US',{timeZoneName:'short',timeZone:timezone}).formatToParts(now).find(p=>p.type==='timeZoneName')?.value||''}
         </div>
 
         <button

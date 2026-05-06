@@ -55,6 +55,10 @@ ALTER TABLE clinic_settings
 
 ALTER TABLE lab_orders
   ADD COLUMN IF NOT EXISTS rx_id TEXT;
+
+ALTER TABLE subscriptions
+  ADD COLUMN IF NOT EXISTS ai_scribe_limit INTEGER,
+  ADD COLUMN IF NOT EXISTS ai_scribe_used  INTEGER DEFAULT 0;
 `;
 
 export async function POST() {

@@ -75,11 +75,26 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
     }
   }, [csSettings?.default_consultation_fee]);
 
+  // Generate sequential invoice ID from DB when reaching invoice step
+  useEffect(() => {
+    if (step !== 'invoice' || existingInv?.id) return;
+    const prefix = csSettings?.invoice_prefix || 'INV';
+    supabase.from('billing').select('invoice_number').eq('clinic_id', clinicId || '').limit(200)
+      .then(({ data }) => {
+        const nums = (data || []).map((r: any) => { const m = String(r.invoice_number||'').match(/(\d+)$/); return m ? parseInt(m[1], 10) : 0; });
+        const next = (nums.length > 0 ? Math.max(...nums) : 0) + 1;
+        setInv(p => ({ ...p, id: `${prefix}-${String(next).padStart(3, '0')}` }));
+      });
+  }, [step, clinicId, csSettings?.invoice_prefix]);
+
   const paymentMethods: string[] = csSettings?.accepted_payment_methods?.length
     ? csSettings.accepted_payment_methods
     : DEFAULT_METHODS;
 
-  const net = (inv.feeAmount || 0) - (inv.discount || 0);
+  const taxPct = Number(csSettings?.tax_percentage || 0);
+  const sub = (inv.feeAmount || 0) - (inv.discount || 0);
+  const taxAmt = Math.round(sub * taxPct / 100);
+  const net = sub + taxAmt;
   const due = Math.max(0, net - (inv.paid || 0));
   const payStatus: InvoiceRecord['paymentStatus'] =
     (inv.paid || 0) >= net ? 'Paid' : (inv.paid || 0) > 0 ? 'Partial' : 'Unpaid';
@@ -376,12 +391,13 @@ export default function CheckInFlow({ appointment: a, onComplete, onCancel }: Pr
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 rounded-xl p-4 text-center"
+              <div className={`grid gap-3 rounded-xl p-4 text-center ${taxPct > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}
                 style={{ background: '#f9f7f3', border: '1px solid rgba(201,168,76,0.15)' }}>
                 {[
-                  { label: 'Net Amount',  value: `${currency} ${net.toLocaleString()}`,          color: '#0a1628' },
-                  { label: 'Paid',        value: `${currency} ${(inv.paid || 0).toLocaleString()}`, color: '#1a7f5e' },
-                  { label: 'Balance Due', value: `${currency} ${due.toLocaleString()}`,           color: due > 0 ? '#c53030' : '#1a7f5e' },
+                  ...(taxPct > 0 ? [{ label: `GST ${taxPct}%`, value: `${currency} ${taxAmt.toLocaleString()}`, color: '#6b7280' }] : []),
+                  { label: 'Total',       value: `${currency} ${net.toLocaleString()}`,              color: '#0a1628' },
+                  { label: 'Paid',        value: `${currency} ${(inv.paid || 0).toLocaleString()}`,  color: '#1a7f5e' },
+                  { label: 'Balance Due', value: `${currency} ${due.toLocaleString()}`,              color: due > 0 ? '#c53030' : '#1a7f5e' },
                 ].map(s => (
                   <div key={s.label}>
                     <div className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">{s.label}</div>

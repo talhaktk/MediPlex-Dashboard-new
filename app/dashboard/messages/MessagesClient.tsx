@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Send, MessageSquare, Search, Loader2, User, Clock, CheckCheck } from 'lucide-react';
+import { Send, MessageSquare, Search, Loader2, User, Clock, CheckCheck, ChevronRight } from 'lucide-react';
 
 interface Conversation {
   mrNumber:    string;
@@ -32,7 +32,6 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
   const [sending,       setSending]       = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // ── Load conversation list via API (service role) ─────────────────────────
   const loadConversations = useCallback(async () => {
     const res = await fetch('/api/staff/messages?action=list');
     if (!res.ok) { setLoadingList(false); return; }
@@ -62,7 +61,6 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
-  // ── Load thread via API ───────────────────────────────────────────────────
   const loadThread = useCallback(async (mr: string) => {
     setLoadingThread(true);
     const res = await fetch(`/api/staff/messages?action=thread&mr=${encodeURIComponent(mr)}`);
@@ -71,7 +69,6 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
     setMessages(data || []);
     setLoadingThread(false);
 
-    // Mark unread patient messages as read
     const unreadIds = (data || []).filter((m: any) => m.sender === 'patient' && !m.staff_read_at).map((m: any) => m.id);
     if (unreadIds.length > 0) {
       await fetch('/api/staff/messages', {
@@ -89,22 +86,18 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Realtime: listen for new patient messages via Supabase channel
   useEffect(() => {
     if (!selected) return;
     const channel = supabase.channel(`staff-msgs-${selected}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'patient_messages' },
         (payload) => {
-          if ((payload.new as any).mr_number === selected) {
-            loadThread(selected);
-          }
+          if ((payload.new as any).mr_number === selected) loadThread(selected);
           loadConversations();
         })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [selected, loadThread, loadConversations]);
 
-  // ── Send reply via API ────────────────────────────────────────────────────
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!body.trim() || !selected) return;
@@ -131,32 +124,51 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
 
   const selectedConv = conversations.find(c => c.mrNumber === selected);
 
-  return (
-    <div className="flex h-[calc(100vh-160px)] min-h-[500px] rounded-2xl overflow-hidden"
-      style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+  const avatarColors = ['#0a1628', '#1a7f5e', '#2b6cb0', '#6d28d9', '#c9a84c', '#b45309'];
+  const getAvatarColor = (name: string) => avatarColors[name.charCodeAt(0) % avatarColors.length];
 
-      {/* Left panel */}
-      <div className="w-72 flex-shrink-0 flex flex-col border-r" style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.2)' }}>
-        <div className="p-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+  return (
+    <div className="flex h-[calc(100vh-160px)] min-h-[520px] rounded-2xl overflow-hidden bg-white"
+      style={{ border: '1px solid #e5e7eb', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+
+      {/* ── Left sidebar ── */}
+      <div className="w-72 flex-shrink-0 flex flex-col border-r border-gray-100">
+        {/* Header */}
+        <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[13px] font-semibold text-navy">Messages</span>
+            {conversations.reduce((s, c) => s + c.unread, 0) > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(201,168,76,0.15)', color: '#b47a00' }}>
+                {conversations.reduce((s, c) => s + c.unread, 0)} unread
+              </span>
+            )}
+          </div>
           <div className="relative">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search patients..."
-              className="w-full pl-8 pr-3 py-2 rounded-xl text-[12px] outline-none"
-              style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
+              placeholder="Search patients…"
+              className="w-full pl-8 pr-3 py-2 rounded-xl text-[12px] outline-none transition-all"
+              style={{ background: '#f8f9fa', border: '1px solid #e5e7eb', color: '#0a1628' }}
+              onFocus={e => e.target.style.borderColor = '#c9a84c'}
+              onBlur={e  => e.target.style.borderColor = '#e5e7eb'} />
           </div>
         </div>
 
+        {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">
           {loadingList ? (
             <div className="flex justify-center items-center h-32">
-              <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-gray-200 border-t-gold rounded-full animate-spin" />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageSquare size={28} className="mx-auto mb-2 text-white/20" />
-              <p className="text-white/30 text-xs">No conversations yet</p>
-              <p className="text-white/20 text-[11px] mt-1">Patients who message will appear here</p>
+            <div className="text-center py-14 px-4">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3"
+                style={{ background: 'rgba(201,168,76,0.08)' }}>
+                <MessageSquare size={22} style={{ color: '#c9a84c' }} />
+              </div>
+              <p className="text-[13px] font-medium text-navy">No conversations yet</p>
+              <p className="text-[11px] text-gray-400 mt-1">Patients who message will appear here</p>
             </div>
           ) : (
             filtered.map(c => {
@@ -165,36 +177,37 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
               const timeStr = time.toLocaleDateString() === new Date().toLocaleDateString()
                 ? time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
                 : time.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+              const avatarBg = getAvatarColor(c.patientName);
 
               return (
                 <button key={c.mrNumber} onClick={() => setSelected(c.mrNumber)}
-                  className="w-full flex items-start gap-3 px-3 py-3 transition-all text-left border-b"
+                  className="w-full flex items-start gap-3 px-3 py-3 transition-all text-left"
                   style={{
-                    background:  isActive ? 'rgba(139,92,246,0.15)' : 'transparent',
-                    borderColor: 'rgba(255,255,255,0.05)',
-                    borderLeft:  isActive ? '3px solid #8b5cf6' : '3px solid transparent',
+                    background:   isActive ? 'rgba(201,168,76,0.07)' : 'transparent',
+                    borderLeft:   isActive ? '3px solid #c9a84c' : '3px solid transparent',
+                    borderBottom: '1px solid #f3f4f6',
                   }}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                    style={{ background: isActive ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.08)', color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.6)' }}>
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0 mt-0.5"
+                    style={{ background: avatarBg }}>
                     {c.patientName.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-[13px] font-semibold truncate" style={{ color: isActive ? '#c4b5fd' : 'rgba(255,255,255,0.85)' }}>
+                      <span className="text-[13px] font-semibold truncate" style={{ color: '#0a1628' }}>
                         {c.patientName}
                       </span>
-                      <span className="text-[10px] text-white/30 flex-shrink-0">{timeStr}</span>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">{timeStr}</span>
                     </div>
                     <div className="flex items-center justify-between gap-1 mt-0.5">
-                      <span className="text-[11px] text-white/40 truncate">{c.mrNumber}</span>
+                      <span className="text-[11px] text-gray-400 truncate">{c.mrNumber}</span>
                       {c.unread > 0 && (
                         <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                          style={{ background: '#8b5cf6', color: '#fff' }}>
+                          style={{ background: '#c9a84c', color: '#0a1628' }}>
                           {c.unread > 9 ? '9+' : c.unread}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-white/30 truncate mt-0.5">{c.lastMsg}</p>
+                    <p className="text-[11px] text-gray-400 truncate mt-0.5">{c.lastMsg}</p>
                   </div>
                 </button>
               );
@@ -203,39 +216,52 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
         </div>
       </div>
 
-      {/* Right panel */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ── Right: chat panel ── */}
+      <div className="flex-1 flex flex-col min-w-0 bg-white">
         {!selected ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-white/20">
-            <MessageSquare size={48} />
-            <p className="text-sm font-medium">Select a conversation</p>
-            <p className="text-xs text-white/15">Choose a patient from the left panel</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4">
+            <div className="w-16 h-16 rounded-3xl flex items-center justify-center"
+              style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
+              <MessageSquare size={28} style={{ color: '#c9a84c' }} />
+            </div>
+            <div className="text-center">
+              <p className="text-[14px] font-semibold text-navy">Select a conversation</p>
+              <p className="text-[12px] text-gray-400 mt-1">Choose a patient from the left panel to view messages</p>
+            </div>
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 px-5 py-3 border-b flex-shrink-0"
-              style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.15)' }}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm"
-                style={{ background: 'rgba(139,92,246,0.25)', color: '#c4b5fd' }}>
+            {/* Chat header */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 flex-shrink-0 bg-white">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white flex-shrink-0"
+                style={{ background: getAvatarColor(selectedConv?.patientName || '') }}>
                 {selectedConv?.patientName.charAt(0).toUpperCase()}
               </div>
-              <div>
-                <div className="text-white font-semibold text-sm">{selectedConv?.patientName}</div>
-                <div className="text-white/40 text-xs flex items-center gap-1">
-                  <User size={10} /> MR: {selected}
+              <div className="flex-1 min-w-0">
+                <div className="text-[14px] font-semibold text-navy truncate">{selectedConv?.patientName}</div>
+                <div className="text-[11px] text-gray-400 flex items-center gap-1">
+                  <User size={9} />MR: {selected}
                 </div>
+              </div>
+              <div className="text-[11px] px-3 py-1 rounded-full font-medium"
+                style={{ background: 'rgba(26,127,94,0.08)', color: '#1a7f5e', border: '1px solid rgba(26,127,94,0.15)' }}>
+                Patient
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-5 py-5" style={{ background: '#fafafa' }}>
               {loadingThread ? (
                 <div className="flex justify-center items-center h-full">
-                  <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-gray-200 border-t-gold rounded-full animate-spin" />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-white/20 gap-2">
-                  <MessageSquare size={32} />
-                  <p className="text-sm">No messages yet</p>
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'rgba(201,168,76,0.08)' }}>
+                    <MessageSquare size={22} style={{ color: '#c9a84c' }} />
+                  </div>
+                  <p className="text-[13px] text-gray-400">No messages yet in this conversation</p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -246,36 +272,47 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
                     return (
                       <div key={m.id}>
                         {showDate && (
-                          <div className="flex items-center gap-3 my-4">
-                            <div className="flex-1 h-px bg-white/5" />
-                            <span className="text-[10px] text-white/25 font-medium px-2">
+                          <div className="flex items-center gap-3 my-5">
+                            <div className="flex-1 h-px bg-gray-200" />
+                            <span className="text-[10px] text-gray-400 font-medium px-3 py-1 rounded-full"
+                              style={{ background: '#fff', border: '1px solid #e5e7eb' }}>
                               {new Date(m.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                             </span>
-                            <div className="flex-1 h-px bg-white/5" />
+                            <div className="flex-1 h-px bg-gray-200" />
                           </div>
                         )}
                         <div className={`flex mb-3 ${isClinic ? 'justify-end' : 'justify-start'}`}>
                           {!isClinic && (
-                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold mr-2 self-end flex-shrink-0"
-                              style={{ background: 'rgba(139,92,246,0.2)', color: '#a78bfa' }}>
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold mr-2 self-end flex-shrink-0 text-white"
+                              style={{ background: getAvatarColor(selectedConv?.patientName || '') }}>
                               {selectedConv?.patientName.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <div className="max-w-[70%] flex flex-col" style={{ alignItems: isClinic ? 'flex-end' : 'flex-start' }}>
-                            <div className="px-4 py-2.5 text-sm leading-relaxed"
+                          <div className="max-w-[68%] flex flex-col" style={{ alignItems: isClinic ? 'flex-end' : 'flex-start' }}>
+                            <div className="px-4 py-2.5 text-[13px] leading-relaxed"
                               style={{
-                                background:   isClinic ? 'linear-gradient(135deg,#c9a84c,#e8c87a)' : 'rgba(255,255,255,0.08)',
-                                color:        isClinic ? '#0a1628' : 'rgba(255,255,255,0.85)',
-                                borderRadius: isClinic ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                                border:       isClinic ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                background:   isClinic ? 'linear-gradient(135deg,#c9a84c,#e8c87a)' : '#fff',
+                                color:        isClinic ? '#0a1628' : '#1a2535',
+                                borderRadius: isClinic ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                                border:       isClinic ? 'none' : '1px solid #e5e7eb',
+                                boxShadow:    isClinic ? '0 1px 2px rgba(0,0,0,0.06)' : '0 1px 3px rgba(0,0,0,0.04)',
+                                fontWeight:   isClinic ? 500 : 400,
                               }}>
                               {m.body}
                             </div>
-                            <div className="flex items-center gap-1 mt-1 px-1 text-[10px] text-white/25">
+                            <div className="flex items-center gap-1 mt-1 px-1 text-[10px] text-gray-400">
                               <Clock size={9} />{time}
-                              {isClinic && m.read_at && <><CheckCheck size={10} className="text-emerald-400/60" /><span className="text-emerald-400/60">Seen</span></>}
+                              {isClinic && m.read_at && (
+                                <><CheckCheck size={10} className="text-emerald-500" /><span className="text-emerald-500">Seen</span></>
+                              )}
                             </div>
                           </div>
+                          {isClinic && (
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold ml-2 self-end flex-shrink-0"
+                              style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)', color: '#0a1628' }}>
+                              DR
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -285,23 +322,24 @@ export default function MessagesClient({ clinicId, isSuperAdmin }: { clinicId: s
               )}
             </div>
 
-            <div className="border-t px-4 py-3 flex-shrink-0"
-              style={{ borderColor: 'rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.15)' }}>
+            {/* Compose */}
+            <div className="border-t border-gray-100 px-4 py-3 flex-shrink-0 bg-white">
               <form onSubmit={handleSend} className="flex items-end gap-2">
                 <textarea value={body} onChange={e => setBody(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e as any); } }}
-                  placeholder="Type reply… (Enter to send, Shift+Enter for new line)"
+                  placeholder="Type a reply… (Enter to send, Shift+Enter for new line)"
                   rows={2}
-                  className="flex-1 resize-none rounded-xl px-4 py-2.5 text-sm outline-none"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', maxHeight: '120px' }}
-                  onFocus={e => e.target.style.borderColor = 'rgba(201,168,76,0.5)'}
-                  onBlur={e  => e.target.style.borderColor = 'rgba(255,255,255,0.1)'} />
+                  className="flex-1 resize-none rounded-2xl px-4 py-3 text-[13px] outline-none transition-all"
+                  style={{ background: '#f8f9fa', border: '1px solid #e5e7eb', color: '#0a1628', maxHeight: '120px' }}
+                  onFocus={e => e.target.style.borderColor = '#c9a84c'}
+                  onBlur={e  => e.target.style.borderColor = '#e5e7eb'} />
                 <button type="submit" disabled={sending || !body.trim()}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
+                  className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
                   style={{ background: 'linear-gradient(135deg,#c9a84c,#e8c87a)' }}>
                   {sending ? <Loader2 size={15} className="text-[#0a1628] animate-spin" /> : <Send size={15} className="text-[#0a1628]" />}
                 </button>
               </form>
+              <p className="text-[10px] text-gray-300 mt-1.5 px-1">Messages are delivered via the patient portal</p>
             </div>
           </>
         )}
