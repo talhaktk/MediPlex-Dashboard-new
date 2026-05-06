@@ -80,13 +80,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             }}
           />
         </SessionProviderWrapper>
-        {/* Service Worker registration */}
+        {/* Service Worker registration + Supabase URL config */}
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
               navigator.serviceWorker.register('/sw.js', { scope: '/' })
                 .then(function(reg) {
-                  console.log('[MediPlex] SW registered:', reg.scope);
+                  // Pass Supabase origin so SW can cache API responses
+                  var supabaseUrl = '${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}';
+                  function sendConfig(sw) {
+                    if (supabaseUrl) sw.postMessage({ type: 'CONFIG', supabaseUrl: supabaseUrl });
+                  }
+                  if (reg.active)    sendConfig(reg.active);
+                  if (reg.installing) reg.installing.addEventListener('statechange', function(e) {
+                    if (e.target.state === 'activated') sendConfig(e.target);
+                  });
                 })
                 .catch(function(err) {
                   console.warn('[MediPlex] SW registration failed:', err);
