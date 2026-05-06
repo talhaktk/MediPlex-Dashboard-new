@@ -56,9 +56,12 @@ export default function SettingsPageNew() {
   const [users, setUsers] = useState<any[]>([]);
   const [showAddUser, setShowAddUser] = useState(false);
   const [newUser, setNewUser] = useState({name:'',email:'',password:'',role:'receptionist'});
-  const logoRef = useRef<HTMLInputElement>(null);
-  const sigRef = useRef<HTMLInputElement>(null);
-  const rxLogoRef = useRef<HTMLInputElement>(null);
+  const logoRef        = useRef<HTMLInputElement>(null);
+  const sigRef         = useRef<HTMLInputElement>(null);
+  const rxLogoRef      = useRef<HTMLInputElement>(null);
+  const camPhotoRef    = useRef<HTMLInputElement>(null); // camera capture — doctor photo
+  const camSigRef      = useRef<HTMLInputElement>(null); // camera capture — signature
+  const camLogoRef     = useRef<HTMLInputElement>(null); // camera capture — clinic logo
 
   const isAdmin = ['super_admin','doctor_admin','admin'].includes(role);
 
@@ -212,11 +215,17 @@ export default function SettingsPageNew() {
                   </div>
                 )}
                 <div>
-                  <button onClick={()=>logoRef.current?.click()} className="btn-gold text-[12px] px-4 py-2 flex items-center gap-2">
-                    <Upload size={13}/> Upload Logo
-                  </button>
+                  <div className="flex gap-2">
+                    <button onClick={()=>logoRef.current?.click()} className="btn-gold text-[12px] px-4 py-2 flex items-center gap-2">
+                      <Upload size={13}/> Upload Logo
+                    </button>
+                    <button onClick={()=>camLogoRef.current?.click()} className="btn-outline text-[12px] px-3 py-2 flex items-center gap-2">
+                      📷 Camera
+                    </button>
+                  </div>
                   <p className="text-[11px] text-gray-400 mt-1">PNG, JPG · Max 2MB · Recommended 200×200px</p>
-                  <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload}/>
+                  <input ref={logoRef}    type="file" accept="image/*"                   className="hidden" onChange={handleLogoUpload}/>
+                  <input ref={camLogoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleLogoUpload}/>
                 </div>
               </div>
             </div>
@@ -381,12 +390,22 @@ ${f('clinic_name')||'Your Clinic'}`}</div>
                       <User size={32}/>
                     </div>
                   )}
-                  <button onClick={()=>sigRef.current?.click()} className="mt-2 text-[11px] text-gold hover:underline block text-center">
-                    Upload Photo
-                  </button>
+                  <div className="flex gap-1.5 mt-2 justify-center">
+                    <button onClick={()=>sigRef.current?.click()} className="text-[11px] text-gold hover:underline">
+                      Upload
+                    </button>
+                    <span className="text-gray-300 text-[11px]">·</span>
+                    <button onClick={()=>camPhotoRef.current?.click()} className="text-[11px] text-blue-500 hover:underline">
+                      📷 Camera
+                    </button>
+                  </div>
                   <input ref={sigRef} type="file" accept="image/*" className="hidden" onChange={async e=>{
                     const file=e.target.files?.[0]; if(!file) return;
                     try { const url=await uploadFile(file,`${clinicId}/doctor_photo.${file.name.split('.').pop()}`); set('doctor_photo_url',url); toast.success('Photo uploaded!'); } catch { toast.error('Failed'); }
+                  }}/>
+                  <input ref={camPhotoRef} type="file" accept="image/*" capture="user" className="hidden" onChange={async e=>{
+                    const file=e.target.files?.[0]; if(!file) return;
+                    try { const url=await uploadFile(file,`${clinicId}/doctor_photo.${file.name.split('.').pop()}`); set('doctor_photo_url',url); toast.success('Photo captured!'); } catch { toast.error('Failed'); }
                   }}/>
                 </div>
                 <div className="flex-1 grid grid-cols-2 gap-3">
@@ -419,8 +438,15 @@ ${f('clinic_name')||'Your Clinic'}`}</div>
                     try{const url=await uploadFile(file,`${clinicId}/signature.${file.name.split('.').pop()}`);set('doctor_signature_url',url);toast.success('Signature uploaded!');}catch{toast.error('Failed');}
                   };input.click();
                 }} className="btn-outline text-[12px] px-3 py-2 flex items-center gap-2">
-                  <Upload size={12}/> Upload Signature
+                  <Upload size={12}/> Upload
                 </button>
+                <button onClick={()=>camSigRef.current?.click()} className="btn-outline text-[12px] px-3 py-2 flex items-center gap-2">
+                  📷 Scan Signature
+                </button>
+                <input ref={camSigRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={async e=>{
+                  const file=e.target.files?.[0];if(!file)return;
+                  try{const url=await uploadFile(file,`${clinicId}/signature.${file.name.split('.').pop()}`);set('doctor_signature_url',url);toast.success('Signature captured!');}catch{toast.error('Failed');}
+                }}/>
                 {f('doctor_signature_url') && <button onClick={()=>set('doctor_signature_url','')} className="text-[12px] text-red-400 hover:text-red-600">Remove</button>}
               </div>
             </div>
