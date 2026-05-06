@@ -1425,7 +1425,7 @@ printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPati
                                   <span style={{fontSize:12}}>📱</span>
                                 </button>
                                 <button onClick={async () => {
-                                  const fbRow = { id: fbId, rx_id: rx.id, mr_number: (apt as any)?.mr_number||null, child_name: rx.childName, parent_name: rx.parentName, whatsapp: phone, status: 'pending' };
+                                  const fbRow = { id: fbId, rx_id: rx.id, clinic_id: clinicId||null, mr_number: (apt as any)?.mr_number||null, child_name: rx.childName, parent_name: rx.parentName, whatsapp: phone, status: 'pending' };
                                   await supabase.from('feedback').upsert([fbRow], { onConflict: 'id' });
                                   const fbLink = typeof window !== 'undefined' ? `${window.location.origin}/feedback/${fbId}` : `/feedback/${fbId}`;
                                   sendWA(phone, `Dear ${rx.parentName},\n\nThank you for visiting ${clinicName}.\n\nWe would love to hear about your experience. Please take a moment to share your feedback:\n\n⭐ Feedback Form: ${fbLink}\n\nThank you.\n\n_Powered by [MediPlex](https://mediplex.io) — AI for Smart Healthcare_`);

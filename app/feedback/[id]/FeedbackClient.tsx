@@ -19,10 +19,14 @@ function Stars({ value, onChange }: { value: number; onChange: (v: number) => vo
   );
 }
 
-export default function FeedbackClient({ feedback }: { feedback: any }) {
+export default function FeedbackClient({ feedback, clinicSettings }: { feedback: any; clinicSettings: any }) {
   const [submitted, setSubmitted] = useState(feedback.status === 'submitted');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ overall: 0, doctor: 0, wait: 0, comments: '' });
+
+  const clinicName = clinicSettings?.clinic_name || 'Our Clinic';
+  const doctorName = clinicSettings?.doctor_name || '';
+  const logoUrl    = clinicSettings?.logo_url    || '';
 
   const handleSubmit = async () => {
     if (!form.overall) { alert('Please rate your overall experience'); return; }
@@ -44,8 +48,12 @@ export default function FeedbackClient({ feedback }: { feedback: any }) {
       <div style={{fontSize:48,marginBottom:16}}>🙏</div>
       <div style={{fontSize:22,fontWeight:700,color:'#0a1628',marginBottom:8}}>Thank You!</div>
       <div style={{fontSize:14,color:'#6b7280',textAlign:'center',maxWidth:280}}>Your feedback helps us improve our service. We appreciate you taking the time.</div>
-      <div style={{marginTop:20,background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.3)',borderRadius:12,padding:'12px 20px',textAlign:'center'}}>
-        <div style={{fontSize:13,fontWeight:600,color:'#92400e'}}>MediPlex Pediatric Centre</div>
+      <div style={{marginTop:20,background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.3)',borderRadius:12,padding:'16px 24px',textAlign:'center',display:'flex',alignItems:'center',gap:12}}>
+        {logoUrl && <img src={logoUrl} alt="Logo" style={{width:40,height:40,objectFit:'contain',borderRadius:6}}/>}
+        <div>
+          <div style={{fontSize:14,fontWeight:700,color:'#0a1628'}}>{clinicName}</div>
+          {doctorName && <div style={{fontSize:12,color:'#c9a84c',fontWeight:600}}>{doctorName}</div>}
+        </div>
       </div>
     </div>
   );
@@ -53,9 +61,16 @@ export default function FeedbackClient({ feedback }: { feedback: any }) {
   return (
     <div style={{minHeight:'100vh',background:'#f9f7f3',fontFamily:'system-ui'}}>
       <div style={{background:'#0a1628',padding:'14px 20px'}}>
-        <div style={{maxWidth:480,margin:'0 auto'}}>
-          <div style={{fontSize:16,fontWeight:700,color:'#fff'}}>🏥 MediPlex Pediatric Centre</div>
-          <div style={{fontSize:11,color:'rgba(255,255,255,0.5)',marginTop:2}}>Patient Feedback Form</div>
+        <div style={{maxWidth:480,margin:'0 auto',display:'flex',alignItems:'center',gap:12}}>
+          {logoUrl
+            ? <img src={logoUrl} alt="Logo" style={{width:38,height:38,objectFit:'contain',borderRadius:7,border:'1px solid rgba(201,168,76,0.3)',flexShrink:0}}/>
+            : <div style={{width:36,height:36,borderRadius:8,background:'linear-gradient(135deg,#c9a84c,#e8c87a)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,color:'#0a1628',fontSize:14,flexShrink:0}}>M+</div>
+          }
+          <div>
+            <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>{clinicName}</div>
+            {doctorName && <div style={{fontSize:11,color:'#c9a84c',fontWeight:600}}>{doctorName}</div>}
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>Patient Feedback Form</div>
+          </div>
         </div>
       </div>
       <div style={{maxWidth:480,margin:'0 auto',padding:'20px 16px'}}>

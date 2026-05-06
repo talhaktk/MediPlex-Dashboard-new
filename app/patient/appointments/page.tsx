@@ -58,7 +58,8 @@ export default function PatientAppointments() {
     if (!newDate) return;
     const {error} = await supabase.from('patient_messages').insert([{
       mr_number: mrNumber, clinic_id: clinicId,
-      sender: 'patient', message: `Reschedule request for appointment on ${apt.appointment_date} at ${apt.appointment_time}. Preferred new date: ${newDate}`,
+      patient_name: user?.name || 'Patient',
+      sender: 'patient', body: `Reschedule request for appointment on ${apt.appointment_date} at ${apt.appointment_time}. Preferred new date: ${newDate}`,
       created_at: new Date().toISOString(),
     }]);
     if (error) toast.error(error.message);
