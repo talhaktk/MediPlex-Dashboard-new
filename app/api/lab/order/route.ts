@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
   // Auto-resolve phone if not provided
   let resolvedPhone = phone?.trim() || null;
   if (!resolvedPhone) {
-    const { data: appt } = await sb.from('appointments').select('whatsapp').eq('mr_number', mrNumber).order('appointment_date', { ascending: false }).limit(1).maybeSingle();
-    resolvedPhone = appt?.whatsapp || null;
+    const { data: appt } = await sb.from('appointments').select('whatsapp_number').eq('mr_number', mrNumber).order('appointment_date', { ascending: false }).limit(1).maybeSingle();
+    resolvedPhone = appt?.whatsapp_number || null;
     if (!resolvedPhone) {
       const { data: pat } = await sb.from('patients').select('whatsapp_number').eq('mr_number', mrNumber).maybeSingle();
       resolvedPhone = pat?.whatsapp_number || null;
