@@ -8,6 +8,7 @@ import {
   Building2, Users, ToggleLeft, BarChart3, Plus, X, Save,
   LogOut, CheckCircle, XCircle,
   UserCheck, Shield, ChevronRight, ChevronDown, Briefcase,
+  Copy, Eye, EyeOff, Database, RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -210,8 +211,19 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   
   const [showAddClinic, setShowAddClinic] = useState(false);
   const [clinicForm, setClinicForm] = useState({
-    name:'', speciality:'Pediatrics', city:'', org_id:'', subscription_expiry:'',
+    name: '', speciality: 'Pediatrics', city: '', org_id: '', subscription_expiry: '',
+    // Clinic contact
+    address: '', phone: '', email: '', website: '',
+    // Doctor (first user)
+    doctorName: '', doctorEmail: '', doctorPassword: '', doctorRole: 'doctor',
+    // Billing / MR
+    mrPrefix: 'MR', mrDigits: '4', consultationFee: '0', currency: 'PKR',
+    // Subscription
+    plan: 'Standard', aiScribeLimit: '100',
   });
+  const [showClinicPw, setShowClinicPw] = useState(false);
+  const [creatingClinic, setCreatingClinic] = useState(false);
+  const [createdInfo, setCreatedInfo] = useState<{ clinicId: string; clinicName: string; doctorEmail: string; orgName: string } | null>(null);
 
   const [showAddUser, setShowAddUser] = useState(false);
   const [userForm, setUserForm] = useState({ name:'', email:'', password:'', user_role:'doctor', clinic_id:'' });
@@ -303,35 +315,59 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     }
   };
 
-  // Add Clinic
+  // Add Clinic — server-side via API route (uses service role key)
   const addClinic = async () => {
     if (!clinicForm.name || !clinicForm.org_id) {
       toast.error('Clinic name and organisation are required'); return;
     }
+    if (!clinicForm.doctorEmail || !clinicForm.doctorPassword) {
+      toast.error('Doctor email and password are required to create a login'); return;
+    }
+    if (clinicForm.doctorPassword.length < 6) {
+      toast.error('Password must be at least 6 characters'); return;
+    }
+    setCreatingClinic(true);
     try {
-      const clinicId = clinicForm.name.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,20) + '_' + Date.now().toString().slice(-4);
-      const { error: cErr } = await supabase.from('clinics').insert([{
-        id: clinicId, org_id: clinicForm.org_id, name: clinicForm.name,
-        speciality: clinicForm.speciality, city: clinicForm.city,
-        status:'active', is_active:true,
-        subscription_expiry: clinicForm.subscription_expiry || null,
-        modules: SPECIALITY_DEFAULTS[clinicForm.speciality] || { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true },
-      }]);
-      if (cErr) throw cErr;
+      const res = await fetch('/api/superadmin/create-clinic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orgId:               clinicForm.org_id,
+          clinicName:          clinicForm.name,
+          speciality:          clinicForm.speciality,
+          city:                clinicForm.city,
+          address:             clinicForm.address,
+          phone:               clinicForm.phone,
+          clinicEmail:         clinicForm.email,
+          website:             clinicForm.website,
+          doctorName:          clinicForm.doctorName,
+          doctorEmail:         clinicForm.doctorEmail,
+          doctorPassword:      clinicForm.doctorPassword,
+          doctorRole:          clinicForm.doctorRole,
+          plan:                clinicForm.plan,
+          aiScribeLimit:       parseInt(clinicForm.aiScribeLimit) || 100,
+          subscriptionExpiry:  clinicForm.subscription_expiry || null,
+          mrPrefix:            clinicForm.mrPrefix,
+          mrDigits:            parseInt(clinicForm.mrDigits) || 4,
+          consultationFee:     parseFloat(clinicForm.consultationFee) || 0,
+          currency:            clinicForm.currency,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error || 'Failed to create clinic'); return; }
 
-      const defaultModules = SPECIALITY_DEFAULTS[clinicForm.speciality] || { telehealth:true, ai_scribe:true, lab_results:true, procedures:true, feedback:true };
-      await supabase.from('clinic_settings').insert([{
-        clinic_id: clinicId,
-        clinic_name: clinicForm.name,
-        doctor_name: '',
-        speciality: clinicForm.speciality,
-        modules: defaultModules,
-      }]).select();
-      toast.success(`Clinic "${clinicForm.name}" created!`);
+      setCreatedInfo({
+        clinicId:    json.clinicId,
+        clinicName:  json.clinicName,
+        doctorEmail: json.doctorEmail,
+        orgName:     json.orgName,
+      });
       setShowAddClinic(false);
-      setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',subscription_expiry:'' });
+      setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',subscription_expiry:'',address:'',phone:'',email:'',website:'',doctorName:'',doctorEmail:'',doctorPassword:'',doctorRole:'doctor',mrPrefix:'MR',mrDigits:'4',consultationFee:'0',currency:'PKR',plan:'Standard',aiScribeLimit:'100' });
+      toast.success(`Clinic "${json.clinicName}" created!`);
       fetchAll();
-    } catch (err: any) { toast.error('Failed: ' + err.message); }
+    } catch (err: any) { toast.error('Error: ' + err.message); }
+    finally { setCreatingClinic(false); }
   };
 
   // Add User
@@ -460,7 +496,16 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                 <h1 className="text-white text-[20px] font-semibold">Organisations</h1>
                 <p className="text-white/40 text-[12px] mt-0.5">{orgs.length} organisations · {clinics.length} total clinics</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={fetchAll} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px]"
+                  style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.5)' }}>
+                  <RefreshCw size={12}/> Refresh
+                </button>
+                <button onClick={async()=>{const r=await fetch('/api/superadmin/migrate',{method:'GET'});const j=await r.json();navigator.clipboard.writeText(j.sql||'');toast.success('Migration SQL copied — paste in Supabase SQL Editor');}}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px]"
+                  style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.5)' }}>
+                  <Database size={12}/> Copy DB Setup SQL
+                </button>
                 <button onClick={() => { setShowAddClinic(true); }} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold"
                   style={{ background:'rgba(255,255,255,0.08)', border:'1px solid rgba(255,255,255,0.1)', color:'#fff' }}>
                   <Plus size={13}/> Add Clinic
@@ -499,14 +544,20 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
               </div>
             )}
 
-            {/* Add Clinic Form */}
+            {/* Add Clinic Form — Full Setup */}
             {showAddClinic && (
               <div className="rounded-2xl p-5" style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(201,168,76,0.3)' }}>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-white font-semibold">New Clinic</div>
+                  <div>
+                    <div className="text-white font-semibold">New Clinic — Full Setup</div>
+                    <div className="text-[11px] text-white/40 mt-0.5">Creates: clinic · clinic_settings · doctor login · subscription</div>
+                  </div>
                   <button onClick={()=>setShowAddClinic(false)}><X size={15} className="text-white/30"/></button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                {/* Section: Clinic Identity */}
+                <div className="text-[10px] text-white/30 uppercase tracking-widest font-medium mb-2 mt-1">Clinic Identity</div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
                   <div>
                     <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Organisation *</label>
                     <select value={clinicForm.org_id} onChange={e=>setClinicForm(p=>({...p,org_id:e.target.value}))}
@@ -516,6 +567,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       {orgs.map(o=><option key={o.id} value={o.id} style={{ background:'#0a1628' }}>{o.name}</option>)}
                     </select>
                   </div>
+                  <Input label="Clinic Name *" value={clinicForm.name} onChange={(v:string)=>setClinicForm(p=>({...p,name:v}))} placeholder="e.g. RMI Pediatrics"/>
                   <div>
                     <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Speciality</label>
                     <select value={clinicForm.speciality} onChange={e=>setClinicForm(p=>({...p,speciality:e.target.value}))}
@@ -524,23 +576,151 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       {SPECIALITIES.map(s=><option key={s} value={s} style={{ background:'#0a1628' }}>{s}</option>)}
                     </select>
                   </div>
-                  <Input label="Clinic Name *" value={clinicForm.name} onChange={(v:string)=>setClinicForm(p=>({...p,name:v}))} placeholder="e.g. RMI Pediatrics"/>
                   <Input label="City" value={clinicForm.city} onChange={(v:string)=>setClinicForm(p=>({...p,city:v}))} placeholder="e.g. Peshawar"/>
-                
+                  <Input label="Address" value={clinicForm.address} onChange={(v:string)=>setClinicForm(p=>({...p,address:v}))} placeholder="Street, Area"/>
+                  <Input label="Phone" value={clinicForm.phone} onChange={(v:string)=>setClinicForm(p=>({...p,phone:v}))} placeholder="+92 300 0000000"/>
+                  <Input label="Clinic Email" value={clinicForm.email} onChange={(v:string)=>setClinicForm(p=>({...p,email:v}))} type="email" placeholder="clinic@example.com"/>
+                  <Input label="Website" value={clinicForm.website} onChange={(v:string)=>setClinicForm(p=>({...p,website:v}))} placeholder="https://..."/>
+                </div>
+
+                {/* Section: Doctor Login */}
+                <div className="text-[10px] text-white/30 uppercase tracking-widest font-medium mb-2 mt-2">Doctor / Admin Login</div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <Input label="Doctor Name" value={clinicForm.doctorName} onChange={(v:string)=>setClinicForm(p=>({...p,doctorName:v}))} placeholder="Dr. Ahmed Khan"/>
+                  <Input label="Login Email *" value={clinicForm.doctorEmail} onChange={(v:string)=>setClinicForm(p=>({...p,doctorEmail:v}))} type="email" placeholder="dr@clinic.com"/>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Login Password *</label>
+                    <div className="relative">
+                      <input type={showClinicPw?'text':'password'} value={clinicForm.doctorPassword}
+                        onChange={e=>setClinicForm(p=>({...p,doctorPassword:e.target.value}))}
+                        placeholder="min 6 chars"
+                        className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none pr-10"
+                        style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}/>
+                      <button type="button" onClick={()=>setShowClinicPw(p=>!p)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                        {showClinicPw ? <EyeOff size={13}/> : <Eye size={13}/>}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Role</label>
+                    <select value={clinicForm.doctorRole} onChange={e=>setClinicForm(p=>({...p,doctorRole:e.target.value}))}
+                      className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                      style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}>
+                      {['doctor','doctor_admin','admin','receptionist'].map(r=>(
+                        <option key={r} value={r} style={{ background:'#0a1628' }}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Section: Subscription + Settings */}
+                <div className="text-[10px] text-white/30 uppercase tracking-widest font-medium mb-2 mt-2">Subscription & Settings</div>
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Plan</label>
+                    <select value={clinicForm.plan} onChange={e=>setClinicForm(p=>({...p,plan:e.target.value}))}
+                      className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                      style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}>
+                      {['Trial','Starter','Standard','Professional','Growth','Enterprise'].map(p=>(
+                        <option key={p} value={p} style={{ background:'#0a1628' }}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <Input label="AI Scribe Limit" value={clinicForm.aiScribeLimit} onChange={(v:string)=>setClinicForm(p=>({...p,aiScribeLimit:v}))} type="number" placeholder="100"/>
                   <div>
                     <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Subscription Expiry</label>
                     <input type="date" value={clinicForm.subscription_expiry} onChange={e=>setClinicForm(p=>({...p,subscription_expiry:e.target.value}))}
                       className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
                       style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4', colorScheme:'dark' }}/>
                   </div>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Currency</label>
+                    <select value={clinicForm.currency} onChange={e=>setClinicForm(p=>({...p,currency:e.target.value}))}
+                      className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                      style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}>
+                      {['PKR','GBP','USD','AED','SAR'].map(c=><option key={c} value={c} style={{ background:'#0a1628' }}>{c}</option>)}
+                    </select>
+                  </div>
+                  <Input label="MR Prefix" value={clinicForm.mrPrefix} onChange={(v:string)=>setClinicForm(p=>({...p,mrPrefix:v.toUpperCase()}))} placeholder="MR" maxLength={6}/>
+                  <div>
+                    <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">MR Digits</label>
+                    <select value={clinicForm.mrDigits} onChange={e=>setClinicForm(p=>({...p,mrDigits:e.target.value}))}
+                      className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                      style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}>
+                      {['3','4','5','6'].map(n=><option key={n} value={n} style={{ background:'#0a1628' }}>{n} digits</option>)}
+                    </select>
+                  </div>
+                  <Input label="Consultation Fee" value={clinicForm.consultationFee} onChange={(v:string)=>setClinicForm(p=>({...p,consultationFee:v}))} type="number" placeholder="1500"/>
+                  <div className="flex items-end pb-1">
+                    <div className="text-[11px] text-white/30 font-mono px-3 py-2.5 rounded-xl w-full"
+                      style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)' }}>
+                      MR Preview: <span className="text-white/70 font-medium">{clinicForm.mrPrefix}-{'0'.repeat(Math.max(0,parseInt(clinicForm.mrDigits)-1))}1</span>
+                    </div>
+                  </div>
                 </div>
+
                 <div className="flex gap-2 mt-4">
-                  <button onClick={addClinic} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold"
+                  <button onClick={addClinic} disabled={creatingClinic}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold disabled:opacity-60"
                     style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)', color:'#0a1628' }}>
-                    <Save size={13}/> Create Clinic
+                    {creatingClinic
+                      ? <><span className="w-3 h-3 rounded-full border-2 border-navy/30 border-t-navy animate-spin"/>Creating…</>
+                      : <><Save size={13}/> Create Full Clinic Setup</>}
                   </button>
                   <button onClick={()=>setShowAddClinic(false)} className="px-4 py-2 rounded-xl text-[12px] text-white/50"
                     style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)' }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ Created Credentials Dialog */}
+            {createdInfo && (
+              <div className="rounded-2xl p-5" style={{ background:'rgba(26,127,94,0.08)', border:'1px solid rgba(74,222,128,0.3)' }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={16} className="text-green-400"/>
+                    <div className="text-white font-semibold text-[14px]">Clinic Created Successfully</div>
+                  </div>
+                  <button onClick={()=>setCreatedInfo(null)}><X size={14} className="text-white/30"/></button>
+                </div>
+                <div className="space-y-2 text-[12px]">
+                  <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'rgba(255,255,255,0.04)' }}>
+                    <span className="text-white/40 w-24 flex-shrink-0">Clinic</span>
+                    <span className="text-white font-medium">{createdInfo.clinicName}</span>
+                    <span className="text-white/30 ml-1">({createdInfo.orgName})</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'rgba(255,255,255,0.04)' }}>
+                    <span className="text-white/40 w-24 flex-shrink-0">Clinic ID</span>
+                    <span className="text-white font-mono text-[11px] flex-1">{createdInfo.clinicId}</span>
+                    <button onClick={()=>{navigator.clipboard.writeText(createdInfo.clinicId);toast.success('Clinic ID copied');}}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]"
+                      style={{ background:'rgba(201,168,76,0.15)', color:'#c9a84c', border:'1px solid rgba(201,168,76,0.3)' }}>
+                      <Copy size={10}/> Copy
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background:'rgba(255,255,255,0.04)' }}>
+                    <span className="text-white/40 w-24 flex-shrink-0">Login Email</span>
+                    <span className="text-white flex-1">{createdInfo.doctorEmail}</span>
+                    <button onClick={()=>{navigator.clipboard.writeText(createdInfo.doctorEmail);toast.success('Email copied');}}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]"
+                      style={{ background:'rgba(201,168,76,0.15)', color:'#c9a84c', border:'1px solid rgba(201,168,76,0.3)' }}>
+                      <Copy size={10}/> Copy
+                    </button>
+                  </div>
+                  <div className="mt-2 p-3 rounded-xl text-[11px] text-white/50" style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.06)' }}>
+                    Share login credentials with the clinic admin. They can change their password in Settings after first login.
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={()=>{
+                      const text = `MediPlex Clinic Login\n\nClinic: ${createdInfo.clinicName}\nClinic ID: ${createdInfo.clinicId}\nLogin: ${createdInfo.doctorEmail}\nURL: ${window.location.origin}/login`;
+                      navigator.clipboard.writeText(text);
+                      toast.success('All credentials copied!');
+                    }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold"
+                      style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)', color:'#0a1628' }}>
+                      <Copy size={12}/> Copy All Credentials
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -599,21 +779,47 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       {oClinics.length===0 && (
                         <div className="px-5 py-6 text-center text-white/30 text-[12px]">No clinics yet — click "Add Clinic" above</div>
                       )}
-                      {oClinics.map(clinic => (
+                      {oClinics.map(clinic => {
+                        const sub = subscriptions.find(s=>s.clinic_id===clinic.id);
+                        const subExpired = clinic.subscription_expiry && new Date(clinic.subscription_expiry) < new Date();
+                        return (
                         <div key={clinic.id} className="px-5 py-4 border-b hover:bg-white/[0.02] transition-colors"
                           style={{ borderColor:'rgba(255,255,255,0.04)' }}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              <div className="w-2 h-2 rounded-full" style={{ background: clinic.is_active?'#4ade80':'#fc8181' }}/>
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: clinic.is_active?'#4ade80':'#fc8181' }}/>
                               <div>
                                 <div className="text-white text-[13px] font-medium">{clinic.name}</div>
-                                <div className="text-white/40 text-[11px]">{clinic.speciality} · {clinic.city||'—'} · {clinic.patient_count} patients · {clinic.appointment_count} appointments</div>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-white/40 text-[11px]">{clinic.speciality} · {clinic.city||'—'} · {clinic.patient_count} patients · {clinic.appointment_count} appts</span>
+                                  {sub && <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                                    style={{ background:'rgba(201,168,76,0.12)', color:'#c9a84c', border:'1px solid rgba(201,168,76,0.25)' }}>
+                                    {sub.plan_name||'Standard'} · {sub.ai_scribe_limit||'—'} AI calls
+                                  </span>}
+                                  {subExpired && <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                                    style={{ background:'rgba(220,38,38,0.12)', color:'#fc8181', border:'1px solid rgba(220,38,38,0.25)' }}>
+                                    Expired
+                                  </span>}
+                                </div>
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <span className="text-white/20 text-[10px] font-mono">{clinic.id}</span>
+                                  <button onClick={e=>{e.stopPropagation();navigator.clipboard.writeText(clinic.id);toast.success('Clinic ID copied');}}
+                                    className="text-white/20 hover:text-white/50 ml-0.5" title="Copy Clinic ID">
+                                    <Copy size={9}/>
+                                  </button>
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
                               {clinic.subscription_expiry && (
-                                <span className="text-[10px] text-white/30">Exp: {clinic.subscription_expiry}</span>
+                                <span className="text-[10px]" style={{ color: subExpired?'#fc8181':'#6b7280' }}>
+                                  Exp: {clinic.subscription_expiry}
+                                </span>
                               )}
+                              <button onClick={()=>{setShowAddSub(clinic.id);}}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10" title="Subscription">
+                                <Database size={12} className="text-white/50"/>
+                              </button>
                               <button onClick={()=>{setSelectedClinic(clinic);setTab('features');}}
                                 className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10" title="Features">
                                 <ToggleLeft size={12} className="text-white/50"/>
@@ -629,8 +835,52 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                               </button>
                             </div>
                           </div>
+                          {/* Inline subscription form */}
+                          {showAddSub===clinic.id && (
+                            <div className="mt-3 p-3 rounded-xl" style={{ background:'rgba(201,168,76,0.06)', border:'1px solid rgba(201,168,76,0.2)' }}>
+                              <div className="text-[10px] text-white/40 uppercase tracking-widest mb-2">Edit Subscription — {clinic.name}</div>
+                              <div className="grid grid-cols-4 gap-2">
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1">Plan</label>
+                                  <select value={subForm.plan_name} onChange={e=>setSubForm(p=>({...p,plan_name:e.target.value}))}
+                                    className="w-full rounded-lg px-2 py-1.5 text-[12px] outline-none"
+                                    style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}>
+                                    {['Trial','Starter','Standard','Professional','Growth','Enterprise'].map(p=><option key={p} value={p} style={{ background:'#0a1628' }}>{p}</option>)}
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1">AI Scribe Limit</label>
+                                  <input type="number" value={subForm.ai_scribe_limit} onChange={e=>setSubForm(p=>({...p,ai_scribe_limit:e.target.value}))}
+                                    className="w-full rounded-lg px-2 py-1.5 text-[12px] outline-none"
+                                    style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1">Next Billing</label>
+                                  <input type="date" value={subForm.next_billing} onChange={e=>setSubForm(p=>({...p,next_billing:e.target.value}))}
+                                    className="w-full rounded-lg px-2 py-1.5 text-[12px] outline-none"
+                                    style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4', colorScheme:'dark' }}/>
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-white/40 block mb-1">Price / mo</label>
+                                  <input type="number" value={subForm.price_monthly} onChange={e=>setSubForm(p=>({...p,price_monthly:e.target.value}))}
+                                    className="w-full rounded-lg px-2 py-1.5 text-[12px] outline-none"
+                                    style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}/>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 mt-2">
+                                <button onClick={()=>addSubscription(clinic.id)}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                                  style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)', color:'#0a1628' }}>
+                                  <Save size={10}/> Save
+                                </button>
+                                <button onClick={()=>setShowAddSub(null)} className="px-3 py-1.5 rounded-lg text-[11px] text-white/40"
+                                  style={{ background:'rgba(255,255,255,0.05)' }}>Cancel</button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
