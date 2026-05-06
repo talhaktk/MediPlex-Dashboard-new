@@ -1386,7 +1386,7 @@ try {
     ? await supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending')
     : await supabase.from('lab_orders').select('*').eq('child_name', nameParam).eq('status','pending');
   const orders = allOrders || [];
-  const pending = orders.find((o:any)=>o.rx_id===rx.id) || orders[0];
+  const pending = orders[0];
   if(pending){
     qrToken=pending.qr_token;
     qrExpiry=pending.qr_expires_at;
