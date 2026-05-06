@@ -525,21 +525,36 @@ export default function PrescriptionClient({
     // Fetch pending lab orders from patient tab for this patient
     if (apt?.childName || (apt as any)?.mr_number) {
       const mr = (apt as any)?.mr_number || (data.find((a:any)=>a.childName===apt?.childName) as any)?.mr_number || '';
-      if (mr) {
-        supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending').then(({ data: orders }) => {
-        if (orders && orders.length > 0) {
-          const catMap: Record<string,boolean> = {};
-          const allTests: LabRequest[] = [];
-          orders.forEach((order:any) => {
-            (order.tests||[]).forEach((t:any) => {
-              const cat = t.category || t.name || 'General';
-              if (!catMap[cat]) { catMap[cat]=true; allTests.push({name:cat,urgency:'Routine',instructions:'',id:cat,cat}); }
+      const param = mr ? `mr=${encodeURIComponent(mr)}` : `name=${encodeURIComponent(apt?.childName||'')}`;
+      fetch(`/api/lab/order?${param}`)
+        .then(r=>r.json())
+        .then(d=>{
+          const pending = (d.data||[]).filter((o:any)=>o.status==='pending');
+          if(pending.length>0){
+            const allTests: LabRequest[] = [];
+            pending.forEach((order:any)=>{
+              // Group by category to show CBC instead of sub-tests
+              const categoryMap: Record<string,string[]> = {};
+              (order.tests||[]).forEach((t:any)=>{
+                const cat = t.category || 'General';
+                const name = t.name || '';
+                if(!categoryMap[cat]) categoryMap[cat] = [];
+                if(!categoryMap[cat].includes(name)) categoryMap[cat].push(name);
+              });
+              Object.entries(categoryMap).forEach(([cat, names])=>{
+                // Use category name as test name if multiple sub-tests, else use test name
+                const testName = names.length > 1 ? cat : names[0];
+                if(!allTests.find(x=>x.name===testName)){
+                  allTests.push({name:testName, urgency:'Routine', instructions:'', id:testName, cat});
+                }
+              });
             });
-          });
-          setLabRequests(allTests);
-        } else { setLabRequests([]); }
-        });
-      } else { setLabRequests([]); }
+            setLabRequests(allTests);
+          } else {
+            setLabRequests([]);
+          }
+        })
+        .catch(()=>setLabRequests([]));
     } else {
       setLabRequests([]);
     }
@@ -547,7 +562,7 @@ export default function PrescriptionClient({
   };
 
   // Create a QR lab order from selected Lab Investigations
-  const createLabOrderQR = async (labReqs: LabRequest[], childName: string, rxId?: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
+  const createLabOrderQR = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
     if (!labReqs.length || !childName) return null;
     const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
     const mrNumber = (apt as any)?.mr_number;
@@ -568,7 +583,6 @@ export default function PrescriptionClient({
           mrNumber, patientName: childName, phone,
           orderType: isRadiology ? 'radiology' : 'lab',
           tests, clinicalNotes: form.diagnosis || '',
-          rxId: rxId || null,
         }),
       });
       const d = await res.json();
@@ -1332,7 +1346,7 @@ export default function PrescriptionClient({
                   let qrToken: string | null = null;
                   let qrExpiry: string | null = null;
                   if (labRequests.length > 0 && form.childName) {
-                    const result = await createLabOrderQR(labRequests, form.childName, form.id);
+                    const result = await createLabOrderQR(labRequests, form.childName);
                     if (result) { qrToken = result.qrToken; qrExpiry = result.expiresAt; }
                   }
                   printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, effectiveSettings);
@@ -1386,6 +1400,7 @@ try {
   const r=await fetch(`/api/lab/order?${mrParam}`);
   const d2=await r.json();
   const allOrders = d2.data||[];
+  // Get most recent pending order
   const pending=allOrders.find((o:any)=>o.status==='pending');
   if(pending){
     qrToken=pending.qr_token;

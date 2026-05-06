@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!user || user.isPatient) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { mrNumber, patientName, phone, orderType, tests, clinicalNotes, rxId } = body;
+  const { mrNumber, patientName, phone, orderType, tests, clinicalNotes } = body;
   if (!mrNumber || !tests?.length || !orderType) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
   // Auto-resolve phone if not provided
   let resolvedPhone = phone?.trim() || null;
   if (!resolvedPhone) {
-    const { data: appt } = await sb.from('appointments').select('whatsapp_number').eq('mr_number', mrNumber).order('appointment_date', { ascending: false }).limit(1).maybeSingle();
-    resolvedPhone = appt?.whatsapp_number || null;
+    const { data: appt } = await sb.from('appointments').select('whatsapp').eq('mr_number', mrNumber).order('appointment_date', { ascending: false }).limit(1).maybeSingle();
+    resolvedPhone = appt?.whatsapp || null;
     if (!resolvedPhone) {
       const { data: pat } = await sb.from('patients').select('whatsapp_number').eq('mr_number', mrNumber).maybeSingle();
       resolvedPhone = pat?.whatsapp_number || null;
@@ -68,7 +68,6 @@ export async function POST(req: NextRequest) {
     qr_token:       qrToken,
     qr_expires_at:  expiresAt,
     status:         'pending',
-    rx_id:          rxId || null,
   }]).select('id,qr_token,qr_expires_at').single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
