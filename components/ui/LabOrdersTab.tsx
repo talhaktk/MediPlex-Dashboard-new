@@ -234,7 +234,7 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             const isExpired = order.qr_expires_at && new Date(order.qr_expires_at) < new Date();
             return (
               <div key={order.id} className="rounded-xl overflow-hidden" style={{background:'#f9fafb',border:'1px solid #e2e8f0'}}>
-                {(isPending || order.status === 'completed') && (
+                {isPending && (
                   <button onClick={async()=>{
                     if(!confirm('Delete this lab order and all associated results?')) return;
                     await supabase.from('lab_results').delete().eq('order_id', order.id);

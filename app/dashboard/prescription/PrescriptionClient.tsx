@@ -525,36 +525,20 @@ export default function PrescriptionClient({
     // Fetch pending lab orders from patient tab for this patient
     if (apt?.childName || (apt as any)?.mr_number) {
       const mr = (apt as any)?.mr_number || (data.find((a:any)=>a.childName===apt?.childName) as any)?.mr_number || '';
-      const param = mr ? `mr=${encodeURIComponent(mr)}` : `name=${encodeURIComponent(apt?.childName||'')}`;
-      fetch(`/api/lab/order?${param}`)
-        .then(r=>r.json())
-        .then(d=>{
-          const pending = (d.data||[]).filter((o:any)=>o.status==='pending');
-          if(pending.length>0){
-            const allTests: LabRequest[] = [];
-            pending.forEach((order:any)=>{
-              // Group by category to show CBC instead of sub-tests
-              const categoryMap: Record<string,string[]> = {};
-              (order.tests||[]).forEach((t:any)=>{
-                const cat = t.category || 'General';
-                const name = t.name || '';
-                if(!categoryMap[cat]) categoryMap[cat] = [];
-                if(!categoryMap[cat].includes(name)) categoryMap[cat].push(name);
-              });
-              Object.entries(categoryMap).forEach(([cat, names])=>{
-                // Use category name as test name if multiple sub-tests, else use test name
-                const testName = names.length > 1 ? cat : names[0];
-                if(!allTests.find(x=>x.name===testName)){
-                  allTests.push({name:testName, urgency:'Routine', instructions:'', id:testName, cat});
-                }
-              });
+      if (mr) {
+        const { data: orders } = await supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending');
+        if (orders && orders.length > 0) {
+          const catMap: Record<string,boolean> = {};
+          const allTests: LabRequest[] = [];
+          orders.forEach((order:any) => {
+            (order.tests||[]).forEach((t:any) => {
+              const cat = t.category || t.name || 'General';
+              if (!catMap[cat]) { catMap[cat]=true; allTests.push({name:cat,urgency:'Routine',instructions:'',id:cat,cat}); }
             });
-            setLabRequests(allTests);
-          } else {
-            setLabRequests([]);
-          }
-        })
-        .catch(()=>setLabRequests([]));
+          });
+          setLabRequests(allTests);
+        } else { setLabRequests([]); }
+      } else { setLabRequests([]); }
     } else {
       setLabRequests([]);
     }
@@ -1397,13 +1381,11 @@ export default function PrescriptionClient({
 try {
   const mr=(data.find((a:any)=>a.childName?.toLowerCase()===rx.childName?.toLowerCase()) as any)?.mr_number||(rx as any).mrNumber||'';
   const nameParam = encodeURIComponent(rx.childName||'');
-  const mrParam = mr ? `mr=${encodeURIComponent(mr)}` : `name=${nameParam}`;
-  const r=await fetch(`/api/lab/order?${mrParam}`);
-  const d2=await r.json();
-  const allOrders = d2.data||[];
-  // Prefer the order linked to this specific prescription, fall back to any pending
-  const pending=allOrders.find((o:any)=>o.rx_id===rx.id&&o.status==='pending')
-    ||allOrders.find((o:any)=>o.status==='pending');
+  const { data: allOrders } = mr
+    ? await supabase.from('lab_orders').select('*').eq('mr_number', mr).eq('status','pending')
+    : await supabase.from('lab_orders').select('*').eq('child_name', nameParam).eq('status','pending');
+  const orders = allOrders || [];
+  const pending = orders.find((o:any)=>o.rx_id===rx.id) || orders[0];
   if(pending){
     qrToken=pending.qr_token;
     qrExpiry=pending.qr_expires_at;
