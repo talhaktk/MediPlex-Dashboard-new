@@ -234,15 +234,16 @@ export default function LabOrdersTab({ mrNumber, patientName, phone, clinicId }:
             const isExpired = order.qr_expires_at && new Date(order.qr_expires_at) < new Date();
             return (
               <div key={order.id} className="rounded-xl overflow-hidden" style={{background:'#f9fafb',border:'1px solid #e2e8f0'}}>
-                {isPending && (
+                {(isPending || order.status === 'completed') && (
                   <button onClick={async()=>{
-                    if(!confirm('Cancel this lab order?')) return;
+                    if(!confirm('Delete this lab order and all associated results?')) return;
+                    await supabase.from('lab_results').delete().eq('order_id', order.id);
                     const {error} = await supabase.from('lab_orders').delete().eq('id', order.id);
                     if(error) toast.error(error.message);
-                    else { toast.success('Lab order deleted'); setOrders(prev=>prev.filter(o=>o.id!==order.id)); }
+                    else { toast.success('Lab order deleted'); setOrders(prev=>prev.filter(o=>o.id!==order.id)); setResults(prev=>prev.filter(r=>r.order_id!==order.id)); }
                   }} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium flex-shrink-0"
                     style={{background:'rgba(220,38,38,0.1)',color:'#dc2626',border:'1px solid rgba(220,38,38,0.2)'}}>
-                    ✕ Cancel Order
+                    ✕ {isPending ? 'Cancel Order' : 'Delete'}
                   </button>
                 )}
                 <button onClick={()=>setExpanded(prev=>{const n=new Set(prev);n.has(order.id)?n.delete(order.id):n.add(order.id);return n;})}

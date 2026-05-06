@@ -9,6 +9,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const sb = getAdmin();
   const { data: order } = await sb.from('lab_orders').select('*').eq('qr_token', params.token).maybeSingle();
   if (!order) return NextResponse.json({ error: 'Invalid or expired link' }, { status: 404 });
+  if (order.status === 'completed') return NextResponse.json({ error: 'Results have already been submitted for this order.' }, { status: 410 });
   if (new Date(order.qr_expires_at) < new Date()) return NextResponse.json({ error: 'This QR code has expired.' }, { status: 410 });
   return NextResponse.json({ order: {
     id: order.id, child_name: order.child_name || order.patient_name,

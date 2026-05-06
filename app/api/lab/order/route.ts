@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!user || user.isPatient) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { mrNumber, patientName, phone, orderType, tests, clinicalNotes } = body;
+  const { mrNumber, patientName, phone, orderType, tests, clinicalNotes, rxId } = body;
   if (!mrNumber || !tests?.length || !orderType) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
     qr_token:       qrToken,
     qr_expires_at:  expiresAt,
     status:         'pending',
+    rx_id:          rxId || null,
   }]).select('id,qr_token,qr_expires_at').single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

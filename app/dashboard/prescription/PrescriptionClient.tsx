@@ -562,7 +562,7 @@ export default function PrescriptionClient({
   };
 
   // Create a QR lab order from selected Lab Investigations
-  const createLabOrderQR = async (labReqs: LabRequest[], childName: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
+  const createLabOrderQR = async (labReqs: LabRequest[], childName: string, rxId?: string): Promise<{ qrToken: string; expiresAt: string } | null> => {
     if (!labReqs.length || !childName) return null;
     const apt = data.find((a: any) => a.childName?.toLowerCase() === childName.toLowerCase());
     const mrNumber = (apt as any)?.mr_number;
@@ -583,6 +583,7 @@ export default function PrescriptionClient({
           mrNumber, patientName: childName, phone,
           orderType: isRadiology ? 'radiology' : 'lab',
           tests, clinicalNotes: form.diagnosis || '',
+          rxId: rxId || null,
         }),
       });
       const d = await res.json();
@@ -1346,7 +1347,7 @@ export default function PrescriptionClient({
                   let qrToken: string | null = null;
                   let qrExpiry: string | null = null;
                   if (labRequests.length > 0 && form.childName) {
-                    const result = await createLabOrderQR(labRequests, form.childName);
+                    const result = await createLabOrderQR(labRequests, form.childName, form.id);
                     if (result) { qrToken = result.qrToken; qrExpiry = result.expiresAt; }
                   }
                   printPrescription(rx, clinicName, doctorName, clinicPhone, clinicAddress, dbPatientVitals, qrToken, qrExpiry, effectiveSettings);
@@ -1400,8 +1401,9 @@ try {
   const r=await fetch(`/api/lab/order?${mrParam}`);
   const d2=await r.json();
   const allOrders = d2.data||[];
-  // Get most recent pending order
-  const pending=allOrders.find((o:any)=>o.status==='pending');
+  // Prefer the order linked to this specific prescription, fall back to any pending
+  const pending=allOrders.find((o:any)=>o.rx_id===rx.id&&o.status==='pending')
+    ||allOrders.find((o:any)=>o.status==='pending');
   if(pending){
     qrToken=pending.qr_token;
     qrExpiry=pending.qr_expires_at;

@@ -52,6 +52,9 @@ ALTER TABLE clinic_settings
   ADD COLUMN IF NOT EXISTS evening_start              TEXT DEFAULT '14:00',
   ADD COLUMN IF NOT EXISTS evening_end                TEXT DEFAULT '18:00',
   ADD COLUMN IF NOT EXISTS invoice_prefix             TEXT DEFAULT 'INV';
+
+ALTER TABLE lab_orders
+  ADD COLUMN IF NOT EXISTS rx_id TEXT;
 `;
 
 export async function POST() {
