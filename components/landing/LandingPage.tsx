@@ -683,6 +683,158 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── ROLE-BASED ACCESS ───────────────────────────────────────────── */}
+      <section className="py-20 bg-white border-t border-gray-100">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold mb-5"
+              style={{ background: 'rgba(14,165,233,0.08)', color: '#0369a1', border: '1px solid rgba(14,165,233,0.2)' }}>
+              🔒 HIPAA-Compliant Role-Based Access
+            </div>
+            <h2 className="font-black text-[#0A1628] mb-3" style={{ fontSize: 'clamp(26px, 3.5vw, 40px)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              Right access for every role
+            </h2>
+            <p className="text-gray-500 max-w-xl mx-auto" style={{ fontSize: 15 }}>
+              Every user sees only what they need — nothing more. Minimum-necessary access, audit logs and session controls built in.
+            </p>
+          </div>
+
+          {/* Role cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[
+              {
+                role: 'Institution Owner',
+                badge: 'Org Owner',
+                badgeColor: '#7C3AED',
+                icon: '🏢',
+                desc: 'Multi-clinic organisation oversight, billing and staff management. No direct patient data access per HIPAA minimum-necessary rule.',
+                access: [
+                  { label: 'Multi-clinic dashboard',    ok: true },
+                  { label: 'Organisation analytics',    ok: true },
+                  { label: 'Subscription & billing',    ok: true },
+                  { label: 'Staff role management',     ok: true },
+                  { label: 'Patient clinical records',  ok: false, note: 'HIPAA restricted' },
+                  { label: 'Prescriptions / AI Scribe', ok: false, note: 'HIPAA restricted' },
+                ],
+              },
+              {
+                role: 'Admin',
+                badge: 'Admin',
+                badgeColor: '#2563EB',
+                icon: '⚙️',
+                desc: 'Full clinic configuration, staff management and financial reporting. Patient access limited to demographics and scheduling.',
+                access: [
+                  { label: 'Clinic settings & config',  ok: true },
+                  { label: 'Staff & role management',   ok: true },
+                  { label: 'Billing & financial reports',ok: true },
+                  { label: 'Appointment management',    ok: true },
+                  { label: 'Patient demographics',      ok: 'partial', note: 'Name & contact only' },
+                  { label: 'Clinical notes & Rx',       ok: false, note: 'HIPAA restricted' },
+                ],
+              },
+              {
+                role: 'Doctor',
+                badge: 'Clinical',
+                badgeColor: '#059669',
+                icon: '🩺',
+                desc: 'Full clinical access — patient history, AI Scribe, prescriptions, labs and telemedicine. Complete care workflow in one place.',
+                access: [
+                  { label: 'Full patient records',      ok: true },
+                  { label: 'AI Scribe — SOAP notes',    ok: true },
+                  { label: 'Prescriptions & referrals', ok: true },
+                  { label: 'Lab orders & results',      ok: true },
+                  { label: 'Telemedicine consults',     ok: true },
+                  { label: 'Billing & financials',      ok: 'partial', note: 'Own consultations' },
+                ],
+              },
+              {
+                role: 'Receptionist',
+                badge: 'Front Desk',
+                badgeColor: '#C9A84C',
+                icon: '📋',
+                desc: 'Appointment and front-desk operations only. No access to clinical data or prescriptions — strict HIPAA compliance enforced.',
+                access: [
+                  { label: 'Appointment scheduling',    ok: true },
+                  { label: 'Patient registration',      ok: 'partial', note: 'Demographics only' },
+                  { label: 'Invoice generation',        ok: true },
+                  { label: 'WhatsApp communications',   ok: true },
+                  { label: 'Clinical notes',            ok: false, note: 'HIPAA restricted' },
+                  { label: 'Prescriptions / AI Scribe', ok: false, note: 'HIPAA restricted' },
+                ],
+              },
+            ].map(r => (
+              <div key={r.role} className="rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg transition-all hover:-translate-y-0.5">
+                {/* Header */}
+                <div className="px-5 py-4" style={{ background: r.badgeColor + '0c', borderBottom: `1px solid ${r.badgeColor}18` }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-2xl">{r.icon}</span>
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide"
+                      style={{ background: r.badgeColor + '18', color: r.badgeColor, border: `1px solid ${r.badgeColor}28` }}>
+                      {r.badge}
+                    </span>
+                  </div>
+                  <h3 className="text-[15px] font-black text-[#0A1628]" style={{ letterSpacing: '-0.02em' }}>{r.role}</h3>
+                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">{r.desc}</p>
+                </div>
+
+                {/* Permissions */}
+                <div className="px-5 py-4 space-y-2">
+                  {r.access.map(a => (
+                    <div key={a.label} className="flex items-start gap-2.5">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {a.ok === true && (
+                          <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#d1fae5' }}>
+                            <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1.5 4L3 5.5L6.5 2" stroke="#059669" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </div>
+                        )}
+                        {a.ok === 'partial' && (
+                          <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#fef9c3' }}>
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#CA8A04' }} />
+                          </div>
+                        )}
+                        {a.ok === false && (
+                          <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#fee2e2' }}>
+                            <svg width="8" height="8" viewBox="0 0 8 8"><path d="M2 2L6 6M6 2L2 6" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-[12px] font-medium ${a.ok === false ? 'text-gray-400' : 'text-gray-700'}`}>{a.label}</span>
+                        {(a as any).note && (
+                          <span className="ml-1.5 text-[10px] text-gray-400 italic">{(a as any).note}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* HIPAA compliance strip */}
+          <div className="rounded-2xl p-5 flex flex-wrap items-center gap-6 justify-between"
+            style={{ background: 'rgba(14,165,233,0.04)', border: '1px solid rgba(14,165,233,0.15)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(14,165,233,0.1)' }}>
+                <Shield size={16} style={{ color: '#0369a1' }} />
+              </div>
+              <div>
+                <div className="text-[13px] font-bold text-[#0A1628]">HIPAA & GDPR Compliant by Design</div>
+                <div className="text-[12px] text-gray-500">Audit logs · Session timeouts · 2FA · Encrypted at rest · Minimum necessary access enforced</div>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {['Audit Logs','2FA','Session Control','Role Enforcement','Data Encryption','Access Reviews'].map(b => (
+                <span key={b} className="px-3 py-1 rounded-full text-[11px] font-semibold"
+                  style={{ background: 'rgba(14,165,233,0.08)', color: '#0369a1', border: '1px solid rgba(14,165,233,0.18)' }}>
+                  {b}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── TESTIMONIALS ────────────────────────────────────────────────── */}
       <section className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-6">
