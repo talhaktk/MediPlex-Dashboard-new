@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
 function slug(s: string, max = 12) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, max);
 }
 function shortId() { return Math.random().toString(36).slice(2, 6); }
 
 export async function POST(req: NextRequest) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    return NextResponse.json({
+      error: 'Server configuration error. Please contact support. (SUPABASE_SERVICE_ROLE_KEY not set in Vercel environment variables)',
+    }, { status: 500 });
+  }
+
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceKey,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+
   try {
     const body = await req.json();
     const {
@@ -29,7 +37,17 @@ export async function POST(req: NextRequest) {
       mrPrefix, mrDigits,
       // Auth
       password,
+      // Plan selection from landing page
+      plan = 'trial', billingPeriod = 'monthly',
     } = body;
+
+    const PLAN_DATA: Record<string, { name: string; monthly: number; yearly: number; scribeLimit: number }> = {
+      professional: { name: 'Professional', monthly: 150, yearly: 125, scribeLimit: 200 },
+      growth:       { name: 'Growth',        monthly: 210, yearly: 175, scribeLimit: 400 },
+    };
+    const selectedPlan  = PLAN_DATA[plan] || null;
+    const priceMonthly  = selectedPlan ? (billingPeriod === 'yearly' ? selectedPlan.yearly : selectedPlan.monthly) : 0;
+    const aiScribeLimit = selectedPlan ? selectedPlan.scribeLimit : 50;
 
     if (!clinicName || !email || !password) {
       return NextResponse.json({ error: 'clinicName, email and password are required' }, { status: 400 });
@@ -146,12 +164,14 @@ export async function POST(req: NextRequest) {
     await admin.from('subscriptions').insert({
       clinic_id:       clinicId,
       org_id:          orgId,
-      plan_name:       'Trial',
-      status:          'active',
+      plan_name:       selectedPlan ? selectedPlan.name : 'Trial',
+      price_monthly:   priceMonthly,
+      currency:        'GBP',
+      status:          'trial',
       start_date:      new Date().toISOString().split('T')[0],
       next_billing:    trialEnd.toISOString().split('T')[0],
       trial_ends_at:   trialEnd.toISOString(),
-      ai_scribe_limit: 50,
+      ai_scribe_limit: aiScribeLimit,
       ai_scribe_used:  0,
     });
 

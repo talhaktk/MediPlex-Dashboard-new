@@ -546,12 +546,12 @@ export default function LandingPage() {
               <p className="text-[13px] text-gray-400 mb-5">Full clinic management + marketing ecosystem</p>
               <div className="flex items-baseline gap-1.5 mb-1">
                 <span className="text-[42px] font-black text-[#0A1628]" style={{ letterSpacing: '-0.04em' }}>£{yearly ? 125 : 150}</span>
-                <span className="text-[13px] text-gray-400 mb-1">/{yearly ? 'yr' : 'mo'}</span>
+                <span className="text-[13px] text-gray-400 mb-1">/mo</span>
               </div>
-              {yearly && <div className="text-[12px] mb-4" style={{ color: '#C9A84C' }}>Save £300/year</div>}
+              {yearly && <div className="text-[12px] mb-4" style={{ color: '#C9A84C' }}>Save £300/yr · billed £1,500/yr</div>}
 
               {/* CTA at top */}
-              <Link href="/onboarding?plan=professional"
+              <Link href={`/onboarding?plan=professional&billing=${yearly ? 'yearly' : 'monthly'}`}
                 className="block text-center py-3 rounded-2xl text-[13px] font-bold mb-6 mt-2 transition-all hover:shadow-md hover:-translate-y-0.5"
                 style={{ border: '1.5px solid #2563EB', color: '#2563EB', background: 'rgba(37,99,235,0.04)' }}>
                 Start Free Trial →
@@ -592,7 +592,7 @@ export default function LandingPage() {
                 <PkgGroup icon={Bot} color="#C9A84C" title="AI Clinical Scribe — Included" items={[
                   'SOAP Notes, Prescriptions, Referrals',
                   'Discharge Summaries, Pre-Auth Letters, Sick Certs',
-                  '100 AI notes/month',
+                  '200 AI notes/month',
                 ]} />
               </div>
             </div>
@@ -609,12 +609,12 @@ export default function LandingPage() {
               <p className="text-[13px] text-gray-400 mb-5">Everything in Professional + managed advertising</p>
               <div className="flex items-baseline gap-1.5 mb-1">
                 <span className="text-[42px] font-black text-[#0A1628]" style={{ letterSpacing: '-0.04em' }}>£{yearly ? 175 : 210}</span>
-                <span className="text-[13px] text-gray-400 mb-1">/{yearly ? 'yr' : 'mo'}</span>
+                <span className="text-[13px] text-gray-400 mb-1">/mo</span>
               </div>
-              {yearly && <div className="text-[12px] mb-4" style={{ color: '#C9A84C' }}>Save £420/year</div>}
+              {yearly && <div className="text-[12px] mb-4" style={{ color: '#C9A84C' }}>Save £420/yr · billed £2,100/yr</div>}
 
               {/* CTA at top */}
-              <Link href="/onboarding?plan=growth"
+              <Link href={`/onboarding?plan=growth&billing=${yearly ? 'yearly' : 'monthly'}`}
                 className="block text-center py-3 rounded-2xl text-[13px] font-bold mb-6 mt-2 transition-all hover:shadow-lg hover:-translate-y-0.5 text-[#0A1628]"
                 style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)' }}>
                 Start Free Trial →

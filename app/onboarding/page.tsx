@@ -9,8 +9,17 @@ export const metadata: Metadata = {
   description: 'Set up your clinic in minutes. Free 14-day trial, no credit card required.',
 };
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: { plan?: string; billing?: string };
+}) {
   const session = await getServerSession(authOptions);
   if (session) redirect('/dashboard');
-  return <OnboardingWizard />;
+  return (
+    <OnboardingWizard
+      plan={searchParams.plan || 'trial'}
+      billing={searchParams.billing || 'monthly'}
+    />
+  );
 }

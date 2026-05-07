@@ -78,6 +78,25 @@ CREATE TABLE IF NOT EXISTS mediplex_expenses (
   description TEXT,
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ── contact_submissions ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS contact_submissions (
+  id         SERIAL PRIMARY KEY,
+  name       TEXT,
+  email      TEXT,
+  phone      TEXT,
+  subject    TEXT,
+  message    TEXT,
+  source     TEXT DEFAULT 'landing_contact_form',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ── explicit grants so service_role always has access ────────────────────────
+GRANT ALL ON TABLE organisations        TO postgres, anon, authenticated, service_role;
+GRANT ALL ON TABLE clinics              TO postgres, anon, authenticated, service_role;
+GRANT ALL ON TABLE mediplex_expenses    TO postgres, anon, authenticated, service_role;
+GRANT ALL ON TABLE contact_submissions  TO postgres, anon, authenticated, service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 `;
 
 export async function POST(req: NextRequest) {

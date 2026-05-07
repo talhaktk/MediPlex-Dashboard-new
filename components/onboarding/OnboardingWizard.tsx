@@ -411,13 +411,65 @@ function Step7({ d, set }: { d: WizardData; set: (k: keyof WizardData, v: any) =
   );
 }
 
-function Step8({ d, clinicId }: { d: WizardData; clinicId: string | null }) {
+const PLAN_PRICING: Record<string, { name: string; monthly: number; yearly: number; yearlyTotal: number }> = {
+  professional: { name: 'Professional', monthly: 150, yearly: 125, yearlyTotal: 1500 },
+  growth:       { name: 'Growth',        monthly: 210, yearly: 175, yearlyTotal: 2100 },
+};
+
+function Step8({ d, clinicId, plan, billing }: { d: WizardData; clinicId: string | null; plan: string; billing: string }) {
   const router = useRouter();
+  const [paying, setPaying] = useState(false);
+
+  const pricing = PLAN_PRICING[plan] || null;
+  const monthlyAmount = pricing ? (billing === 'yearly' ? pricing.yearly : pricing.monthly) : 0;
+  const chargeAmount  = pricing ? (billing === 'yearly' ? pricing.yearlyTotal : pricing.monthly) : 0;
+
+  const handlePayment = async () => {
+    if (!pricing || !clinicId) return;
+    setPaying(true);
+    try {
+      const res = await fetch('/api/payment/safepay/init', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount:      chargeAmount,
+          currency:    'GBP',
+          orderId:     clinicId,
+          email:       d.email,
+          clinicName:  d.clinicName,
+          successUrl:  `${window.location.origin}/onboarding/success`,
+          cancelUrl:   `${window.location.origin}/onboarding`,
+        }),
+      });
+      const json = await res.json();
+      if (json.checkoutUrl) {
+        window.location.href = json.checkoutUrl;
+      } else {
+        toast.error('Payment gateway unavailable. You can set up billing from your dashboard.');
+      }
+    } catch {
+      toast.error('Network error. Set up billing from your dashboard later.');
+    } finally {
+      setPaying(false);
+    }
+  };
+
   return (
     <div className="ob-golive">
       <div className="ob-golive-icon">🚀</div>
       <h2 className="ob-golive-title">You're All Set!</h2>
       <p className="ob-golive-sub">Your MediPlex account is live. 14-day free trial started.</p>
+
+      {pricing && (
+        <div style={{ marginBottom: 20, padding: '12px 16px', background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.22)', borderRadius: 12, textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Selected Plan</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: '#0A1628', letterSpacing: '-0.03em' }}>{pricing.name}</div>
+          <div style={{ fontSize: 13, color: '#6b7280', marginTop: 2 }}>
+            £{monthlyAmount}/mo{billing === 'yearly' ? ` · billed £${chargeAmount}/yr` : ''}
+          </div>
+        </div>
+      )}
+
       <div className="ob-golive-summary">
         <div className="ob-golive-row"><Building2 size={16}/> <span>{d.clinicName}</span></div>
         <div className="ob-golive-row"><User size={16}/> <span>{d.doctorName || '—'}</span></div>
@@ -430,6 +482,13 @@ function Step8({ d, clinicId }: { d: WizardData; clinicId: string | null }) {
         <button className="ob-btn-primary" onClick={() => router.push('/login')}>
           <Rocket size={16}/> Go to Dashboard
         </button>
+        {pricing && (
+          <button className="ob-btn-primary" onClick={handlePayment} disabled={paying}
+            style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', color: '#0A1628', border: 'none' }}>
+            {paying ? <span className="ob-spinner" style={{ borderTopColor: '#0A1628' }} /> : <CreditCard size={16}/>}
+            {paying ? 'Redirecting…' : `Setup Payment — £${monthlyAmount}/mo`}
+          </button>
+        )}
         {clinicId && (
           <button className="ob-btn-ghost" onClick={() => {
             const portal = `${window.location.origin}/portal/${clinicId}`;
@@ -445,7 +504,7 @@ function Step8({ d, clinicId }: { d: WizardData; clinicId: string | null }) {
 }
 
 /* ─── Main Wizard ────────────────────────────────────────── */
-export default function OnboardingWizard() {
+export default function OnboardingWizard({ plan = 'trial', billing = 'monthly' }: { plan?: string; billing?: string }) {
   const [step, setStep]       = useState(1);
   const [data, setData]       = useState<WizardData>(EMPTY);
   const [loading, setLoading] = useState(false);
@@ -481,7 +540,7 @@ export default function OnboardingWizard() {
         const res  = await fetch('/api/onboarding', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify(data),
+          body:    JSON.stringify({ ...data, plan, billingPeriod: billing }),
         });
         const json = await res.json();
         if (!res.ok) {
@@ -545,7 +604,13 @@ export default function OnboardingWizard() {
         {/* Sidebar stepper */}
         <aside className="ob-sidebar">
           <div className="ob-logo">
-            <img src="/icons/mediplex-logo.svg" alt="MediPlex" className="ob-logo-img" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <img src="/icons/icon.svg" alt="MediPlex" style={{ height: 36, width: 36, borderRadius: 8, display: 'block' }} />
+              <span style={{ fontWeight: 700, letterSpacing: '-0.6px', fontSize: '18px', lineHeight: 1 }}>
+                <span style={{ color: '#ffffff' }}>Medi</span>
+                <span style={{ color: '#C9A84C' }}>Plex</span>
+              </span>
+            </div>
           </div>
           <nav className="ob-stepper">
             {STEPS.map(s => {
@@ -589,7 +654,7 @@ export default function OnboardingWizard() {
               {step === 5 && <Step5 d={data} set={set} />}
               {step === 6 && <Step6 d={data} set={set} />}
               {step === 7 && <Step7 d={data} set={set} />}
-              {step === 8 && <Step8 d={data} clinicId={clinicId} />}
+              {step === 8 && <Step8 d={data} clinicId={clinicId} plan={plan} billing={billing} />}
             </div>
 
             {step < 8 && (

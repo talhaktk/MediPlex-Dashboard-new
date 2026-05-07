@@ -205,7 +205,8 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const [mediplexExpenses, setMediplexExpenses] = useState<any[]>([]);
   const [showAddSub, setShowAddSub] = useState<string|null>(null);
   const [showAddMExp, setShowAddMExp] = useState(false);
-  const [subForm, setSubForm] = useState({plan_name:'Standard',price_monthly:'15000',currency:'PKR',start_date:'',next_billing:'',notes:'',ai_scribe_limit:'100'});
+  const [subForm, setSubForm] = useState({plan_name:'Professional',price_monthly:'150',currency:'GBP',start_date:'',next_billing:'',notes:'',ai_scribe_limit:'200'});
+  const [stripeLoading, setStripeLoading] = useState<string|null>(null);
   const [mexpForm, setMexpForm] = useState({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''});
   const [ownerForm, setOwnerForm] = useState({ name:'', email:'', password:'' });
   
@@ -217,9 +218,9 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     // Doctor (first user)
     doctorName: '', doctorEmail: '', doctorPassword: '', doctorRole: 'doctor',
     // Billing / MR
-    mrPrefix: 'MR', mrDigits: '4', consultationFee: '0', currency: 'PKR',
+    mrPrefix: 'MR', mrDigits: '4', consultationFee: '0', currency: 'GBP',
     // Subscription
-    plan: 'Standard', aiScribeLimit: '100',
+    plan: 'Professional', aiScribeLimit: '200',
   });
   const [showClinicPw, setShowClinicPw] = useState(false);
   const [creatingClinic, setCreatingClinic] = useState(false);
@@ -363,7 +364,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
         orgName:     json.orgName,
       });
       setShowAddClinic(false);
-      setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',subscription_expiry:'',address:'',phone:'',email:'',website:'',doctorName:'',doctorEmail:'',doctorPassword:'',doctorRole:'doctor',mrPrefix:'MR',mrDigits:'4',consultationFee:'0',currency:'PKR',plan:'Standard',aiScribeLimit:'100' });
+      setClinicForm({ name:'',speciality:'Pediatrics',city:'',org_id:'',subscription_expiry:'',address:'',phone:'',email:'',website:'',doctorName:'',doctorEmail:'',doctorPassword:'',doctorRole:'doctor',mrPrefix:'MR',mrDigits:'4',consultationFee:'0',currency:'GBP',plan:'Professional',aiScribeLimit:'200' });
       toast.success(`Clinic "${json.clinicName}" created!`);
       fetchAll();
     } catch (err: any) { toast.error('Error: ' + err.message); }
@@ -431,6 +432,38 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const updateSubscription = async (clinicId: string, expiry: string) => {
     await supabase.from('clinics').update({ subscription_expiry: expiry||null }).eq('id', clinicId);
     toast.success('Updated'); fetchAll();
+  };
+
+  const sendStripeLink = async (clinic: Clinic) => {
+    const sub = subscriptions.find(s=>s.clinic_id===clinic.id);
+    const amount = Number(subForm.price_monthly) || Number(sub?.price_monthly) || 150;
+    const planName = subForm.plan_name || sub?.plan_name || 'Professional';
+    setStripeLoading(clinic.id);
+    try {
+      const res = await fetch('/api/payment/stripe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          currency: 'gbp',
+          planName,
+          clinicId: clinic.id,
+          clinicName: clinic.name,
+          clinicEmail: (clinic as any).email || '',
+        }),
+      });
+      const json = await res.json();
+      if (json.url) {
+        await navigator.clipboard.writeText(json.url);
+        toast.success('Stripe payment link copied to clipboard!');
+      } else {
+        toast.error(json.error || 'Stripe not configured — set STRIPE_SECRET_KEY in Vercel');
+      }
+    } catch {
+      toast.error('Failed to create Stripe link');
+    } finally {
+      setStripeLoading(null);
+    }
   };
 
   const orgClinics = (orgId: string) => clinics.filter(c => c.org_id === orgId);
@@ -867,11 +900,16 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                                     style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', color:'#faf8f4' }}/>
                                 </div>
                               </div>
-                              <div className="flex gap-2 mt-2">
+                              <div className="flex gap-2 mt-2 flex-wrap">
                                 <button onClick={()=>addSubscription(clinic.id)}
                                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
                                   style={{ background:'linear-gradient(135deg,#c9a84c,#e8c87a)', color:'#0a1628' }}>
                                   <Save size={10}/> Save
+                                </button>
+                                <button onClick={()=>sendStripeLink(clinic)} disabled={stripeLoading===clinic.id}
+                                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                                  style={{ background:'rgba(99,91,255,0.18)', border:'1px solid rgba(99,91,255,0.35)', color:'#a5b4fc' }}>
+                                  {stripeLoading===clinic.id ? '⏳' : '💳'} Stripe £{subForm.price_monthly}/mo Link
                                 </button>
                                 <button onClick={()=>setShowAddSub(null)} className="px-3 py-1.5 rounded-lg text-[11px] text-white/40"
                                   style={{ background:'rgba(255,255,255,0.05)' }}>Cancel</button>
@@ -1235,7 +1273,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
             {/* MediPlex Revenue from Subscriptions */}
             <div className="grid grid-cols-5 gap-3">
               {[
-                { label:'Monthly Recurring Revenue', value:`PKR ${subscriptions.filter(s=>s.status==='active'&&s.currency==='PKR').reduce((s,sub)=>s+Number(sub.price_monthly||0),0).toLocaleString()}`, color:'#1a7f5e' },
+                { label:'Monthly Recurring Revenue (GBP)', value:`£${subscriptions.filter(s=>s.status==='active'&&s.currency==='GBP').reduce((s,sub)=>s+Number(sub.price_monthly||0),0).toLocaleString()}`, color:'#1a7f5e' },
                 { label:'Active Subscriptions', value:subscriptions.filter(s=>s.status==='active').length, color:'#c9a84c' },
                 { label:'Near Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=(s.ai_scribe_limit*0.8)&&s.ai_scribe_used<s.ai_scribe_limit).length, color:'#d97706' },
                 { label:'Over Scribe Limit', value:subscriptions.filter(s=>s.ai_scribe_used>=s.ai_scribe_limit&&s.ai_scribe_limit>0).length, color:'#dc2626' },

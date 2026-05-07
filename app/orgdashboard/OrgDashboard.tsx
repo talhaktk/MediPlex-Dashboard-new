@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { Building2, Users, Calendar, Receipt, BarChart3, LogOut, RefreshCw, TrendingUp, DollarSign } from 'lucide-react';
+import { Building2, Users, Calendar, Receipt, BarChart3, LogOut, RefreshCw, TrendingUp, DollarSign, Star, UserCheck } from 'lucide-react';
 
 interface Clinic {
   id: string; name: string; speciality: string; city: string; is_active: boolean;
@@ -24,7 +24,9 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
   const [appointments, setAppointments] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview'|'appointments'|'revenue'|'feedback'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview'|'appointments'|'revenue'|'feedback'|'staff'>('overview');
+  const [feedbackData, setFeedbackData] = useState<any[]>([]);
+  const [staffData, setStaffData] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAll();
@@ -54,12 +56,18 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
     // Fetch all appointments for org
     const clinicIds = orgClinics.map((c:any)=>c.id);
     if (clinicIds.length > 0) {
-      const { data: apts } = await supabase.from('appointments').select('*').in('clinic_id', clinicIds).order('appointment_date',{ascending:false}).limit(200);
+      const [{ data: apts }, { data: inv }, { data: exp }, { data: fb }, { data: staff }] = await Promise.all([
+        supabase.from('appointments').select('*').in('clinic_id', clinicIds).order('appointment_date',{ascending:false}).limit(200),
+        supabase.from('billing').select('*').in('clinic_id', clinicIds).order('created_at',{ascending:false}),
+        supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false}),
+        supabase.from('feedback').select('*').in('clinic_id', clinicIds).order('created_at',{ascending:false}).limit(200),
+        supabase.from('logins').select('id,name,email,user_role,clinic_id,is_active,created_at').in('clinic_id', clinicIds).eq('is_super_admin', false),
+      ]);
       setAppointments(apts||[]);
-      const { data: inv } = await supabase.from('billing').select('*').in('clinic_id', clinicIds).order('created_at',{ascending:false});
       setInvoices(inv||[]);
-      const { data: exp } = await supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false});
       setExpenses(exp||[]);
+      setFeedbackData(fb||[]);
+      setStaffData(staff||[]);
     }
     setLoading(false);
   };
@@ -102,10 +110,12 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
       {/* Header */}
       <header className="h-16 bg-white border-b border-black/5 flex items-center px-6 gap-4 sticky top-0 z-30">
         <div className="flex items-center gap-2.5 mr-6">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-navy font-bold text-sm" style={{background:'linear-gradient(135deg,#c9a84c,#e8c87a)'}}>M+</div>
+          <img src="/icons/icon.svg" alt="MediPlex" style={{height:32,width:32,borderRadius:7,display:'block'}}/>
           <div>
-            <div className="text-[13px] font-bold text-navy">MediPlex</div>
-            <div className="text-[10px] text-gold uppercase tracking-widest">Organisation Portal</div>
+            <div style={{fontWeight:700,letterSpacing:'-0.6px',fontSize:'15px',lineHeight:1}}>
+              <span style={{color:'#0A1628'}}>Medi</span><span style={{color:'#C9A84C'}}>Plex</span>
+            </div>
+            <div className="text-[10px] text-gray-400 uppercase tracking-widest">Organisation Portal</div>
           </div>
         </div>
         <div className="flex-1">
@@ -138,8 +148,8 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit">
-          {([['overview','Overview'],['appointments','Appointments'],['revenue','Revenue'],['feedback','Feedback']] as const).map(([k,l])=>(
+        <div className="flex gap-1 p-1 rounded-xl bg-white border border-black/7 w-fit flex-wrap">
+          {([['overview','Overview'],['appointments','Appointments'],['revenue','Revenue'],['feedback','Feedback'],['staff','Staff']] as const).map(([k,l])=>(
             <button key={k} onClick={()=>setActiveTab(k)}
               className={`px-4 py-2 rounded-lg text-[12px] font-medium transition-all ${activeTab===k?'bg-navy text-white':'text-gray-500 hover:text-navy'}`}>
               {l}
@@ -494,11 +504,148 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
 
         {/* Feedback Tab */}
         {activeTab==='feedback' && (
-          <div className="bg-white rounded-2xl overflow-hidden border border-black/5">
-            <div className="px-5 py-4 border-b border-black/5 font-semibold text-navy text-[14px]">Patient Feedback — All Clinics</div>
-            <div className="p-5 text-center text-gray-400 text-[13px]">Feedback analytics coming soon</div>
+          <div className="space-y-4">
+            {/* Feedback KPIs */}
+            {(() => {
+              const filtered_fb = selectedClinic==='all' ? feedbackData : feedbackData.filter(f=>f.clinic_id===selectedClinic);
+              const submitted = filtered_fb.filter(f=>f.status==='submitted'||f.rating);
+              const avgRating = submitted.length ? (submitted.reduce((s:number,f:any)=>s+(Number(f.rating)||0),0)/submitted.length).toFixed(1) : '—';
+              const rating5 = submitted.filter(f=>f.rating===5).length;
+              const rating4 = submitted.filter(f=>f.rating===4).length;
+              const rating3 = submitted.filter(f=>f.rating===3).length;
+              const ratingLow = submitted.filter(f=>f.rating<=2&&f.rating>0).length;
+              const responseRate = filtered_fb.length ? Math.round((submitted.length/filtered_fb.length)*100) : 0;
+              return (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      {label:'Total Sent', val:filtered_fb.length, color:'#2b6cb0', bg:'#eff6ff'},
+                      {label:'Responses', val:submitted.length, color:'#1a7f5e', bg:'#f0fdf4'},
+                      {label:'Response Rate', val:`${responseRate}%`, color:'#d97706', bg:'#fefce8'},
+                      {label:'Avg Rating', val:avgRating==='—'?'—':`★ ${avgRating}`, color:'#c9a84c', bg:'#fffbeb'},
+                    ].map(s=>(
+                      <div key={s.label} className="bg-white rounded-2xl p-5 border border-black/5">
+                        <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-2">{s.label}</div>
+                        <div className="text-[28px] font-bold" style={{color:s.color}}>{s.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-white rounded-2xl p-5 border border-black/5">
+                    <div className="font-semibold text-navy text-[14px] mb-4">Rating Distribution</div>
+                    {[['5 ★',rating5,'#16a34a'],['4 ★',rating4,'#65a30d'],['3 ★',rating3,'#d97706'],['1-2 ★',ratingLow,'#dc2626']].map(([label,count,color])=>(
+                      <div key={String(label)} className="flex items-center gap-3 mb-2">
+                        <div className="text-[12px] text-gray-500 w-10">{label}</div>
+                        <div className="flex-1 h-3 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{width:`${submitted.length?(Number(count)/submitted.length)*100:0}%`,background:String(color)}}/>
+                        </div>
+                        <div className="text-[12px] font-medium text-navy w-6 text-right">{count}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="bg-white rounded-2xl overflow-hidden border border-black/5">
+                    <div className="px-5 py-4 border-b border-black/5 font-semibold text-navy text-[14px]">Recent Feedback</div>
+                    <div className="divide-y divide-black/5 max-h-96 overflow-y-auto">
+                      {filtered_fb.slice(0,50).map((f:any,i:number)=>{
+                        const clinic = clinics.find(c=>c.id===f.clinic_id);
+                        return (
+                          <div key={f.id||i} className="px-5 py-3 hover:bg-gray-50">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[13px] font-medium text-navy">{f.child_name||f.patient_name||'Patient'}</div>
+                                <div className="text-[11px] text-gray-400">{clinic?.name||'—'} · {f.created_at?.slice(0,10)||'—'}</div>
+                                {f.comment && <div className="text-[12px] text-gray-600 mt-1 line-clamp-2">{f.comment}</div>}
+                              </div>
+                              {f.rating && (
+                                <div className="flex-shrink-0 flex items-center gap-0.5">
+                                  {[1,2,3,4,5].map(s=>(
+                                    <Star key={s} size={12} fill={s<=f.rating?'#c9a84c':'none'} stroke={s<=f.rating?'#c9a84c':'#d1d5db'}/>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {filtered_fb.length===0 && <div className="px-5 py-10 text-center text-gray-400 text-[13px]">No feedback yet</div>}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
+
+        {/* Staff Tab */}
+        {activeTab==='staff' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {['doctor','doctor_admin','admin','receptionist'].map(role=>{
+                const count = staffData.filter(u=>u.user_role===role&&(selectedClinic==='all'||u.clinic_id===selectedClinic)).length;
+                const labels: Record<string,string> = {doctor:'Doctors',doctor_admin:'Doctor Admins',admin:'Admins',receptionist:'Receptionists'};
+                const colors: Record<string,string> = {doctor:'#2b6cb0',doctor_admin:'#7c3aed',admin:'#1a7f5e',receptionist:'#d97706'};
+                return (
+                  <div key={role} className="bg-white rounded-2xl p-5 border border-black/5">
+                    <div className="text-[10px] uppercase tracking-widest text-gray-400 mb-2">{labels[role]}</div>
+                    <div className="text-[28px] font-bold" style={{color:colors[role]}}>{count}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="bg-white rounded-2xl overflow-hidden border border-black/5">
+              <div className="px-5 py-4 border-b border-black/5 font-semibold text-navy text-[14px]">All Staff Members</div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{borderBottom:'1px solid rgba(0,0,0,0.05)'}}>
+                    {['Name','Email','Role','Clinic','Status','Since'].map(h=>(
+                      <th key={h} className="px-4 py-3 text-left text-[10px] text-gray-400 uppercase tracking-widest">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffData
+                    .filter(u=>selectedClinic==='all'||u.clinic_id===selectedClinic)
+                    .sort((a,b)=>a.user_role.localeCompare(b.user_role))
+                    .map((u:any)=>{
+                      const clinic = clinics.find(c=>c.id===u.clinic_id);
+                      const roleColors: Record<string,string> = {doctor:'#2b6cb0',doctor_admin:'#7c3aed',admin:'#1a7f5e',receptionist:'#d97706',org_owner:'#c9a84c'};
+                      return (
+                        <tr key={u.id} style={{borderBottom:'1px solid rgba(0,0,0,0.04)'}} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                                style={{background:roleColors[u.user_role]||'#6b7280'}}>
+                                {u.name?.slice(0,2).toUpperCase()||'??'}
+                              </div>
+                              <div className="text-[13px] font-medium text-navy">{u.name||'—'}</div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-[12px] text-gray-500">{u.email}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize"
+                              style={{background:`${roleColors[u.user_role]||'#6b7280'}18`,color:roleColors[u.user_role]||'#6b7280'}}>
+                              {u.user_role?.replace('_',' ')||'—'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[12px] text-gray-500">{clinic?.name||'—'}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                              style={u.is_active?{background:'rgba(22,163,74,0.12)',color:'#16a34a'}:{background:'rgba(220,38,38,0.12)',color:'#dc2626'}}>
+                              {u.is_active?'Active':'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[11px] text-gray-400">{u.created_at?.slice(0,10)||'—'}</td>
+                        </tr>
+                      );
+                    })}
+                  {staffData.length===0 && (
+                    <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-[13px]">No staff found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );
