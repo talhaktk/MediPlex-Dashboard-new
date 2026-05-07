@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const MIGRATION_SQL = `
 ALTER TABLE clinic_settings
+  ADD COLUMN IF NOT EXISTS clinic_logo_url            TEXT,
+  ADD COLUMN IF NOT EXISTS clinic_type                TEXT DEFAULT 'Clinic',
   ADD COLUMN IF NOT EXISTS accepted_payment_methods  JSONB,
   ADD COLUMN IF NOT EXISTS insurance_providers        JSONB,
   ADD COLUMN IF NOT EXISTS appointment_types          JSONB,

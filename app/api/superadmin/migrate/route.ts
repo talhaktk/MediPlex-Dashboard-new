@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS clinics (
   created_at           TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── clinic_settings: add any missing columns ─────────────────────────────────
+ALTER TABLE clinic_settings
+  ADD COLUMN IF NOT EXISTS clinic_logo_url  TEXT,
+  ADD COLUMN IF NOT EXISTS clinic_type      TEXT DEFAULT 'Clinic';
+
 -- ── subscriptions: add columns if missing ─────────────────────────────────────
 ALTER TABLE subscriptions
   ADD COLUMN IF NOT EXISTS org_id          TEXT,
