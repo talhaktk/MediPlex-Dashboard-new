@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   CheckCircle, ArrowRight, Star, Menu, X, ChevronDown, ChevronUp,
   Bot, Receipt, Calendar, MessageCircle, BarChart3, Smartphone,
-  Globe, Shield, Zap, Users, FileText, Bell, Activity, Mail,
+  Globe, Shield, Zap, Users, Bell, Activity, Mail,
   MapPin, Phone, TrendingUp, Palette, WifiOff, Target,
   Search, Image as ImageIcon, Megaphone, CreditCard, Lock,
   ClipboardList, UserCircle, Building2, Stethoscope, FlaskConical,
@@ -13,37 +13,37 @@ import {
 } from 'lucide-react';
 
 const ALL_FEATURES = [
-  { icon: Bot,          color: '#C9A84C', title: 'AI Clinical Scribe',         desc: 'SOAP notes, prescriptions, referrals, discharge summaries & pre-auth insurance letters generated in seconds.' },
-  { icon: MessageCircle,color: '#25D366', title: 'WhatsApp AI Receptionist',   desc: 'Answers queries, confirms bookings, sends reminders & follow-ups — 24/7 on your clinic number.' },
-  { icon: Calendar,     color: '#2563EB', title: 'Smart Scheduling',            desc: 'Drag-and-drop calendar, multi-doctor slots, online booking and no-show prediction.' },
-  { icon: Receipt,      color: '#10B981', title: 'Billing & Invoicing',         desc: 'GST/VAT-ready invoices, receipts, insurance claims, expense tracking and daily cash reports.' },
-  { icon: FlaskConical, color: '#F59E0B', title: 'Lab Integration',             desc: 'QR-based lab orders, result upload, patient result portal and two-way sync with labs.' },
-  { icon: UserCircle,   color: '#8B5CF6', title: 'Patient Portal',              desc: 'Self-registration, appointment booking, medical records, prescriptions and lab results — online.' },
-  { icon: BarChart3,    color: '#EF4444', title: 'Analytics Dashboard',         desc: 'Revenue trends, patient retention, no-show rates, top diagnoses and monthly growth.' },
-  { icon: Shield,       color: '#0EA5E9', title: 'Security & Compliance',       desc: 'Role-based access, 2FA, session timeouts, audit logs and GDPR/HIPAA-ready encryption.' },
-  { icon: TrendingUp,   color: '#C9A84C', title: 'No-Show Predictions',         desc: 'AI predicts likely no-shows 24h ahead so you can double-book or send extra nudges.' },
-  { icon: Palette,      color: '#EC4899', title: 'Clinic Branding',             desc: 'Your logo, colours, header and footer on prescriptions, invoices, receipts and WhatsApp messages.' },
-  { icon: Bell,         color: '#F97316', title: 'Auto Reminders & Feedback',   desc: 'Confirmation, 24h reminder, 4h reminder, follow-up and satisfaction survey — all automatic.' },
-  { icon: Smartphone,   color: '#6366F1', title: 'Mobile & Desktop App',        desc: 'Install on any phone or PC as a PWA — no app store needed, works offline with biometric login.' },
-  { icon: WifiOff,      color: '#14B8A6', title: 'Offline Mode',                desc: 'Full functionality without internet. Appointments, prescriptions and labs sync on reconnect.' },
-  { icon: Target,       color: '#F43F5E', title: 'Meta & Google Ads',           desc: 'Managed Facebook & Instagram ad campaigns targeting local patients, linked to your booking system.' },
-  { icon: Search,       color: '#84CC16', title: 'SEO Clinic Website',          desc: 'Professional, fast, SEO-optimised clinic website that ranks locally and drives organic bookings.' },
-  { icon: ImageIcon,    color: '#A78BFA', title: 'Graphical Posters',           desc: '15–20 branded health awareness posters every month for Instagram, Facebook and WhatsApp.' },
-  { icon: Mail,         color: '#38BDF8', title: 'Email Marketing',             desc: 'Unlimited campaigns — health tips, appointment recalls, promotions — from your clinic brand.' },
-  { icon: ClipboardList,color: '#FB923C', title: 'Pre-Auth Insurance',          desc: 'Generate insurance pre-authorisation letters instantly using AI from patient records.' },
-  { icon: Megaphone,    color: '#C9A84C', title: 'WhatsApp Broadcast',          desc: 'Send health campaigns, seasonal offers and appointment recalls to your entire patient list.' },
-  { icon: Activity,     color: '#4ADE80', title: 'Telemedicine',                desc: 'Built-in video consultations, digital prescriptions and secure patient messaging.' },
+  { icon: Bot,          color: '#C9A84C', title: 'AI Clinical Scribe' },
+  { icon: MessageCircle,color: '#25D366', title: 'WhatsApp AI Receptionist' },
+  { icon: Calendar,     color: '#2563EB', title: 'Smart Scheduling' },
+  { icon: Receipt,      color: '#10B981', title: 'Billing & Invoicing' },
+  { icon: FlaskConical, color: '#F59E0B', title: 'Lab Integration' },
+  { icon: UserCircle,   color: '#8B5CF6', title: 'Patient Portal' },
+  { icon: BarChart3,    color: '#EF4444', title: 'Analytics Dashboard' },
+  { icon: Shield,       color: '#0EA5E9', title: 'Security & Compliance' },
+  { icon: TrendingUp,   color: '#C9A84C', title: 'No-Show Predictions' },
+  { icon: Palette,      color: '#EC4899', title: 'Clinic Branding' },
+  { icon: Bell,         color: '#F97316', title: 'Auto Reminders & Feedback' },
+  { icon: Smartphone,   color: '#6366F1', title: 'Mobile & Desktop App' },
+  { icon: WifiOff,      color: '#14B8A6', title: 'Offline Mode' },
+  { icon: Target,       color: '#F43F5E', title: 'Meta & Google Ads' },
+  { icon: Search,       color: '#84CC16', title: 'SEO Clinic Website' },
+  { icon: ImageIcon,    color: '#A78BFA', title: 'Graphical Posters' },
+  { icon: Mail,         color: '#38BDF8', title: 'Email Marketing' },
+  { icon: ClipboardList,color: '#FB923C', title: 'Pre-Auth Insurance' },
+  { icon: Megaphone,    color: '#C9A84C', title: 'WhatsApp Broadcast' },
+  { icon: Activity,     color: '#4ADE80', title: 'Telemedicine' },
 ];
 
 const FAQS = [
-  { q: 'Is MediPlex suitable for any clinic specialty?',    a: 'Yes — MediPlex works for General Practice, Pediatrics, Dentistry, Dermatology, Gynecology, ENT, Orthopaedics and any other specialty. The system adapts its templates and workflows to your speciality automatically.' },
-  { q: 'What happens after the 14-day free trial?',         a: 'Your card is not charged during the trial. On day 14 you\'ll receive an email. If you choose to continue, your first payment is processed. You can cancel any time before the trial ends with zero charges.' },
-  { q: 'Does MediPlex work without internet?',              a: 'Yes. The PWA works fully offline. Appointments, patient records, prescriptions and lab data are cached locally. All changes sync automatically when connection is restored.' },
-  { q: 'Is my data secure and GDPR compliant?',             a: 'MediPlex is hosted on enterprise-grade infrastructure with end-to-end encryption. We are registered in the UK (KLASSICAL HOLDINGS LTD, company 16964688) and fully compliant with GDPR and UK data protection regulations.' },
-  { q: 'What is the WhatsApp AI Receptionist?',             a: 'The AI receptionist answers patient queries, checks appointment availability, confirms bookings, sends reminders and handles follow-up — 24/7, automatically. Patients message your clinic WhatsApp number and the AI handles it.' },
-  { q: 'Can I use my own clinic branding?',                 a: 'Yes. Upload your logo, header and footer images. All prescriptions, invoices, receipts and WhatsApp messages carry your clinic\'s brand — not MediPlex\'s.' },
-  { q: 'Can I migrate my existing patient data?',           a: 'Absolutely. Our team assists with data migration from spreadsheets, other software or paper records. Most migrations complete within 48 hours.' },
-  { q: 'Is the marketing ecosystem integrated with MediPlex?', a: 'Yes — it\'s one connected system. Your patient database, WhatsApp reminders, email campaigns, Meta ads audience, SEO website and poster content all talk to each other. One login, one dashboard.' },
+  { q: 'Is MediPlex suitable for any clinic specialty?',       a: 'Yes — MediPlex works for General Practice, Pediatrics, Dentistry, Dermatology, Gynecology, ENT, Orthopaedics and any specialty. Templates and workflows adapt automatically.' },
+  { q: 'What happens after the 14-day free trial?',            a: "Your card is not charged during the trial. On day 14 you'll receive an email. If you choose to continue, your first payment is processed. Cancel any time before the trial ends with zero charges." },
+  { q: 'Does MediPlex work without internet?',                 a: 'Yes. The PWA works fully offline. Appointments, patient records, prescriptions and lab data are cached locally. All changes sync automatically when connection is restored.' },
+  { q: 'Is my data secure and GDPR compliant?',                a: 'MediPlex is hosted on enterprise-grade infrastructure with end-to-end encryption. We are registered in the UK (KLASSICAL HOLDINGS LTD, company 16964688) and fully GDPR compliant.' },
+  { q: 'What is the WhatsApp AI Receptionist?',                a: 'The AI receptionist answers patient queries, confirms bookings, sends reminders and handles follow-up — 24/7. Patients message your clinic WhatsApp number and the AI handles it automatically.' },
+  { q: 'Can I use my own clinic branding?',                    a: "Yes. Upload your logo, header and footer images. All prescriptions, invoices, receipts and WhatsApp messages carry your clinic's brand — not MediPlex's." },
+  { q: 'Can I migrate my existing patient data?',              a: 'Absolutely. Our team assists with data migration from spreadsheets, other software or paper records. Most migrations complete within 48 hours.' },
+  { q: 'Is the marketing ecosystem integrated with MediPlex?', a: "Yes — it's one connected system. Your patient database, WhatsApp reminders, email campaigns, Meta ads audience, SEO website and poster content all talk to each other." },
 ];
 
 function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: string }) {
@@ -74,36 +74,50 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   return (
     <div className="border-b border-gray-100 last:border-0">
       <button onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between py-4 text-left gap-4 group">
+        className="w-full flex items-center justify-between py-5 text-left gap-4 group">
         <span className="text-[15px] font-semibold text-gray-800 group-hover:text-[#0A1628] transition-colors">{q}</span>
         {open
-          ? <ChevronUp size={16} className="text-[#C9A84C] flex-shrink-0" />
+          ? <ChevronUp size={16} className="flex-shrink-0" style={{ color: '#C9A84C' }} />
           : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
       </button>
-      {open && <p className="text-[14px] text-gray-500 leading-relaxed pb-4">{a}</p>}
+      {open && <p className="text-[14px] text-gray-500 leading-relaxed pb-5">{a}</p>}
     </div>
   );
 }
 
 function PkgGroup({ icon: Icon, color, title, items }: { icon: any; color: string; title: string; items: string[] }) {
   return (
-    <div className="mb-4">
+    <div className="mb-5">
       <div className="flex items-center gap-2 mb-2">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
           <Icon size={13} style={{ color }} />
         </div>
-        <span className="text-[13px] font-bold text-[#0A1628]">{title}</span>
+        <span className="text-[13px] font-semibold text-[#0A1628]">{title}</span>
       </div>
-      <ul className="space-y-1 pl-9">
+      <ul className="space-y-1.5 pl-9">
         {items.map(it => (
-          <li key={it} className="flex items-start gap-2 text-[12px] text-gray-500">
-            <CheckCircle size={11} style={{ color, flexShrink: 0, marginTop: 2 }} />
+          <li key={it} className="flex items-start gap-2 text-[12px] text-gray-500 leading-relaxed">
+            <CheckCircle size={11} style={{ color, flexShrink: 0, marginTop: 3 }} />
             {it}
           </li>
         ))}
       </ul>
     </div>
+  );
+}
+
+/* ── Inline logo mark (readable on both light and dark) ─────────────── */
+function LogoMark({ dark }: { dark: boolean }) {
+  return (
+    <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+      <img src="/icons/icon.svg" alt="MediPlex"
+        style={{ height: 34, width: 34, borderRadius: 8, display: 'block' }} />
+      <span style={{ fontWeight: 700, letterSpacing: '-0.6px', fontSize: '17px', lineHeight: 1 }}>
+        <span style={{ color: dark ? '#ffffff' : '#0A1628' }}>Medi</span>
+        <span style={{ color: '#C9A84C' }}>Plex</span>
+      </span>
+    </Link>
   );
 }
 
@@ -118,107 +132,143 @@ export default function LandingPage() {
     return () => window.removeEventListener('scroll', fn);
   }, []);
 
-  return (
-    <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif" }}>
+  const navLinkClass = `text-[13px] font-medium transition-colors ${scrolled ? 'text-gray-600 hover:text-[#0A1628]' : 'text-white/75 hover:text-white'}`;
 
-      {/* ── NAVBAR ─────────────────────────────────────────────────────── */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100' : 'bg-transparent'}`}>
+  return (
+    <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: 'var(--font-sans), system-ui, -apple-system, sans-serif' }}>
+
+      {/* ── NAVBAR ──────────────────────────────────────────────────────── */}
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/96 backdrop-blur-md shadow-sm border-b border-gray-100' : 'bg-transparent'}`}>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
-            <img src="/icons/mediplex-logo.svg" alt="MediPlex" className="h-8 w-auto" />
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link href="/features" className={`text-[13px] font-medium transition-colors ${scrolled ? 'text-gray-600 hover:text-[#0A1628]' : 'text-white/80 hover:text-white'}`}>Features</Link>
+          <LogoMark dark={!scrolled} />
+
+          {/* Desktop links */}
+          <div className="hidden md:flex items-center gap-7">
+            <Link href="/features" className={navLinkClass}>Features</Link>
             {[['Pricing','#pricing'],['Ecosystem','#ecosystem'],['FAQ','#faq']].map(([l,h])=>(
-              <a key={h} href={h} className={`text-[13px] font-medium transition-colors ${scrolled ? 'text-gray-600 hover:text-[#0A1628]' : 'text-white/80 hover:text-white'}`}>{l}</a>
+              <a key={h} href={h} className={navLinkClass}>{l}</a>
             ))}
+            <Link href="/contact" className={navLinkClass}>Contact</Link>
           </div>
-          <div className="hidden md:flex items-center gap-3">
-            <Link href="/login" className={`text-[13px] font-medium transition-colors ${scrolled ? 'text-gray-600 hover:text-[#0A1628]' : 'text-white/80 hover:text-white'}`}>Sign In</Link>
+
+          {/* Desktop actions */}
+          <div className="hidden md:flex items-center gap-2">
+            <Link href="/login"
+              className={`text-[13px] font-medium px-4 py-2 rounded-lg transition-colors ${scrolled ? 'text-gray-600 hover:text-[#0A1628]' : 'text-white/70 hover:text-white'}`}>
+              Sign In
+            </Link>
+            <Link href="/contact"
+              className={`text-[13px] font-medium px-4 py-2 rounded-lg border transition-colors ${scrolled ? 'border-gray-200 text-gray-700 hover:border-gray-400' : 'border-white/25 text-white hover:bg-white/10'}`}>
+              Contact Us
+            </Link>
             <Link href="/onboarding"
-              className="px-4 py-2 rounded-xl text-[13px] font-semibold text-[#0A1628] transition-all hover:shadow-lg hover:-translate-y-0.5"
+              className="ml-1 px-4 py-2 rounded-lg text-[13px] font-semibold text-[#0A1628] transition-all hover:shadow-lg hover:-translate-y-px"
               style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)' }}>
-              Start Free Trial
+              Free Trial
             </Link>
           </div>
+
           <button className="md:hidden p-2" onClick={() => setMobileMenu(!mobileMenu)}>
             {mobileMenu
               ? <X size={20} className={scrolled ? 'text-gray-800' : 'text-white'} />
               : <Menu size={20} className={scrolled ? 'text-gray-800' : 'text-white'} />}
           </button>
         </div>
+
         {mobileMenu && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-6 py-4 space-y-3 shadow-lg">
-            <Link href="/features" onClick={() => setMobileMenu(false)} className="block text-[14px] font-medium text-gray-700 py-2 border-b border-gray-50">Features</Link>
-            {[['Pricing','#pricing'],['Ecosystem','#ecosystem'],['FAQ','#faq']].map(([l,h])=>(
-              <a key={h} href={h} onClick={() => setMobileMenu(false)} className="block text-[14px] font-medium text-gray-700 py-2 border-b border-gray-50">{l}</a>
+          <div className="md:hidden bg-white border-t border-gray-100 px-6 py-4 space-y-1 shadow-xl">
+            {[['Features','/features'],['Pricing','#pricing'],['Ecosystem','#ecosystem'],['FAQ','#faq'],['Contact Us','/contact']].map(([l,h])=>(
+              h.startsWith('/')
+                ? <Link key={l} href={h} onClick={() => setMobileMenu(false)} className="block text-[14px] font-medium text-gray-700 py-2.5 border-b border-gray-50">{l}</Link>
+                : <a key={l} href={h} onClick={() => setMobileMenu(false)} className="block text-[14px] font-medium text-gray-700 py-2.5 border-b border-gray-50">{l}</a>
             ))}
-            <div className="pt-2 flex flex-col gap-2">
+            <div className="pt-3 flex flex-col gap-2">
               <Link href="/login" className="text-center py-2.5 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-600">Sign In</Link>
               <Link href="/onboarding"
                 className="text-center py-2.5 rounded-xl text-[13px] font-semibold text-[#0A1628]"
                 style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)' }}>
-                Start Free Trial — Free for 14 Days
+                Start Free Trial — 14 Days Free
               </Link>
             </div>
           </div>
         )}
       </nav>
 
-      {/* ── HERO ───────────────────────────────────────────────────────── */}
+      {/* ── HERO ────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center pt-16 overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #060E1F 0%, #0A1628 40%, #0F1E3A 70%, #0A1628 100%)' }}>
+        style={{ background: 'linear-gradient(135deg, #060E1F 0%, #0A1628 45%, #0E1B35 80%, #0A1628 100%)' }}>
         {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: 'linear-gradient(rgba(201,168,76,0.5) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,0.5) 1px,transparent 1px)', backgroundSize: '60px 60px' }} />
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: 'linear-gradient(rgba(201,168,76,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,0.04) 1px,transparent 1px)', backgroundSize: '80px 80px' }} />
         {/* Glow orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full blur-[120px] opacity-20" style={{ background: '#C9A84C' }} />
-        <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full blur-[100px] opacity-15" style={{ background: '#2563EB' }} />
+        <div className="absolute top-1/3 left-1/4 w-[500px] h-[500px] rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(201,168,76,0.12) 0%, transparent 65%)', filter: 'blur(40px)' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.1) 0%, transparent 65%)', filter: 'blur(40px)' }} />
 
-        <div className="relative max-w-7xl mx-auto px-6 py-20 text-center w-full">
-          {/* UK Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 text-[12px] font-medium"
-            style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.3)', color: '#E8C87A' }}>
-            <span>🇬🇧</span> UK Registered · KLASSICAL HOLDINGS LTD · Company 16964688
+        <div className="relative max-w-5xl mx-auto px-6 py-28 text-center w-full">
+
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full mb-10 text-[12px] font-medium tracking-wide"
+            style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', color: 'rgba(232,200,122,0.9)' }}>
+            <span style={{ fontSize: 13 }}>🇬🇧</span>
+            <span className="opacity-50">|</span>
+            UK Registered · KLASSICAL HOLDINGS LTD · Co. 16964688
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-black text-white leading-[1.05] tracking-tight mb-6 max-w-5xl mx-auto">
+          {/* Headline */}
+          <h1 className="text-white font-black mb-7 mx-auto"
+            style={{
+              fontSize: 'clamp(48px, 7.5vw, 88px)',
+              lineHeight: 1.02,
+              letterSpacing: '-0.04em',
+              maxWidth: 900,
+            }}>
             The Complete<br />
-            <span style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span style={{
+              background: 'linear-gradient(135deg, #C9A84C 20%, #E8C87A 55%, #C9A84C 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>
               AI‑HMIS
             </span>{' '}
             for Modern Clinics
           </h1>
 
-          <p className="text-xl text-white/60 mb-10 max-w-2xl mx-auto leading-relaxed">
-            AI Scribe · Smart Scheduling · WhatsApp Automation · Digital Prescriptions ·
-            Marketing Ecosystem — everything your clinic needs in one platform.
+          {/* Subtitle */}
+          <p className="mb-10 mx-auto"
+            style={{ fontSize: 'clamp(16px, 2vw, 19px)', color: 'rgba(255,255,255,0.52)', lineHeight: 1.65, maxWidth: 560, fontWeight: 400 }}>
+            One platform for clinical management, patient engagement,<br className="hidden sm:block" />
+            and clinic growth — powered by AI.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-20">
             <Link href="/onboarding"
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl text-[15px] font-bold text-[#0A1628] transition-all hover:shadow-2xl hover:-translate-y-1 shadow-lg"
-              style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', boxShadow: '0 8px 32px rgba(201,168,76,0.35)' }}>
-              Start Free Trial — 14 Days Free <ArrowRight size={16} />
+              className="flex items-center gap-2 px-8 py-4 rounded-xl text-[14px] font-semibold text-[#0A1628] transition-all hover:shadow-2xl hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', boxShadow: '0 6px 28px rgba(201,168,76,0.3)', letterSpacing: '-0.2px' }}>
+              Start Free Trial — 14 Days Free <ArrowRight size={15} />
             </Link>
             <Link href="/features"
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl text-[15px] font-semibold text-white transition-all hover:bg-white/10"
-              style={{ border: '1px solid rgba(255,255,255,0.2)' }}>
-              <Play size={14} /> See All Features
+              className="flex items-center gap-2 px-8 py-4 rounded-xl text-[14px] font-medium transition-all hover:bg-white/8"
+              style={{ border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(255,255,255,0.75)', letterSpacing: '-0.2px' }}>
+              <Play size={13} /> See All Features
             </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-6 max-w-2xl mx-auto">
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
             {[
               { val: 500,     sfx: '+',  label: 'Clinics Worldwide' },
               { val: 2000000, sfx: '+',  label: 'Prescriptions Generated' },
               { val: 50,      sfx: '+',  label: 'Cities Covered' },
             ].map(s => (
               <div key={s.label} className="text-center">
-                <div className="text-3xl md:text-4xl font-black" style={{ color: '#C9A84C' }}>
+                <div style={{ fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 900, color: '#C9A84C', letterSpacing: '-0.03em', lineHeight: 1 }}>
                   {s.val === 2000000 ? '2M+' : <><AnimatedCounter target={s.val} />{s.sfx}</>}
                 </div>
-                <div className="text-[12px] text-white/40 mt-1">{s.label}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 5, fontWeight: 500 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -232,39 +282,38 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── TRUSTED BY ─────────────────────────────────────────────────── */}
+      {/* ── TRUSTED BY ──────────────────────────────────────────────────── */}
       <section className="py-12 bg-white border-b border-gray-50">
         <div className="max-w-6xl mx-auto px-6">
-          <p className="text-center text-[12px] uppercase tracking-widest text-gray-400 font-semibold mb-8">Trusted by clinics across the globe</p>
-          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-40">
+          <p className="text-center text-[11px] uppercase tracking-[0.2em] text-gray-400 font-semibold mb-8">Trusted by clinics across the globe</p>
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-14">
             {['🇬🇧 United Kingdom','🇵🇰 Pakistan','🇦🇺 Australia','🇸🇦 Saudi Arabia','🇦🇪 UAE','🇮🇳 India'].map(c => (
-              <div key={c} className="text-[13px] font-bold text-gray-500 tracking-wide">{c}</div>
+              <span key={c} className="text-[13px] font-semibold text-gray-400">{c}</span>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── FEATURES (compact) ─────────────────────────────────────────── */}
+      {/* ── FEATURES (compact grid) ──────────────────────────────────────── */}
       <section id="features" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[12px] font-semibold mb-4"
-              style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C' }}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold mb-5 tracking-wide"
+              style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' }}>
               ✦ Platform Features
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-[#0A1628] mb-4">
-              Built for how clinics<br />actually work
+            <h2 className="font-black text-[#0A1628] mb-4" style={{ fontSize: 'clamp(30px, 4vw, 44px)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              Built for how clinics actually work
             </h2>
-            <p className="text-[16px] text-gray-500 max-w-xl mx-auto">Every feature is designed with real clinical workflows in mind — not generic software bolted together.</p>
+            <p className="text-gray-500 max-w-lg mx-auto" style={{ fontSize: 15 }}>Every feature designed with real clinical workflows in mind.</p>
           </div>
 
-          {/* Compact icon grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 mb-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5 mb-10">
             {ALL_FEATURES.map(f => (
               <Link href="/features" key={f.title}
-                className="group flex flex-col items-center text-center p-4 rounded-2xl border border-gray-100 hover:border-[#C9A84C]/40 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110"
-                  style={{ background: f.color + '15' }}>
+                className="group flex flex-col items-center text-center p-4 rounded-2xl border border-gray-100 hover:border-[#C9A84C]/40 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 bg-white">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 group-hover:scale-110 transition-transform"
+                  style={{ background: f.color + '13' }}>
                   <f.icon size={18} style={{ color: f.color }} />
                 </div>
                 <span className="text-[12px] font-semibold text-[#0A1628] leading-tight">{f.title}</span>
@@ -275,30 +324,30 @@ export default function LandingPage() {
           <div className="text-center">
             <Link href="/features"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[13px] font-semibold transition-all hover:-translate-y-0.5"
-              style={{ border: '1.5px solid rgba(201,168,76,0.5)', color: '#C9A84C', background: 'rgba(201,168,76,0.05)' }}>
-              Explore All Features in Detail <ArrowRight size={14} />
+              style={{ border: '1.5px solid rgba(201,168,76,0.45)', color: '#C9A84C', background: 'rgba(201,168,76,0.04)' }}>
+              Explore All 20 Features in Detail <ArrowRight size={14} />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ── WHATSAPP HIGHLIGHT ─────────────────────────────────────────── */}
+      {/* ── WHATSAPP SECTION ────────────────────────────────────────────── */}
       <section className="py-24 bg-gray-50 border-y border-gray-100">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[12px] font-semibold mb-6"
-                style={{ background: 'rgba(37,211,102,0.1)', color: '#16a34a' }}>
+                style={{ background: 'rgba(37,211,102,0.1)', color: '#15803d', border: '1px solid rgba(37,211,102,0.2)' }}>
                 💬 WhatsApp AI Booking Demo
               </div>
-              <h2 className="text-4xl font-black text-[#0A1628] leading-tight mb-5">
+              <h2 className="font-black text-[#0A1628] mb-5" style={{ fontSize: 'clamp(28px, 3.5vw, 40px)', lineHeight: 1.15, letterSpacing: '-0.03em' }}>
                 Your clinic never stops<br />
-                <span style={{ color: '#25D366' }}>working</span>, even at 3am
+                <span style={{ color: '#16a34a' }}>working</span>, even at 3am
               </h2>
-              <p className="text-[15px] text-gray-500 leading-relaxed mb-8">
-                The WhatsApp AI Receptionist handles appointment requests, answers FAQs, sends confirmations and reminders — completely automatically. Your staff focus on care, not admin.
+              <p className="text-gray-500 leading-relaxed mb-8" style={{ fontSize: 15 }}>
+                The WhatsApp AI Receptionist handles appointment requests, answers FAQs, sends confirmations and reminders — completely automatically.
               </p>
-              <div className="space-y-3">
+              <ul className="space-y-3">
                 {[
                   'Auto appointment booking via WhatsApp',
                   '24h & 4h smart reminders with no-show prediction',
@@ -306,40 +355,33 @@ export default function LandingPage() {
                   'Bulk WhatsApp campaigns for health promotions',
                   'Payment receipts & follow-up messages delivered instantly',
                 ].map(f => (
-                  <div key={f} className="flex items-center gap-3">
-                    <CheckCircle size={16} className="flex-shrink-0" style={{ color: '#25D366' }} />
+                  <li key={f} className="flex items-start gap-3">
+                    <CheckCircle size={16} style={{ color: '#25D366', flexShrink: 0, marginTop: 2 }} />
                     <span className="text-[14px] text-gray-600">{f}</span>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
               <div className="mt-8">
                 <Link href="/onboarding"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[13px] font-bold text-[#0A1628] transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-[13px] font-semibold text-[#0A1628] transition-all hover:-translate-y-0.5 hover:shadow-lg"
                   style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)' }}>
                   Get WhatsApp AI <ArrowRight size={14} />
                 </Link>
               </div>
             </div>
 
-            {/* WhatsApp chat mockup */}
+            {/* Chat mockup */}
             <div className="relative">
               <div className="rounded-3xl p-6 shadow-2xl max-w-xs mx-auto" style={{ background: '#0A1628' }}>
-                {/* Header */}
                 <div className="flex items-center gap-3 mb-5 pb-4 border-b border-white/10">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
-                    style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', color: '#0A1628' }}>
-                    M+
-                  </div>
+                    style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', color: '#0A1628' }}>M+</div>
                   <div>
                     <div className="text-white text-[13px] font-semibold">MediPlex Clinic</div>
                     <div className="text-[10px]" style={{ color: '#25D366' }}>● Online</div>
                   </div>
-                  <div className="ml-auto">
-                    <MessageCircle size={18} style={{ color: '#25D366' }} />
-                  </div>
+                  <MessageCircle size={17} style={{ color: '#25D366', marginLeft: 'auto' }} />
                 </div>
-
-                {/* Messages */}
                 <div className="space-y-3">
                   {[
                     { msg: 'Hi! I need an appointment for tomorrow', from: 'patient' },
@@ -348,17 +390,16 @@ export default function LandingPage() {
                     { msg: '🎉 Appointment confirmed!\nTomorrow, 10:00 AM\nDr. Ahmad — General Practice\n\nReminder will be sent tonight.', from: 'bot' },
                   ].map((m, i) => (
                     <div key={i} className={`flex ${m.from === 'patient' ? 'justify-end' : 'justify-start'}`}>
-                      <div className="px-3 py-2 text-[11px] leading-relaxed max-w-[80%] whitespace-pre-line"
+                      <div className="px-3 py-2 text-[11px] leading-relaxed max-w-[82%] whitespace-pre-line"
                         style={{
-                          background: m.from === 'patient' ? 'rgba(201,168,76,0.2)' : 'rgba(255,255,255,0.08)',
-                          color: m.from === 'patient' ? '#E8C87A' : 'rgba(255,255,255,0.85)',
+                          background: m.from === 'patient' ? 'rgba(201,168,76,0.22)' : 'rgba(255,255,255,0.09)',
+                          color: m.from === 'patient' ? '#E8C87A' : 'rgba(255,255,255,0.82)',
                           borderRadius: m.from === 'patient' ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
                         }}>
                         {m.msg}
                       </div>
                     </div>
                   ))}
-                  {/* Typing indicator */}
                   <div className="flex justify-start">
                     <div className="px-3 py-2 rounded-2xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
                       <div className="flex gap-1 items-center h-4">
@@ -370,8 +411,6 @@ export default function LandingPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* Input bar */}
                 <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)' }}>
                   <span className="text-[11px] text-white/30 flex-1">Message MediPlex Clinic...</span>
                   <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: '#25D366' }}>
@@ -379,18 +418,14 @@ export default function LandingPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Floating badge */}
               <div className="absolute -top-4 -right-4 bg-white rounded-xl px-3 py-2 shadow-xl border border-gray-100">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                   <span className="text-[11px] font-bold text-gray-700">Available 24/7</span>
                 </div>
               </div>
-
-              {/* Stats badge */}
-              <div className="absolute -bottom-4 -left-4 bg-white rounded-xl px-3 py-2 shadow-xl border border-gray-100">
-                <div className="text-[10px] text-gray-500">This week</div>
+              <div className="absolute -bottom-4 -left-4 bg-white rounded-xl px-3 py-2.5 shadow-xl border border-gray-100">
+                <div className="text-[10px] text-gray-400 mb-0.5">This week</div>
                 <div className="text-[13px] font-bold text-[#0A1628]">142 bookings via WhatsApp</div>
               </div>
             </div>
@@ -398,41 +433,32 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── INTEGRATED ECOSYSTEM ───────────────────────────────────────── */}
+      {/* ── ECOSYSTEM ────────────────────────────────────────────────────── */}
       <section id="ecosystem" className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[12px] font-semibold mb-4"
-              style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C' }}>
+          <div className="text-center mb-14">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold mb-5"
+              style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' }}>
               ✦ One Connected System
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-[#0A1628] mb-4">The Complete Clinic Growth Ecosystem</h2>
-            <p className="text-[16px] text-gray-500 max-w-2xl mx-auto">
-              MediPlex is not just software — it's a fully integrated system: HMIS + Marketing + Branding + Patient Engagement, all connected through one dashboard.
+            <h2 className="font-black text-[#0A1628] mb-4" style={{ fontSize: 'clamp(28px, 4vw, 42px)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              The Complete Clinic Growth Ecosystem
+            </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto" style={{ fontSize: 15 }}>
+              MediPlex is not just software — it's HMIS + Marketing + Branding + Patient Engagement, all connected through one dashboard.
             </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="grid md:grid-cols-3 gap-5 mb-10">
             {[
-              {
-                icon: Stethoscope, color: '#2563EB', title: 'Clinical Management',
-                items: ['AI SOAP Notes & Prescriptions', 'Lab Orders & Results', 'Patient Portal & Records', 'Billing & Insurance Claims', 'Telemedicine Video Consult'],
-              },
-              {
-                icon: MessageCircle, color: '#25D366', title: 'Patient Engagement',
-                items: ['WhatsApp AI Receptionist', 'Auto Confirmations & Reminders', 'Follow-up & Feedback Surveys', 'WhatsApp Broadcast Campaigns', 'Patient Satisfaction Scores'],
-              },
-              {
-                icon: Megaphone, color: '#F43F5E', title: 'Clinic Growth & Marketing',
-                items: ['Meta Ads (Facebook & Instagram)', 'SEO-Optimised Clinic Website', '15–20 Branded Posters / Month', 'Unlimited Email Campaigns', 'Google Business Profile Setup'],
-              },
+              { icon: Stethoscope, color: '#2563EB', title: 'Clinical Management', items: ['AI SOAP Notes & Prescriptions','Lab Orders & Results','Patient Portal & Records','Billing & Insurance Claims','Telemedicine Video Consult'] },
+              { icon: MessageCircle, color: '#25D366', title: 'Patient Engagement', items: ['WhatsApp AI Receptionist','Auto Confirmations & Reminders','Follow-up & Feedback Surveys','WhatsApp Broadcast Campaigns','Patient Satisfaction Scores'] },
+              { icon: Megaphone, color: '#F43F5E', title: 'Clinic Growth & Marketing', items: ['Meta Ads (Facebook & Instagram)','SEO-Optimised Clinic Website','15–20 Branded Posters / Month','Unlimited Email Campaigns','Google Business Profile Setup'] },
             ].map(c => (
               <div key={c.title} className="rounded-2xl p-6 border border-gray-100 hover:shadow-lg transition-all">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: c.color + '15', border: `1px solid ${c.color}25` }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: c.color + '15' }}>
                   <c.icon size={18} style={{ color: c.color }} />
                 </div>
-                <h3 className="text-[16px] font-bold text-[#0A1628] mb-3">{c.title}</h3>
+                <h3 className="text-[15px] font-bold text-[#0A1628] mb-3">{c.title}</h3>
                 <ul className="space-y-2">
                   {c.items.map(it => (
                     <li key={it} className="flex items-center gap-2 text-[13px] text-gray-500">
@@ -443,12 +469,10 @@ export default function LandingPage() {
               </div>
             ))}
           </div>
-
-          {/* Flow */}
-          <div className="rounded-2xl p-6 text-center border border-gray-100 bg-gray-50">
-            <p className="text-[12px] text-gray-400 uppercase tracking-widest mb-4">Everything flows through one connected system</p>
+          <div className="rounded-2xl p-5 text-center border border-gray-100 bg-gray-50/70">
+            <p className="text-[11px] text-gray-400 uppercase tracking-widest mb-3">Everything flows through one connected system</p>
             <div className="flex flex-wrap justify-center items-center gap-2 text-[12px] font-semibold">
-              {['Patient Books via WhatsApp','→','Appointment Confirmed','→','Doctor uses AI Scribe','→','Prescription Auto-generated','→','Lab Results Sent to Portal','→','Follow-up Reminder Sent','→','Feedback Collected','→','Analytics Updated'].map(s=>(
+              {['Patient Books via WhatsApp','→','Appointment Confirmed','→','Doctor uses AI Scribe','→','Prescription Auto-generated','→','Follow-up Reminder Sent','→','Analytics Updated'].map(s=>(
                 <span key={s} style={{ color: s === '→' ? '#D1D5DB' : '#C9A84C' }}>{s}</span>
               ))}
             </div>
@@ -456,34 +480,31 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── HOW IT WORKS ───────────────────────────────────────────────── */}
-      <section id="howitworks" className="py-24"
-        style={{ background: 'linear-gradient(135deg, #060E1F 0%, #0A1628 100%)' }}>
+      {/* ── HOW IT WORKS ────────────────────────────────────────────────── */}
+      <section id="howitworks" className="py-24" style={{ background: 'linear-gradient(135deg, #060E1F 0%, #0A1628 100%)' }}>
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[12px] font-semibold mb-4"
-              style={{ background: 'rgba(201,168,76,0.12)', color: '#E8C87A' }}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold mb-5"
+              style={{ background: 'rgba(201,168,76,0.12)', color: '#E8C87A', border: '1px solid rgba(201,168,76,0.2)' }}>
               ✦ Simple Setup
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-white mb-4">Up and running in<br />under 10 minutes</h2>
-            <p className="text-[16px] text-white/50">No IT team needed. No complex installation. Just sign up and go.</p>
+            <h2 className="font-black text-white mb-4" style={{ fontSize: 'clamp(28px, 4vw, 44px)', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              Up and running in under 10 minutes
+            </h2>
+            <p className="text-white/50" style={{ fontSize: 15 }}>No IT team needed. No complex installation. Just sign up and go.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { step: '01', icon: Globe,     color: '#C9A84C', title: 'Sign Up & Choose Plan',        desc: 'Pick your package and start your 14-day free trial. No credit card required to begin.' },
-              { step: '02', icon: Building2, color: '#38BDF8', title: 'Complete Onboarding Wizard',   desc: '8 quick steps to configure your clinic, doctor profile, schedule, billing and branding.' },
-              { step: '03', icon: Activity,  color: '#10B981', title: 'Go Live Instantly',            desc: 'Your clinic is live. Patients can book via WhatsApp. AI Scribe is ready to generate notes.' },
+              { step:'01', icon: Globe,     color:'#C9A84C', title:'Sign Up & Choose Plan',      desc:'Pick your package and start your 14-day free trial. No credit card required.' },
+              { step:'02', icon: Building2, color:'#38BDF8', title:'Complete Setup Wizard',       desc:'8 quick steps — clinic details, branding, doctor profile, schedule and billing.' },
+              { step:'03', icon: Activity,  color:'#10B981', title:'Go Live Instantly',           desc:'Patients can book via WhatsApp. AI Scribe is ready. Your clinic runs itself.' },
             ].map((s, i) => (
               <div key={i} className="relative text-center">
-                {i < 2 && (
-                  <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-px"
-                    style={{ background: 'linear-gradient(90deg, rgba(201,168,76,0.4), transparent)' }} />
-                )}
-                <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5"
-                  style={{ background: s.color + '15', border: `1px solid ${s.color}30` }}>
+                {i < 2 && <div className="hidden md:block absolute top-10 left-[62%] w-[76%] h-px" style={{ background: 'linear-gradient(90deg,rgba(201,168,76,0.35),transparent)' }} />}
+                <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: s.color + '14', border: `1px solid ${s.color}28` }}>
                   <s.icon size={28} style={{ color: s.color }} />
                 </div>
-                <div className="text-[11px] font-bold mb-2" style={{ color: s.color }}>{s.step}</div>
+                <div className="text-[11px] font-bold mb-2 tracking-widest" style={{ color: s.color }}>{s.step}</div>
                 <h3 className="text-[17px] font-bold text-white mb-2">{s.title}</h3>
                 <p className="text-[13px] text-white/45 leading-relaxed">{s.desc}</p>
               </div>
@@ -492,17 +513,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING ────────────────────────────────────────────────────── */}
+      {/* ── PRICING ──────────────────────────────────────────────────────── */}
       <section id="pricing" className="py-24 bg-[#F8FAFC]">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[12px] font-semibold mb-4"
-              style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C' }}>
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold mb-5"
+              style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' }}>
               ✦ Transparent Pricing
             </div>
-            <h2 className="text-4xl md:text-5xl font-black text-[#0A1628] mb-4">Simple pricing.<br />Serious value.</h2>
-            <p className="text-[16px] text-gray-500 mb-8">All plans include a 14-day free trial. No credit card required.</p>
-            {/* Billing toggle */}
+            <h2 className="font-black text-[#0A1628] mb-3" style={{ fontSize: 'clamp(30px, 4vw, 48px)', letterSpacing: '-0.03em', lineHeight: 1.05 }}>
+              Simple pricing.<br />Serious value.
+            </h2>
+            <p className="text-gray-500 mb-8" style={{ fontSize: 15 }}>All plans include a 14-day free trial. No credit card required.</p>
             <div className="inline-flex items-center gap-1 bg-white rounded-2xl p-1.5 border border-gray-200 shadow-sm">
               <button onClick={() => setYearly(false)}
                 className={`px-5 py-2 rounded-xl text-[13px] font-semibold transition-all ${!yearly ? 'bg-[#0A1628] text-white shadow-sm' : 'text-gray-500'}`}>
@@ -515,138 +537,168 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-            {/* Package 1 */}
+            {/* ── Professional ─────────────────────────────────────────── */}
             <div className="bg-white rounded-3xl p-7 flex flex-col border border-gray-200 hover:shadow-xl transition-all hover:-translate-y-1">
-              <div className="text-[12px] font-bold uppercase tracking-widest mb-1" style={{ color: '#2563EB' }}>Package 1</div>
-              <h3 className="text-[22px] font-extrabold text-[#0A1628] mb-1">MediPlex</h3>
-              <p className="text-[13px] text-gray-400 mb-4">Full clinic management + marketing ecosystem</p>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-[38px] font-black text-[#0A1628]">£{yearly ? 125 : 150}</span>
-                <span className="text-[13px] text-gray-400">/{yearly ? 'year' : 'mo'}</span>
+              <div className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#2563EB' }}>Professional</div>
+              <h3 className="text-[24px] font-black text-[#0A1628] mb-1" style={{ letterSpacing: '-0.03em' }}>Professional</h3>
+              <p className="text-[13px] text-gray-400 mb-5">Full clinic management + marketing ecosystem</p>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-[42px] font-black text-[#0A1628]" style={{ letterSpacing: '-0.04em' }}>£{yearly ? 125 : 150}</span>
+                <span className="text-[13px] text-gray-400 mb-1">/{yearly ? 'yr' : 'mo'}</span>
               </div>
-              {yearly && <div className="text-[12px] mb-1" style={{ color: '#C9A84C' }}>Save £300/year</div>}
-              <div className="text-[12px] text-gray-400 mb-6">+ AI Scribe add-on: <span className="text-gray-600 font-semibold">£{yearly ? 83 : 100}/mo</span></div>
+              {yearly && <div className="text-[12px] mb-4" style={{ color: '#C9A84C' }}>Save £300/year</div>}
+
+              {/* CTA at top */}
+              <Link href="/onboarding?plan=professional"
+                className="block text-center py-3 rounded-2xl text-[13px] font-bold mb-6 mt-2 transition-all hover:shadow-md hover:-translate-y-0.5"
+                style={{ border: '1.5px solid #2563EB', color: '#2563EB', background: 'rgba(37,99,235,0.04)' }}>
+                Start Free Trial →
+              </Link>
 
               <div className="flex-1">
                 <PkgGroup icon={Stethoscope} color="#2563EB" title="MediPlex HMIS" items={[
-                  'Appointment & Patient Management','Digital Prescriptions with QR','Smart Billing — Invoices, Receipts, Expenses','Lab Orders & Results (QR-based)','Patient Portal (self-booking, records)','Telemedicine / Video Consult','No-Show Prediction AI','Role-based Staff Accounts','Clinic Analytics Dashboard','Offline Mode (full PWA)','Clinic Branding (your logo, header, footer)','Pre-Auth Insurance Letters',
+                  'Appointment & Patient Management',
+                  'Digital Prescriptions with QR',
+                  'Smart Billing — Invoices, Receipts, Expenses',
+                  'Lab Orders & Results (QR-based)',
+                  'Patient Portal (self-booking, records)',
+                  'Telemedicine / Video Consult',
+                  'No-Show Prediction AI',
+                  'Role-based Staff Accounts',
+                  'Clinic Analytics Dashboard',
+                  'Offline Mode (full PWA)',
+                  'Clinic Branding (logo, header, footer)',
+                  'Pre-Auth Insurance Letters',
                 ]} />
                 <PkgGroup icon={MessageCircle} color="#25D366" title="WhatsApp AI Receptionist" items={[
-                  '24/7 AI replies to patient queries','Auto appointment booking via WhatsApp','Confirmation, 24h & 4h reminders','Follow-up & satisfaction feedback','WhatsApp Broadcast to patient list',
+                  '24/7 AI replies & auto appointment booking',
+                  'Confirmation, 24h & 4h reminders',
+                  'Follow-up, feedback & broadcast campaigns',
                 ]} />
                 <PkgGroup icon={Globe} color="#C9A84C" title="Clinic Website" items={[
-                  'Professional SEO-optimised website','Online appointment booking widget','Google Business Profile setup','Local SEO targeting',
+                  'Professional SEO website with online booking',
+                  'Google Business Profile & local SEO',
                 ]} />
                 <PkgGroup icon={Mail} color="#38BDF8" title="Email Marketing — Unlimited" items={[
-                  'Unlimited email campaigns','Branded clinic templates','Health tips & appointment recalls',
+                  'Unlimited campaigns with clinic branding',
+                  'Health tips, recalls, seasonal promotions',
                 ]} />
                 <PkgGroup icon={ImageIcon} color="#A78BFA" title="Graphical Posters (15–20/month)" items={[
-                  'Branded health awareness posters','Seasonal & awareness days','Formatted for Instagram & WhatsApp',
+                  '15–20 branded posters per month',
+                  'Formatted for Instagram, Facebook & WhatsApp',
                 ]} />
-                <PkgGroup icon={Bot} color="#C9A84C" title="AI Scribe Add-on (£100/mo)" items={[
-                  'SOAP Notes, Prescriptions, Referrals','Discharge Summaries, Pre-Auth Letters','Sick Certificates',
+                <PkgGroup icon={Bot} color="#C9A84C" title="AI Clinical Scribe — Included" items={[
+                  'SOAP Notes, Prescriptions, Referrals',
+                  'Discharge Summaries, Pre-Auth Letters, Sick Certs',
+                  '100 AI notes/month',
                 ]} />
               </div>
-
-              <Link href="/onboarding?plan=package1"
-                className="mt-7 block text-center py-3 rounded-2xl text-[13px] font-bold transition-all hover:shadow-md hover:-translate-y-0.5"
-                style={{ border: '1.5px solid #2563EB', color: '#2563EB' }}>
-                Start Free Trial →
-              </Link>
             </div>
 
-            {/* Package 2 — Most Popular */}
+            {/* ── Growth ───────────────────────────────────────────────── */}
             <div className="bg-white rounded-3xl p-7 flex flex-col relative transition-all hover:-translate-y-1"
-              style={{ border: '2px solid #C9A84C', boxShadow: '0 8px 40px rgba(201,168,76,0.2)' }}>
+              style={{ border: '2px solid #C9A84C', boxShadow: '0 8px 40px rgba(201,168,76,0.15)' }}>
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[11px] font-bold text-[#0A1628]"
                 style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)' }}>
                 Most Popular
               </div>
-              <div className="text-[12px] font-bold uppercase tracking-widest mb-1" style={{ color: '#C9A84C' }}>Package 2</div>
-              <h3 className="text-[22px] font-extrabold text-[#0A1628] mb-1">MediPlex + Meta Ads</h3>
-              <p className="text-[13px] text-gray-400 mb-4">Everything in Package 1 plus managed social media advertising</p>
-              <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-[38px] font-black text-[#0A1628]">£{yearly ? 175 : 210}</span>
-                <span className="text-[13px] text-gray-400">/{yearly ? 'year' : 'mo'}</span>
+              <div className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#C9A84C' }}>Growth</div>
+              <h3 className="text-[24px] font-black text-[#0A1628] mb-1" style={{ letterSpacing: '-0.03em' }}>Growth</h3>
+              <p className="text-[13px] text-gray-400 mb-5">Everything in Professional + managed advertising</p>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-[42px] font-black text-[#0A1628]" style={{ letterSpacing: '-0.04em' }}>£{yearly ? 175 : 210}</span>
+                <span className="text-[13px] text-gray-400 mb-1">/{yearly ? 'yr' : 'mo'}</span>
               </div>
-              {yearly && <div className="text-[12px] mb-1" style={{ color: '#C9A84C' }}>Save £420/year</div>}
-              <div className="text-[12px] text-gray-400 mb-4">+ AI Scribe add-on: <span className="text-gray-600 font-semibold">£{yearly ? 83 : 100}/mo</span></div>
+              {yearly && <div className="text-[12px] mb-4" style={{ color: '#C9A84C' }}>Save £420/year</div>}
 
-              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
-                <div className="text-[12px] font-semibold mb-1" style={{ color: '#C9A84C' }}>Everything in Package 1, plus:</div>
-                <div className="text-[12px] text-gray-500">All HMIS, WhatsApp, Website, Email & Posters included</div>
-              </div>
-
-              <div className="flex-1">
-                <PkgGroup icon={Target} color="#F43F5E" title="Meta Ads — Facebook & Instagram" items={[
-                  'Fully managed ad campaigns','Audience targeting — local patient demographics','Appointment & lead generation ads','Seasonal health campaign creatives','Monthly ad performance reports','Remarketing to website visitors','Ad spend not included (you set budget)',
-                ]} />
-                <PkgGroup icon={Bot} color="#C9A84C" title="AI Scribe Add-on (£100/mo)" items={[
-                  'SOAP Notes, Prescriptions, Referrals','Discharge & Pre-Auth Insurance letters','Increased limit — 400 AI notes/month',
-                ]} />
-              </div>
-
-              <Link href="/onboarding?plan=package2"
-                className="mt-7 block text-center py-3 rounded-2xl text-[13px] font-bold transition-all hover:shadow-lg hover:-translate-y-0.5 text-[#0A1628]"
+              {/* CTA at top */}
+              <Link href="/onboarding?plan=growth"
+                className="block text-center py-3 rounded-2xl text-[13px] font-bold mb-6 mt-2 transition-all hover:shadow-lg hover:-translate-y-0.5 text-[#0A1628]"
                 style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)' }}>
                 Start Free Trial →
               </Link>
+
+              <div className="flex-1">
+                <div className="rounded-xl p-3 mb-5" style={{ background: 'rgba(201,168,76,0.07)', border: '1px solid rgba(201,168,76,0.18)' }}>
+                  <div className="text-[12px] font-semibold mb-0.5" style={{ color: '#C9A84C' }}>Everything in Professional, plus:</div>
+                  <div className="text-[12px] text-gray-500">All HMIS, WhatsApp, Website, Email & Posters included</div>
+                </div>
+                <PkgGroup icon={Target} color="#F43F5E" title="Meta Ads — Facebook & Instagram" items={[
+                  'Fully managed campaigns targeting local patients',
+                  'Appointment & lead generation ad formats',
+                  'Seasonal campaign creatives + monthly reports',
+                  'Ad spend not included — set your own budget, or choose our commission-based model',
+                ]} />
+                <PkgGroup icon={Bot} color="#C9A84C" title="AI Clinical Scribe — Included" items={[
+                  'SOAP Notes, Prescriptions, Referrals, Discharge & Pre-Auth',
+                  '400 AI notes/month',
+                ]} />
+              </div>
             </div>
 
-            {/* Enterprise */}
+            {/* ── Enterprise ───────────────────────────────────────────── */}
             <div className="bg-white rounded-3xl p-7 flex flex-col border border-gray-200 hover:shadow-xl transition-all hover:-translate-y-1">
-              <div className="text-[12px] font-bold uppercase tracking-widest mb-1" style={{ color: '#7C3AED' }}>Custom</div>
-              <h3 className="text-[22px] font-extrabold text-[#0A1628] mb-1">Enterprise</h3>
-              <p className="text-[13px] text-gray-400 mb-4">Multi-clinic networks, hospital groups, multi-tenant doctor setups</p>
-              <div className="text-[32px] font-black text-[#0A1628] mb-1">Bespoke</div>
-              <div className="text-[12px] text-gray-400 mb-6">Pricing based on clinic count & requirements</div>
+              <div className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#7C3AED' }}>Custom</div>
+              <h3 className="text-[24px] font-black text-[#0A1628] mb-1" style={{ letterSpacing: '-0.03em' }}>Enterprise</h3>
+              <p className="text-[13px] text-gray-400 mb-5">Multi-clinic networks, hospital groups, multi-tenant setups</p>
+              <div className="text-[38px] font-black text-[#0A1628] mb-1" style={{ letterSpacing: '-0.04em' }}>Bespoke</div>
+              <div className="text-[12px] text-gray-400 mb-4">Pricing based on clinic count & requirements</div>
+
+              {/* CTA at top */}
+              <a href="mailto:info@klassicalholdings.com?subject=Enterprise Enquiry"
+                className="block text-center py-3 rounded-2xl text-[13px] font-bold mb-6 transition-all hover:shadow-md hover:-translate-y-0.5"
+                style={{ border: '1.5px solid #7C3AED', color: '#7C3AED', background: 'rgba(124,58,237,0.04)' }}>
+                Contact Sales
+              </a>
 
               <div className="flex-1">
                 <PkgGroup icon={Building2} color="#7C3AED" title="Multi-Clinic / Multi-Doctor" items={[
-                  'Unlimited clinics & locations','Multi-tenant doctor accounts','Organisation dashboard (org owner view)','Cross-clinic analytics & reporting','Centralised patient database',
+                  'Unlimited clinics & locations',
+                  'Multi-tenant doctor accounts',
+                  'Organisation dashboard (org owner view)',
+                  'Cross-clinic analytics & centralised database',
                 ]} />
                 <PkgGroup icon={Shield} color="#7C3AED" title="Enterprise Features" items={[
-                  'White-label (your own brand)','Custom integrations (HIS, LIS, RIS)','Dedicated cloud infrastructure','SLA-backed 99.9% uptime','Custom AI training on your data','Onsite training & onboarding',
+                  'White-label (your own brand)',
+                  'Custom integrations (HIS, LIS, RIS)',
+                  'Dedicated cloud infrastructure & SLA 99.9%',
+                  'Custom AI training + onsite onboarding',
                 ]} />
-                <div className="rounded-xl p-3 mt-2 border text-[12px] text-gray-500"
-                  style={{ background: 'rgba(124,58,237,0.05)', borderColor: 'rgba(124,58,237,0.15)' }}>
-                  <span className="font-semibold text-gray-700">Note:</span> Multi-tenant doctor setups are available on Enterprise only — not in Package 1 or 2.
+                <div className="rounded-xl p-3 mt-2" style={{ background: 'rgba(124,58,237,0.05)', border: '1px solid rgba(124,58,237,0.15)' }}>
+                  <p className="text-[12px] text-gray-500">
+                    <span className="font-semibold text-gray-700">Note:</span> Multi-tenant doctor setups are Enterprise only — not available in Professional or Growth.
+                  </p>
                 </div>
               </div>
-
-              <a href="mailto:info@klassicalholdings.com?subject=Enterprise Enquiry"
-                className="mt-7 block text-center py-3 rounded-2xl text-[13px] font-bold transition-all hover:shadow-md hover:-translate-y-0.5"
-                style={{ border: '1.5px solid #7C3AED', color: '#7C3AED' }}>
-                Contact Sales
-              </a>
             </div>
+
           </div>
 
           <p className="text-center text-[12px] text-gray-400 mt-8">
             All prices in GBP. VAT may apply. Cancel anytime.{' '}
-            <a href="mailto:info@klassicalholdings.com" className="hover:underline" style={{ color: '#C9A84C' }}>Questions? Email us →</a>
+            <Link href="/contact" className="hover:underline" style={{ color: '#C9A84C' }}>Questions? Contact us →</Link>
           </p>
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ───────────────────────────────────────────────── */}
+      {/* ── TESTIMONIALS ────────────────────────────────────────────────── */}
       <section className="py-24 bg-white">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="text-4xl font-black text-[#0A1628] mb-3">Loved by clinicians worldwide</h2>
-            <p className="text-[16px] text-gray-500">Real feedback from real doctors</p>
+            <h2 className="font-black text-[#0A1628] mb-3" style={{ fontSize: 'clamp(26px, 3.5vw, 40px)', letterSpacing: '-0.03em' }}>Loved by clinicians worldwide</h2>
+            <p className="text-gray-500" style={{ fontSize: 15 }}>Real feedback from real doctors</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-3 gap-5">
             {[
-              { name: 'Dr. James',    role: 'Paediatrician, Luton UK 🇬🇧',          text: 'The AI Scribe alone saves me 2 hours every day. SOAP notes used to take 15 minutes each — now it\'s 30 seconds. MediPlex has transformed how I run my clinic.' },
-              { name: 'Dr. Anderson', role: 'Dentist, Melbourne Australia 🇦🇺',      text: 'The WhatsApp reminders dropped our no-show rate from 28% to under 5%. The billing module handles everything automatically. Best investment I\'ve made for my practice.' },
-              { name: 'Dr. Waheed',   role: 'General Practitioner, Riyadh 🇸🇦',     text: 'I manage 40+ patients a day. MediPlex lets my receptionist handle bookings via WhatsApp while I focus on patients. The offline mode is a lifesaver when internet drops.' },
+              { name:'Dr. James',    role:'Paediatrician, Luton UK 🇬🇧',     text:"The AI Scribe alone saves me 2 hours every day. SOAP notes used to take 15 minutes each — now it's 30 seconds. MediPlex has transformed how I run my clinic." },
+              { name:'Dr. Anderson', role:'Dentist, Melbourne Australia 🇦🇺', text:'The WhatsApp reminders dropped our no-show rate from 28% to under 5%. The billing module handles everything automatically. Best investment I\'ve made for my practice.' },
+              { name:'Dr. Waheed',   role:'GP, Riyadh Saudi Arabia 🇸🇦',     text:'I manage 40+ patients a day. MediPlex lets my receptionist handle bookings via WhatsApp while I focus on patients. The offline mode is a lifesaver when internet drops.' },
             ].map((t, i) => (
               <div key={i} className="p-7 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all hover:-translate-y-1">
                 <div className="flex gap-1 mb-4">
-                  {[...Array(5)].map((_, j) => <Star key={j} size={14} className="fill-[#C9A84C]" style={{ color: '#C9A84C' }} />)}
+                  {[...Array(5)].map((_, j) => <Star key={j} size={13} className="fill-[#C9A84C]" style={{ color: '#C9A84C' }} />)}
                 </div>
                 <p className="text-[14px] text-gray-600 leading-relaxed mb-5 italic">"{t.text}"</p>
                 <div className="flex items-center gap-3">
@@ -665,29 +717,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── GLOBAL SECTION ─────────────────────────────────────────────── */}
+      {/* ── GLOBAL SECTION ──────────────────────────────────────────────── */}
       <section className="py-20 bg-gray-50 border-y border-gray-100">
         <div className="max-w-5xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-black text-[#0A1628] mb-4">Built for Global Clinics</h2>
-          <p className="text-gray-500 text-[15px] mb-12 max-w-2xl mx-auto">
-            Multi-currency support, WhatsApp globally, Stripe (UK/Global), SafePay (Pakistan) and region-specific compliance.
+          <h2 className="font-black text-[#0A1628] mb-4" style={{ fontSize: 'clamp(24px, 3vw, 36px)', letterSpacing: '-0.03em' }}>Built for Global Clinics</h2>
+          <p className="text-gray-500 mb-12 max-w-xl mx-auto" style={{ fontSize: 15 }}>
+            Multi-currency, WhatsApp globally, Stripe (UK/Global), SafePay (Pakistan) and region-specific compliance.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
             {[
-              { icon: Globe,        color: '#2563EB', title: 'Multi-Currency',     desc: 'GBP, USD, PKR, AED, SAR, AUD and more' },
-              { icon: MessageCircle,color: '#25D366', title: 'WhatsApp Global',    desc: 'Works in any country with WhatsApp' },
-              { icon: CreditCard,   color: '#C9A84C', title: 'Stripe & SafePay',  desc: 'UK/Global payments + Pakistan SafePay' },
-              { icon: Lock,         color: '#10B981', title: 'GDPR & HIPAA Ready',desc: 'UK, EU and international compliance' },
+              { icon: Globe,         color:'#2563EB', title:'Multi-Currency',    desc:'GBP, USD, PKR, AED, SAR, AUD' },
+              { icon: MessageCircle, color:'#25D366', title:'WhatsApp Global',   desc:'Works anywhere WhatsApp operates' },
+              { icon: CreditCard,    color:'#C9A84C', title:'Stripe & SafePay', desc:'UK/Global + Pakistan payments' },
+              { icon: Lock,          color:'#10B981', title:'GDPR & HIPAA',     desc:'UK, EU and international compliant' },
             ].map(f => (
               <div key={f.title} className="rounded-xl p-5 bg-white border border-gray-100 shadow-sm">
                 <f.icon size={20} style={{ color: f.color }} className="mx-auto mb-3" />
-                <div className="text-[13px] font-bold text-[#0A1628] mb-1">{f.title}</div>
-                <div className="text-[12px] text-gray-400">{f.desc}</div>
+                <div className="text-[13px] font-semibold text-[#0A1628] mb-1">{f.title}</div>
+                <div className="text-[11px] text-gray-400">{f.desc}</div>
               </div>
             ))}
           </div>
           <div>
-            <div className="text-[13px] text-gray-400 mb-4">Specialties supported</div>
+            <div className="text-[11px] text-gray-400 uppercase tracking-widest mb-4">Specialties supported</div>
             <div className="flex flex-wrap justify-center gap-2">
               {['General Practice','Paediatrics','Dentistry','Gynaecology','Orthopaedics','Cardiology','Dermatology','ENT','Neurology','Psychiatry','Oncology','Ophthalmology','Urology','Pulmonology','Nephrology'].map(s => (
                 <span key={s} className="px-3 py-1.5 rounded-full text-[12px] font-medium bg-white border border-gray-200 text-gray-600">{s}</span>
@@ -697,98 +749,104 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── FAQ ────────────────────────────────────────────────────────── */}
+      {/* ── FAQ ─────────────────────────────────────────────────────────── */}
       <section id="faq" className="py-24 bg-[#F8FAFC]">
         <div className="max-w-3xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-black text-[#0A1628] mb-3">Frequently Asked Questions</h2>
-            <p className="text-[16px] text-gray-500">Everything you need to know before getting started.</p>
+            <h2 className="font-black text-[#0A1628] mb-3" style={{ fontSize: 'clamp(26px, 3.5vw, 40px)', letterSpacing: '-0.03em' }}>Frequently Asked Questions</h2>
+            <p className="text-gray-500" style={{ fontSize: 15 }}>Everything you need to know before getting started.</p>
           </div>
-          <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-3xl px-8 py-2 shadow-sm border border-gray-100">
             {FAQS.map((f, i) => <FaqItem key={i} {...f} />)}
           </div>
         </div>
       </section>
 
-      {/* ── FINAL CTA ──────────────────────────────────────────────────── */}
+      {/* ── CTA ─────────────────────────────────────────────────────────── */}
       <section className="py-24 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #060E1F 0%, #0A1628 100%)' }}>
-        <div className="absolute inset-0 opacity-5"
-          style={{ backgroundImage: 'radial-gradient(circle, rgba(201,168,76,0.6) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+        <div className="absolute inset-0 opacity-[0.04]"
+          style={{ backgroundImage: 'radial-gradient(circle, rgba(201,168,76,0.8) 1px, transparent 1px)', backgroundSize: '36px 36px' }} />
         <div className="relative max-w-3xl mx-auto px-6 text-center">
           <div className="text-5xl mb-6">🚀</div>
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-5">Ready to transform<br />your clinic?</h2>
-          <p className="text-[17px] text-white/55 mb-10 leading-relaxed">
-            Join 500+ clinics already running smarter with MediPlex.<br />
-            14 days free. No card required. Setup in 10 minutes.
+          <h2 className="font-black text-white mb-5" style={{ fontSize: 'clamp(30px, 5vw, 52px)', letterSpacing: '-0.04em', lineHeight: 1.05 }}>
+            Ready to transform<br />your clinic?
+          </h2>
+          <p className="text-white/50 mb-10 leading-relaxed" style={{ fontSize: 16 }}>
+            Join 500+ clinics running smarter with MediPlex.<br />14 days free. No card required. Setup in 10 minutes.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/onboarding"
-              className="flex items-center gap-2 px-10 py-4 rounded-2xl text-[15px] font-bold text-[#0A1628] transition-all hover:shadow-2xl hover:-translate-y-1"
-              style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', boxShadow: '0 8px 32px rgba(201,168,76,0.4)' }}>
-              Start Free Trial Now <ArrowRight size={16} />
+              className="flex items-center gap-2 px-9 py-4 rounded-xl text-[14px] font-semibold text-[#0A1628] transition-all hover:shadow-2xl hover:-translate-y-1"
+              style={{ background: 'linear-gradient(135deg,#C9A84C,#E8C87A)', boxShadow: '0 8px 32px rgba(201,168,76,0.35)', letterSpacing: '-0.2px' }}>
+              Start Free Trial Now <ArrowRight size={15} />
             </Link>
-            <a href="mailto:info@klassicalholdings.com"
-              className="flex items-center gap-2 px-8 py-4 rounded-2xl text-[15px] font-semibold text-white border border-white/20 hover:bg-white/5 transition-all">
-              <Mail size={15} /> Talk to Sales
-            </a>
+            <Link href="/contact"
+              className="flex items-center gap-2 px-8 py-4 rounded-xl text-[14px] font-medium text-white border border-white/20 hover:bg-white/5 transition-all"
+              style={{ letterSpacing: '-0.2px' }}>
+              <Mail size={14} /> Talk to Sales
+            </Link>
           </div>
           <p className="text-[12px] text-white/25 mt-6">No setup fees · Cancel anytime · GDPR compliant · UK registered</p>
         </div>
       </section>
 
-      {/* ── FOOTER ─────────────────────────────────────────────────────── */}
+      {/* ── FOOTER ──────────────────────────────────────────────────────── */}
       <footer className="bg-[#040C1A] text-white/50 py-14">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-10 mb-12">
-            <div className="md:col-span-1">
-              <img src="/icons/mediplex-logo.svg" alt="MediPlex" className="h-8 mb-4 brightness-200" />
+            <div>
+              {/* Footer logo — dark background, so Medi is white */}
+              <div className="flex items-center gap-2.5 mb-4">
+                <img src="/icons/icon.svg" alt="MediPlex" style={{ height: 30, width: 30, borderRadius: 6 }} />
+                <span style={{ fontWeight: 700, letterSpacing: '-0.5px', fontSize: '16px', lineHeight: 1 }}>
+                  <span style={{ color: '#ffffff' }}>Medi</span>
+                  <span style={{ color: '#C9A84C' }}>Plex</span>
+                </span>
+              </div>
               <p className="text-[13px] leading-relaxed mb-5">
                 The Complete AI-HMIS for Modern Clinics. Cloud-based, globally trusted.
               </p>
               <div className="space-y-2 text-[12px]">
-                <div className="flex items-center gap-2"><Mail size={12} /> info@klassicalholdings.com</div>
-                <div className="flex items-center gap-2"><Phone size={12} /> +44 7776 387877</div>
-                <div className="flex items-center gap-2"><MapPin size={12} /> United Kingdom 🇬🇧</div>
-                <div className="flex items-center gap-2"><Building2 size={12} /> KLASSICAL HOLDINGS LTD · Co. 16964688</div>
+                <div className="flex items-center gap-2"><Mail size={11} /> info@klassicalholdings.com</div>
+                <div className="flex items-center gap-2"><Phone size={11} /> +44 7776 387877</div>
+                <div className="flex items-center gap-2"><MapPin size={11} /> United Kingdom 🇬🇧</div>
+                <div className="flex items-center gap-2"><Building2 size={11} /> KLASSICAL HOLDINGS LTD · Co. 16964688</div>
               </div>
             </div>
             <div>
-              <div className="text-white font-semibold text-[13px] mb-4 uppercase tracking-widest">Platform</div>
-              <div className="space-y-2 text-[13px]">
-                {[['Features','/features'],['Pricing','#pricing'],['How It Works','#howitworks'],['AI Scribe','#features'],['WhatsApp Bot','#features'],['Mobile App','#features']].map(([l,h])=>(
-                  <div key={l}><a href={h} className="hover:text-white cursor-pointer transition-colors">{l}</a></div>
+              <div className="text-white font-semibold text-[12px] mb-4 uppercase tracking-widest">Platform</div>
+              <div className="space-y-2.5 text-[13px]">
+                {[['Features','/features'],['Pricing','#pricing'],['How It Works','#howitworks'],['AI Scribe','/features#ai-clinical-scribe'],['WhatsApp Bot','/features#whatsapp-ai-receptionist'],['Mobile App','/features#mobile-desktop-app']].map(([l,h])=>(
+                  <div key={l}><a href={h} className="hover:text-white transition-colors">{l}</a></div>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-white font-semibold text-[13px] mb-4 uppercase tracking-widest">Company</div>
-              <div className="space-y-2 text-[13px]">
-                {[['About Us','#'],['Contact','mailto:info@klassicalholdings.com'],['Privacy Policy','#'],['Terms of Service','#'],['GDPR','#'],['Companies House','https://find-and-update.company-information.service.gov.uk/company/16964688']].map(([l,h])=>(
-                  <div key={l}><a href={h} target={h.startsWith('http') ? '_blank' : undefined} rel="noopener noreferrer" className="hover:text-white transition-colors">{l}</a></div>
+              <div className="text-white font-semibold text-[12px] mb-4 uppercase tracking-widest">Company</div>
+              <div className="space-y-2.5 text-[13px]">
+                {[['Contact Us','/contact'],['Privacy Policy','#'],['Terms of Service','#'],['GDPR','#'],['Companies House','https://find-and-update.company-information.service.gov.uk/company/16964688']].map(([l,h])=>(
+                  <div key={l}><a href={h} target={h.startsWith('http')?'_blank':undefined} rel="noopener noreferrer" className="hover:text-white transition-colors">{l}</a></div>
                 ))}
               </div>
             </div>
             <div>
-              <div className="text-white font-semibold text-[13px] mb-4 uppercase tracking-widest">Support</div>
-              <div className="space-y-2 text-[13px]">
-                <a href="https://wa.me/447776387877" className="flex items-center gap-2 hover:text-white transition-colors">
-                  <MessageCircle size={12} /> WhatsApp Support
-                </a>
+              <div className="text-white font-semibold text-[12px] mb-4 uppercase tracking-widest">Support</div>
+              <div className="space-y-2.5 text-[13px]">
+                <a href="https://wa.me/447776387877" className="flex items-center gap-2 hover:text-white transition-colors"><MessageCircle size={12} /> WhatsApp Support</a>
                 <div className="flex items-center gap-2"><Clock size={12} /> 24/7 Help Available</div>
-                <a href="mailto:info@klassicalholdings.com" className="flex items-center gap-2 hover:text-white transition-colors">
-                  <Mail size={12} /> Email Support
-                </a>
+                <a href="mailto:info@klassicalholdings.com" className="flex items-center gap-2 hover:text-white transition-colors"><Mail size={12} /> Email Support</a>
+                <Link href="/contact" className="flex items-center gap-2 hover:text-white transition-colors"><Users size={12} /> Contact Form</Link>
               </div>
               <div className="flex gap-3 mt-6">
                 <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-bold transition-all hover:-translate-y-0.5"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-bold hover:-translate-y-0.5 transition-all"
                   style={{ background: 'rgba(10,102,194,0.15)', border: '1px solid rgba(10,102,194,0.3)', color: '#0a66c2' }}>in</a>
                 <a href="https://twitter.com" target="_blank" rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-bold transition-all hover:-translate-y-0.5"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-[12px] font-bold hover:-translate-y-0.5 transition-all"
                   style={{ background: 'rgba(29,161,242,0.12)', border: '1px solid rgba(29,161,242,0.3)', color: '#1da1f2' }}>𝕏</a>
                 <a href="https://wa.me/447776387877" target="_blank" rel="noopener noreferrer"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:-translate-y-0.5"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center hover:-translate-y-0.5 transition-all"
                   style={{ background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366' }}>
                   <MessageCircle size={14} />
                 </a>
@@ -796,9 +854,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-[12px]">
-              © 2025 MediPlex · <span className="text-white/30">KLASSICAL HOLDINGS LTD · Company No. 16964688 · Registered in England & Wales</span>
-            </div>
+            <p className="text-[12px]">© 2025 MediPlex · <span className="text-white/25">KLASSICAL HOLDINGS LTD · Company No. 16964688 · Registered in England & Wales</span></p>
             <a href="https://find-and-update.company-information.service.gov.uk/company/16964688"
               target="_blank" rel="noopener noreferrer"
               className="text-[11px] flex items-center gap-1.5 hover:text-white transition-colors">
