@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Building2, Users, Calendar, Receipt, BarChart3, LogOut, RefreshCw, TrendingUp, DollarSign, Star, UserCheck } from 'lucide-react';
@@ -34,40 +33,35 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
 
   const fetchAll = async () => {
     setLoading(true);
-    // Fetch clinics for this org
-    const { data: clinicData } = await supabase.from('clinics').select('*').eq('org_id', orgId).eq('is_active', true);
-    const orgClinics = clinicData || [];
-    setClinics(orgClinics);
+    try {
+      const res = await fetch('/api/orgdashboard');
+      if (!res.ok) throw new Error('Failed to load org data');
+      const json = await res.json();
 
-    // Fetch stats per clinic
-    const statsArr: OrgStats[] = [];
-    for (const clinic of orgClinics) {
-      const [{ count: pc }, { count: ac }, { data: inv }] = await Promise.all([
-        supabase.from('patients').select('*', { count:'exact', head:true }).eq('clinic_id', clinic.id),
-        supabase.from('appointments').select('*', { count:'exact', head:true }).eq('clinic_id', clinic.id),
-        supabase.from('billing').select('amount_paid,consultation_fee,discount,payment_status').eq('clinic_id', clinic.id),
-      ]);
-      const revenue = (inv||[]).reduce((s:number,i:any)=>s+(Number(i.amount_paid)||0),0);
-      const pending = (inv||[]).reduce((s:number,i:any)=>s+Math.max(0,(Number(i.consultation_fee)||0)-(Number(i.discount)||0)-(Number(i.amount_paid)||0)),0);
-      statsArr.push({ clinicId: clinic.id, clinicName: clinic.name, speciality: clinic.speciality, patients: pc||0, appointments: ac||0, revenue, pending });
-    }
-    setStats(statsArr);
+      const orgClinics: Clinic[] = json.clinics || [];
+      setClinics(orgClinics);
 
-    // Fetch all appointments for org
-    const clinicIds = orgClinics.map((c:any)=>c.id);
-    if (clinicIds.length > 0) {
-      const [{ data: apts }, { data: inv }, { data: exp }, { data: fb }, { data: staff }] = await Promise.all([
-        supabase.from('appointments').select('*').in('clinic_id', clinicIds).order('appointment_date',{ascending:false}).limit(200),
-        supabase.from('billing').select('*').in('clinic_id', clinicIds).order('created_at',{ascending:false}),
-        supabase.from('expenses').select('*').in('clinic_id', clinicIds).order('date',{ascending:false}),
-        supabase.from('feedback').select('*').in('clinic_id', clinicIds).order('created_at',{ascending:false}).limit(200),
-        supabase.from('logins').select('id,name,email,user_role,clinic_id,is_active,created_at').in('clinic_id', clinicIds).eq('is_super_admin', false),
-      ]);
-      setAppointments(apts||[]);
-      setInvoices(inv||[]);
-      setExpenses(exp||[]);
-      setFeedbackData(fb||[]);
-      setStaffData(staff||[]);
+      // Build per-clinic stats from the flat data returned
+      const invoicesAll: any[] = json.invoices || [];
+      const patientsAll: any[] = json.patients || [];
+      const appointmentsAll: any[] = json.appointments || [];
+
+      const statsArr: OrgStats[] = orgClinics.map((clinic: Clinic) => {
+        const inv = invoicesAll.filter((i: any) => i.clinic_id === clinic.id);
+        const revenue = inv.reduce((s: number, i: any) => s + (Number(i.amount_paid) || 0), 0);
+        const pending = inv.reduce((s: number, i: any) => s + Math.max(0, (Number(i.consultation_fee) || 0) - (Number(i.discount) || 0) - (Number(i.amount_paid) || 0)), 0);
+        const patients = patientsAll.filter((p: any) => p.clinic_id === clinic.id).length;
+        const appointments = appointmentsAll.filter((a: any) => a.clinic_id === clinic.id).length;
+        return { clinicId: clinic.id, clinicName: clinic.name, speciality: clinic.speciality, patients, appointments, revenue, pending };
+      });
+      setStats(statsArr);
+      setAppointments(appointmentsAll);
+      setInvoices(invoicesAll);
+      setExpenses(json.expenses || []);
+      setFeedbackData(json.feedback || []);
+      setStaffData(json.staff || []);
+    } catch (e: any) {
+      console.error('[orgdashboard] fetchAll error:', e?.message);
     }
     setLoading(false);
   };
