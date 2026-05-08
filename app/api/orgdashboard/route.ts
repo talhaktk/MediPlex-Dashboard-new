@@ -18,10 +18,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const orgId = user.orgId;
-  if (!orgId) return NextResponse.json({ error: 'No orgId in session' }, { status: 400 });
-
   const sb = admin();
+
+  // Resolve orgId: prefer JWT, fall back to DB lookup via logins.email
+  let orgId = user.orgId;
+  if (!orgId && user.email) {
+    const { data: login } = await sb
+      .from('logins')
+      .select('org_id')
+      .eq('email', user.email)
+      .maybeSingle();
+    orgId = login?.org_id || null;
+  }
+
+  if (!orgId) return NextResponse.json({ error: 'No orgId found' }, { status: 400 });
 
   // 1. Clinics for this org
   const { data: clinics } = await sb

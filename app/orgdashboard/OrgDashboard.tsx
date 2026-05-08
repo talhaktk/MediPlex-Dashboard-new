@@ -35,7 +35,10 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
     setLoading(true);
     try {
       const res = await fetch('/api/orgdashboard');
-      if (!res.ok) throw new Error('Failed to load org data');
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(`API error ${res.status}: ${err.error || 'unknown'}`);
+      }
       const json = await res.json();
 
       const orgClinics: Clinic[] = json.clinics || [];
