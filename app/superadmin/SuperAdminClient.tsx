@@ -188,6 +188,18 @@ function Input({ label, value, onChange, type='text', placeholder='' }: any) {
   );
 }
 
+// Service-role proxy — bypasses RLS for all superadmin writes
+async function sadb(op: string, table: string, payload: any, match?: any) {
+  const res = await fetch('/api/superadmin/db', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ op, table, payload, match }),
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'DB error');
+  return json.data;
+}
+
 export default function SuperAdminClient({ adminEmail }: { adminEmail: string }) {
   const router = useRouter();
   const [tab, setTab] = useState<'orgs'|'clinics'|'users'|'features'|'analytics'|'business'>('orgs');
@@ -258,9 +270,10 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const addOrg = async () => {
     if (!orgForm.name) { toast.error('Organisation name required'); return; }
     const id = orgForm.name.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,20) + '_' + Date.now().toString().slice(-4);
-    const { error } = await supabase.from('organisations').insert([{ id, name:orgForm.name, owner_name:orgForm.owner_name, email:orgForm.email, phone:orgForm.phone, city:orgForm.city, province:orgForm.province, country:orgForm.country||'Pakistan', status:'active' }]);
-    if (error) toast.error('Failed: ' + error.message);
-    else { toast.success('Organisation created!'); setShowAddOrg(false); setOrgForm({name:'',owner_name:'',email:'',phone:'',city:'',province:'',country:'Pakistan'}); fetchAll(); }
+    try {
+      await sadb('insert', 'organisations', { id, name:orgForm.name, owner_name:orgForm.owner_name, email:orgForm.email, phone:orgForm.phone, city:orgForm.city, province:orgForm.province, country:orgForm.country||'Pakistan', status:'active' });
+      toast.success('Organisation created!'); setShowAddOrg(false); setOrgForm({name:'',owner_name:'',email:'',phone:'',city:'',province:'',country:'Pakistan'}); fetchAll();
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   // Add Subscription
@@ -274,21 +287,25 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
       next_billing: subForm.next_billing||null, status:'active', notes: subForm.notes,
       ai_scribe_limit: subForm.ai_scribe_limit ? Number(subForm.ai_scribe_limit) : null,
     };
-    const { error } = existing
-      ? await supabase.from('subscriptions').update(basePayload).eq('clinic_id', clinicId)
-      : await supabase.from('subscriptions').insert([{ ...basePayload, ai_scribe_used: 0 }]);
-    if (error) toast.error('Failed: '+error.message);
-    else { toast.success(existing ? 'Subscription updated' : 'Subscription added'); setShowAddSub(null); fetchAll(); }
+    try {
+      if (existing) {
+        await sadb('update', 'subscriptions', basePayload, { clinic_id: clinicId });
+      } else {
+        await sadb('insert', 'subscriptions', { ...basePayload, ai_scribe_used: 0 });
+      }
+      toast.success(existing ? 'Subscription updated' : 'Subscription added'); setShowAddSub(null); fetchAll();
+    } catch (e:any) { toast.error('Failed: '+e.message); }
   };
 
   // Add MediPlex Expense
   const addMediplexExpense = async () => {
-    const { error } = await supabase.from('mediplex_expenses').insert([{
-      category: mexpForm.category, amount: Number(mexpForm.amount),
-      currency: mexpForm.currency, date: mexpForm.date, description: mexpForm.description,
-    }]);
-    if (error) toast.error('Failed: '+error.message);
-    else { toast.success('Expense recorded'); setShowAddMExp(false); setMexpForm({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''}); fetchAll(); }
+    try {
+      await sadb('insert', 'mediplex_expenses', {
+        category: mexpForm.category, amount: Number(mexpForm.amount),
+        currency: mexpForm.currency, date: mexpForm.date, description: mexpForm.description,
+      });
+      toast.success('Expense recorded'); setShowAddMExp(false); setMexpForm({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''}); fetchAll();
+    } catch (e:any) { toast.error('Failed: '+e.message); }
   };
 
   // Add Org Owner
@@ -296,24 +313,23 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
     if (!ownerForm.name || !ownerForm.email || !ownerForm.password) {
       toast.error('Name, email and password required'); return;
     }
-    const { error } = await supabase.from('logins').insert([{
-      name: ownerForm.name,
-      email: ownerForm.email.toLowerCase(),
-      password_hash: ownerForm.password,
-      user_role: 'org_owner',
-      is_active: true,
-      is_super_admin: false,
-      clinic_id: null,
-      org_id: orgId,
-      initials: ownerForm.name.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2),
-    }]);
-    if (error) toast.error('Failed: ' + error.message);
-    else {
+    try {
+      await sadb('insert', 'logins', {
+        name: ownerForm.name,
+        email: ownerForm.email.toLowerCase(),
+        password_hash: ownerForm.password,
+        user_role: 'org_owner',
+        is_active: true,
+        is_super_admin: false,
+        clinic_id: null,
+        org_id: orgId,
+        initials: ownerForm.name.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2),
+      });
       toast.success(`Owner added to ${orgName}`);
       setShowAddOwner(null);
       setOwnerForm({ name:'', email:'', password:'' });
       fetchAll();
-    }
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   // Add Clinic — server-side via API route (uses service role key)
@@ -377,61 +393,73 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
       toast.error('All fields required'); return;
     }
     const clinic = clinics.find(c => c.id === userForm.clinic_id);
-    const { error } = await supabase.from('logins').insert([{
-      name: userForm.name, email: userForm.email.toLowerCase(),
-      password_hash: userForm.password, user_role: userForm.user_role,
-      is_active:true, is_super_admin:false,
-      clinic_id: userForm.clinic_id, org_id: clinic?.org_id || null,
-      initials: userForm.name.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2),
-    }]);
-    if (error) toast.error('Failed: ' + error.message);
-    else { toast.success('User created'); setShowAddUser(false); setUserForm({name:'',email:'',password:'',user_role:'doctor',clinic_id:''}); fetchAll(); }
+    try {
+      await sadb('insert', 'logins', {
+        name: userForm.name, email: userForm.email.toLowerCase(),
+        password_hash: userForm.password, user_role: userForm.user_role,
+        is_active:true, is_super_admin:false,
+        clinic_id: userForm.clinic_id, org_id: clinic?.org_id || null,
+        initials: userForm.name.split(' ').map((n:string)=>n[0]).join('').toUpperCase().slice(0,2),
+      });
+      toast.success('User created'); setShowAddUser(false); setUserForm({name:'',email:'',password:'',user_role:'doctor',clinic_id:''}); fetchAll();
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const toggleClinic = async (c: Clinic) => {
     const newActive = !c.is_active;
-    await supabase.from('clinics').update({ is_active: newActive, status: newActive?'active':'inactive' }).eq('id', c.id);
-    toast.success(`${c.name} ${newActive?'enabled':'disabled'}`);
-    fetchAll();
+    try {
+      await sadb('update', 'clinics', { is_active: newActive, status: newActive?'active':'inactive' }, { id: c.id });
+      toast.success(`${c.name} ${newActive?'enabled':'disabled'}`);
+      fetchAll();
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const toggleModule = async (clinic: Clinic, key: string) => {
     const updated = { ...clinic.modules, [key]: !clinic.modules[key] };
-    // Save to clinics table (primary source)
-    await supabase.from('clinics').update({ modules: updated }).eq('id', clinic.id);
-    // Sync to clinic_settings — strategy 1: direct clinic_id match (new-style clinics)
-    await supabase.from('clinic_settings').update({ modules: updated }).eq('clinic_id', clinic.id);
-    // Sync to clinic_settings — strategy 2: exact name match (legacy clinics with ID mismatch)
-    await supabase.from('clinic_settings').update({ modules: updated }).eq('clinic_name', clinic.name);
-    // Sync to clinic_settings — strategy 3: partial name match as last resort
-    await supabase.from('clinic_settings').update({ modules: updated }).ilike('clinic_name', `%${clinic.name}%`);
-    setClinics(prev => prev.map(c => c.id===clinic.id ? {...c,modules:updated} : c));
-    if (selectedClinic?.id===clinic.id) setSelectedClinic(prev => prev ? {...prev,modules:updated} : prev);
-    toast.success('Module updated');
+    try {
+      await sadb('update', 'clinics', { modules: updated }, { id: clinic.id });
+      // Sync to clinic_settings — both by clinic_id and name match
+      await Promise.allSettled([
+        sadb('update', 'clinic_settings', { modules: updated }, { clinic_id: clinic.id }),
+        fetch('/api/superadmin/db', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ op:'update', table:'clinic_settings', payload:{ modules: updated }, match:{ clinic_name: clinic.name } }) }),
+      ]);
+      setClinics(prev => prev.map(c => c.id===clinic.id ? {...c,modules:updated} : c));
+      if (selectedClinic?.id===clinic.id) setSelectedClinic(prev => prev ? {...prev,modules:updated} : prev);
+      toast.success('Module updated');
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const toggleUser = async (u: ClinicUser) => {
-    await supabase.from('logins').update({ is_active: !u.is_active }).eq('id', u.id);
-    toast.success(`${u.name} ${u.is_active?'deactivated':'activated'}`);
-    fetchAll();
+    try {
+      await sadb('update', 'logins', { is_active: !u.is_active }, { id: u.id });
+      toast.success(`${u.name} ${u.is_active?'deactivated':'activated'}`);
+      fetchAll();
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const resetPassword = async (userId: string) => {
     const np = prompt('Enter new password:');
     if (!np) return;
-    await supabase.from('logins').update({ password_hash: np }).eq('id', userId);
-    toast.success('Password reset');
+    try {
+      await sadb('update', 'logins', { password_hash: np }, { id: userId });
+      toast.success('Password reset');
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const deleteUser = async (userId: string) => {
     if (!confirm('Delete this user?')) return;
-    await supabase.from('logins').delete().eq('id', userId);
-    toast.success('Deleted'); fetchAll();
+    try {
+      await sadb('delete', 'logins', {}, { id: userId });
+      toast.success('Deleted'); fetchAll();
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const updateSubscription = async (clinicId: string, expiry: string) => {
-    await supabase.from('clinics').update({ subscription_expiry: expiry||null }).eq('id', clinicId);
-    toast.success('Updated'); fetchAll();
+    try {
+      await sadb('update', 'clinics', { subscription_expiry: expiry||null }, { id: clinicId });
+      toast.success('Updated'); fetchAll();
+    } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
   const sendStripeLink = async (clinic: Clinic) => {
