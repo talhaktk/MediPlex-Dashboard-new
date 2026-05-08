@@ -7,6 +7,8 @@ import { SessionTimeoutGuard } from '@/components/ui/SessionTimeoutGuard';
 import { ClinicProvider } from '@/lib/clinicContext';
 import OfflineIndicator   from '@/components/ui/OfflineIndicator';
 import OfflineSyncManager from '@/components/ui/OfflineSyncManager';
+import AnnouncementBanner from '@/components/ui/AnnouncementBanner';
+import CrispChat from '@/components/ui/CrispChat';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
@@ -17,11 +19,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen flex">
       <Sidebar />
       <div className="main-content flex-1 flex flex-col">
+        <AnnouncementBanner />
         {children}
         <WisprVoicePlugin/>
         <SessionTimeoutGuard/>
         <OfflineSyncManager />
         <OfflineIndicator />
+        <CrispChat />
         <footer className="px-8 py-3 text-center border-t border-black/5">
           <span className="text-[11px] text-gray-400">Powered by </span>
           <a href="https://mediplex.io" target="_blank" rel="noopener noreferrer"

@@ -5,7 +5,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot, MessagesSquare } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, BarChart3, Calendar, Settings, LogOut, Receipt, MessageCircle, FileText, Stethoscope, Bot, MessagesSquare, HeadphonesIcon } from 'lucide-react';
 import { Star as StarIcon } from 'lucide-react';
 import { FolderOpen } from 'lucide-react';
 
@@ -143,6 +143,16 @@ export default function Sidebar() {
       </nav>
       <div className="px-3 pb-4 border-t border-white/5 pt-3">
         {clinicName && <div className="text-[10px] text-white/20 text-center px-3 mb-3">{clinicName}<br />{speciality}</div>}
+        {process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP && (
+          <a
+            href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP}?text=Hi%20MediPlex%20Support`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/40 hover:text-green-400 hover:bg-white/5 transition-all w-full mb-0.5"
+          >
+            <HeadphonesIcon size={15} />Support
+          </a>
+        )}
         <button onClick={handleSignOut} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/40 hover:text-red-400 hover:bg-white/5 transition-all w-full"><LogOut size={15} />Sign Out</button>
       </div>
     </aside>

@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 // Allowed tables for superadmin write operations
 const ALLOWED_TABLES = new Set([
   'organisations', 'clinics', 'clinic_settings', 'logins',
-  'subscriptions', 'mediplex_expenses',
+  'subscriptions', 'mediplex_expenses', 'announcements',
 ]);
 
 export async function POST(req: NextRequest) {

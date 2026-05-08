@@ -91,11 +91,25 @@ CREATE TABLE IF NOT EXISTS contact_submissions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ── announcements (superadmin → clinics push notifications) ───────────────────
+CREATE TABLE IF NOT EXISTS announcements (
+  id          SERIAL PRIMARY KEY,
+  title       TEXT NOT NULL,
+  message     TEXT NOT NULL,
+  type        TEXT DEFAULT 'info',       -- info | warning | success | urgent
+  target      TEXT DEFAULT 'all',        -- all | plan:Professional | plan:Growth | clinic:<id>
+  expires_at  TIMESTAMPTZ,
+  is_active   BOOLEAN DEFAULT true,
+  created_by  TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ── explicit grants so service_role always has access ────────────────────────
 GRANT ALL ON TABLE organisations        TO postgres, anon, authenticated, service_role;
 GRANT ALL ON TABLE clinics              TO postgres, anon, authenticated, service_role;
 GRANT ALL ON TABLE mediplex_expenses    TO postgres, anon, authenticated, service_role;
 GRANT ALL ON TABLE contact_submissions  TO postgres, anon, authenticated, service_role;
+GRANT ALL ON TABLE announcements        TO postgres, anon, authenticated, service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 `;
 

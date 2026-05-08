@@ -8,7 +8,7 @@ import {
   Building2, Users, ToggleLeft, BarChart3, Plus, X, Save,
   LogOut, CheckCircle, XCircle,
   UserCheck, Shield, ChevronRight, ChevronDown, Briefcase,
-  Copy, Eye, EyeOff, Database, RefreshCw,
+  Copy, Eye, EyeOff, Database, RefreshCw, Bell, Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -202,7 +202,7 @@ async function sadb(op: string, table: string, payload: any, match?: any) {
 
 export default function SuperAdminClient({ adminEmail }: { adminEmail: string }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'orgs'|'clinics'|'users'|'features'|'analytics'|'business'>('orgs');
+  const [tab, setTab] = useState<'orgs'|'clinics'|'users'|'features'|'analytics'|'business'|'notifications'>('orgs');
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [users, setUsers] = useState<ClinicUser[]>([]);
@@ -220,6 +220,11 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const [subForm, setSubForm] = useState({plan_name:'Professional',price_monthly:'150',currency:'GBP',start_date:'',next_billing:'',notes:'',ai_scribe_limit:'200'});
   const [stripeLoading, setStripeLoading] = useState<string|null>(null);
   const [mexpForm, setMexpForm] = useState({category:'Supabase',amount:'',currency:'USD',date:new Date().toISOString().split('T')[0],description:''});
+
+  // Announcements
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [annForm, setAnnForm] = useState({ title:'', message:'', type:'info', target:'all', expires_at:'' });
+  const [savingAnn, setSavingAnn] = useState(false);
   const [ownerForm, setOwnerForm] = useState({ name:'', email:'', password:'' });
   
   const [showAddClinic, setShowAddClinic] = useState(false);
@@ -243,16 +248,18 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   // Fetch all data
   const fetchAll = async () => {
-    const [{ data: orgData }, { data: clinicData }, { data: userData }, { data: subData }, { data: mexpData }] = await Promise.all([
+    const [{ data: orgData }, { data: clinicData }, { data: userData }, { data: subData }, { data: mexpData }, { data: annData }] = await Promise.all([
       supabase.from('organisations').select('*').order('created_at', { ascending: false }),
       supabase.from('clinics').select('*').order('created_at', { ascending: false }),
       supabase.from('logins').select('*').order('created_at', { ascending: false }),
       supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
       supabase.from('mediplex_expenses').select('*').order('date', { ascending: false }),
+      supabase.from('announcements').select('*').order('created_at', { ascending: false }),
     ]);
     setOrgs(orgData || []);
     setSubscriptions(subData || []);
     setMediplexExpenses(mexpData || []);
+    setAnnouncements(annData || []);
     const enriched = await Promise.all((clinicData || []).map(async (c: any) => {
       const [{ count: pc }, { count: ac }] = await Promise.all([
         supabase.from('patients').select('*', { count:'exact', head:true }).eq('clinic_id', c.id),
@@ -497,12 +504,13 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const orgClinics = (orgId: string) => clinics.filter(c => c.org_id === orgId);
 
   const NAV = [
-    { id:'orgs',      label:'Organisations', icon: Building2  },
-    { id:'clinics',   label:'All Clinics',   icon: Building2  },
-    { id:'users',     label:'Users',         icon: Users      },
-    { id:'features',  label:'Features',      icon: ToggleLeft },
-    { id:'analytics', label:'Analytics',     icon: BarChart3  },
-    { id:'business',  label:'Business',      icon: Briefcase  },
+    { id:'orgs',          label:'Organisations', icon: Building2  },
+    { id:'clinics',       label:'All Clinics',   icon: Building2  },
+    { id:'users',         label:'Users',         icon: Users      },
+    { id:'features',      label:'Features',      icon: ToggleLeft },
+    { id:'analytics',     label:'Analytics',     icon: BarChart3  },
+    { id:'business',      label:'Business',      icon: Briefcase  },
+    { id:'notifications', label:'Announcements', icon: Bell       },
   ];
 
   return (
@@ -1463,6 +1471,138 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
             </div>
           </div>
         )}
+
+        {tab==='notifications' && (() => {
+          const TYPE_OPTS = ['info','warning','success','urgent'];
+          const TARGET_OPTS = [
+            { value:'all',                label:'All Clinics'          },
+            { value:'plan:Professional',  label:'Professional Plan'    },
+            { value:'plan:Growth',        label:'Growth Plan'          },
+            { value:'plan:Trial',         label:'Trial Clinics'        },
+          ];
+          const TYPE_COLORS: Record<string,string> = { info:'#63b3ed', warning:'#f6ad55', success:'#4ade80', urgent:'#fc8181' };
+
+          const saveAnn = async () => {
+            if (!annForm.title.trim() || !annForm.message.trim()) { toast.error('Title and message required'); return; }
+            setSavingAnn(true);
+            try {
+              await sadb('insert','announcements',{
+                title: annForm.title,
+                message: annForm.message,
+                type: annForm.type,
+                target: annForm.target,
+                expires_at: annForm.expires_at || null,
+                is_active: true,
+                created_by: adminEmail,
+              });
+              setAnnForm({ title:'', message:'', type:'info', target:'all', expires_at:'' });
+              await fetchAll();
+              toast.success('Announcement sent!');
+            } catch (e:any) { toast.error(e.message); }
+            setSavingAnn(false);
+          };
+
+          const deleteAnn = async (id:number) => {
+            if (!confirm('Archive this announcement?')) return;
+            await sadb('update','announcements',{ is_active:false },{ id });
+            await fetchAll();
+            toast.success('Archived');
+          };
+
+          return (
+          <div className="space-y-6">
+            <h1 className="text-white text-[20px] font-semibold">Announcements</h1>
+
+            {/* Create announcement */}
+            <div className="rounded-2xl p-5 space-y-4" style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(201,168,76,0.2)'}}>
+              <div className="text-white font-semibold text-[14px] flex items-center gap-2"><Bell size={14}/> New Announcement</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Title</label>
+                  <input value={annForm.title} onChange={e=>setAnnForm(p=>({...p,title:e.target.value}))}
+                    placeholder="e.g. Scheduled Maintenance · Eid Mubarak · New Feature: AI Scribe v2"
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}/>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Message</label>
+                  <textarea value={annForm.message} onChange={e=>setAnnForm(p=>({...p,message:e.target.value}))} rows={3}
+                    placeholder="Full announcement text visible to clinic users…"
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}/>
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Type</label>
+                  <select value={annForm.type} onChange={e=>setAnnForm(p=>({...p,type:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:TYPE_COLORS[annForm.type]||'#faf8f4'}}>
+                    {TYPE_OPTS.map(t=><option key={t} value={t} style={{background:'#0a1628',color:TYPE_COLORS[t]}}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Target Audience</label>
+                  <select value={annForm.target} onChange={e=>setAnnForm(p=>({...p,target:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
+                    {TARGET_OPTS.map(o=><option key={o.value} value={o.value} style={{background:'#0a1628'}}>{o.label}</option>)}
+                    {clinics.map(c=><option key={`clinic:${c.id}`} value={`clinic:${c.id}`} style={{background:'#0a1628'}}>Only: {c.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/40 uppercase tracking-widest font-medium block mb-1.5">Expires (optional)</label>
+                  <input type="datetime-local" value={annForm.expires_at} onChange={e=>setAnnForm(p=>({...p,expires_at:e.target.value}))}
+                    className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
+                    style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}/>
+                </div>
+                <div className="flex items-end">
+                  <button onClick={saveAnn} disabled={savingAnn}
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold w-full justify-center"
+                    style={{background:'linear-gradient(135deg,#c9a84c,#e8c87a)',color:'#0a1628',opacity:savingAnn?0.6:1}}>
+                    <Bell size={13}/>{savingAnn ? 'Sending…' : 'Send Announcement'}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Live announcements */}
+            <div className="rounded-2xl overflow-hidden" style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)'}}>
+              <div className="px-5 py-4 border-b flex items-center justify-between" style={{borderColor:'rgba(255,255,255,0.06)'}}>
+                <div className="text-white font-medium text-[14px]">All Announcements ({announcements.length})</div>
+              </div>
+              {announcements.length === 0 && (
+                <div className="px-5 py-10 text-center text-white/30 text-[13px]">No announcements yet</div>
+              )}
+              {announcements.map((a:any)=>{
+                const expired = a.expires_at && new Date(a.expires_at) < new Date();
+                const color = TYPE_COLORS[a.type] || '#90cdf4';
+                return (
+                  <div key={a.id} className="px-5 py-4 border-b hover:bg-white/[0.02] flex items-start gap-4" style={{borderColor:'rgba(255,255,255,0.04)'}}>
+                    <span className="mt-0.5 w-2 h-2 rounded-full flex-shrink-0" style={{background:a.is_active&&!expired?color:'rgba(255,255,255,0.15)',marginTop:5}}/>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[13px] font-semibold text-white">{a.title}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium" style={{background:`rgba(255,255,255,0.06)`,color}}>{a.type}</span>
+                        {!a.is_active && <span className="px-1.5 py-0.5 rounded text-[10px] text-white/30 bg-white/5">archived</span>}
+                        {expired && a.is_active && <span className="px-1.5 py-0.5 rounded text-[10px] text-white/30 bg-white/5">expired</span>}
+                      </div>
+                      <div className="text-[12px] text-white/50 mb-1">{a.message}</div>
+                      <div className="flex items-center gap-3 text-[10px] text-white/25">
+                        <span>→ {TARGET_OPTS.find(o=>o.value===a.target)?.label || a.target}</span>
+                        {a.expires_at && <span>Expires: {new Date(a.expires_at).toLocaleDateString('en-GB')}</span>}
+                        <span>{new Date(a.created_at).toLocaleDateString('en-GB')}</span>
+                      </div>
+                    </div>
+                    <button onClick={()=>deleteAnn(a.id)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-white/5 flex-shrink-0">
+                      <Trash2 size={13}/>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          );
+        })()}
 
       </main>
 
