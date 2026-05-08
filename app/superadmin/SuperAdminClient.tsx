@@ -246,15 +246,27 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   const [showAddUser, setShowAddUser] = useState(false);
   const [userForm, setUserForm] = useState({ name:'', email:'', password:'', user_role:'doctor', clinic_id:'' });
 
+  // Service-role read — bypasses RLS for superadmin data fetching
+  const saread = async (table: string, order?: { column: string; ascending: boolean }) => {
+    const res = await fetch('/api/superadmin/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, select: '*', order }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Read error');
+    return json.data || [];
+  };
+
   // Fetch all data
   const fetchAll = async () => {
-    const [{ data: orgData }, { data: clinicData }, { data: userData }, { data: subData }, { data: mexpData }, { data: annData }] = await Promise.all([
-      supabase.from('organisations').select('*').order('created_at', { ascending: false }),
-      supabase.from('clinics').select('*').order('created_at', { ascending: false }),
-      supabase.from('logins').select('*').order('created_at', { ascending: false }),
-      supabase.from('subscriptions').select('*').order('created_at', { ascending: false }),
-      supabase.from('mediplex_expenses').select('*').order('date', { ascending: false }),
-      supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+    const [orgData, clinicData, userData, subData, mexpData, annData] = await Promise.all([
+      saread('organisations',    { column: 'created_at', ascending: false }),
+      saread('clinics',          { column: 'created_at', ascending: false }),
+      saread('logins',           { column: 'created_at', ascending: false }),
+      saread('subscriptions',    { column: 'created_at', ascending: false }),
+      saread('mediplex_expenses',{ column: 'date',       ascending: false }),
+      saread('announcements',    { column: 'created_at', ascending: false }).catch(() => []),
     ]);
     setOrgs(orgData || []);
     setSubscriptions(subData || []);
