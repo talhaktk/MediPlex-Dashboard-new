@@ -8,6 +8,40 @@ function getSupabaseAdmin() {
   );
 }
 
+// Resolve subscription for a clinic — handles legacy clinics where
+// logins.clinic_id ≠ clinics.id by falling back through clinic_settings → clinics name match
+async function findSubscription(admin: ReturnType<typeof getSupabaseAdmin>, clinicId: string) {
+  // 1. Direct match
+  const { data: direct } = await admin
+    .from('subscriptions')
+    .select('clinic_id,ai_scribe_limit,ai_scribe_used,next_billing')
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+  if (direct) return direct;
+
+  // 2. Fallback: clinic_settings.clinic_name → clinics.name → subscriptions.clinic_id
+  const { data: cs } = await admin
+    .from('clinic_settings')
+    .select('clinic_name')
+    .eq('clinic_id', clinicId)
+    .maybeSingle();
+  if (!cs?.clinic_name) return null;
+
+  const { data: clinic } = await admin
+    .from('clinics')
+    .select('id')
+    .ilike('name', cs.clinic_name)
+    .maybeSingle();
+  if (!clinic?.id) return null;
+
+  const { data: byClinicsId } = await admin
+    .from('subscriptions')
+    .select('clinic_id,ai_scribe_limit,ai_scribe_used,next_billing')
+    .eq('clinic_id', clinic.id)
+    .maybeSingle();
+  return byClinicsId || null;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { clinicId, ...anthropicBody } = body;
@@ -16,11 +50,7 @@ export async function POST(req: NextRequest) {
   // Server-side usage check (service role key bypasses RLS)
   if (clinicId) {
     try {
-      const { data: sub } = await supabaseAdmin
-        .from('subscriptions')
-        .select('ai_scribe_limit,ai_scribe_used,next_billing')
-        .eq('clinic_id', clinicId)
-        .maybeSingle();
+      const sub = await findSubscription(supabaseAdmin, clinicId);
 
       if (sub) {
         let used = sub.ai_scribe_used || 0;
@@ -29,7 +59,7 @@ export async function POST(req: NextRequest) {
         // Monthly auto-reset based on next_billing month
         const billingMonth = sub.next_billing ? new Date(sub.next_billing).getMonth() : -1;
         if (billingMonth !== -1 && billingMonth !== new Date().getMonth()) {
-          await supabaseAdmin.from('subscriptions').update({ ai_scribe_used: 0 }).eq('clinic_id', clinicId);
+          await supabaseAdmin.from('subscriptions').update({ ai_scribe_used: 0 }).eq('clinic_id', sub.clinic_id);
           used = 0;
         }
 
@@ -62,25 +92,19 @@ export async function POST(req: NextRequest) {
   // Increment usage after successful generation
   if (clinicId && res.ok) {
     try {
-      const { data: sub, error: fetchErr } = await supabaseAdmin
-        .from('subscriptions')
-        .select('ai_scribe_limit,ai_scribe_used')
-        .eq('clinic_id', clinicId)
-        .maybeSingle();
+      const sub = await findSubscription(supabaseAdmin, clinicId);
 
-      if (fetchErr) console.error('[scribe] subscription fetch error:', fetchErr.message);
-
-      if (sub !== null) {
+      if (sub) {
         const newUsed = (sub.ai_scribe_used || 0) + 1;
         const { error: updateErr } = await supabaseAdmin
           .from('subscriptions')
           .update({ ai_scribe_used: newUsed })
-          .eq('clinic_id', clinicId);
+          .eq('clinic_id', sub.clinic_id);
 
         if (updateErr) {
           console.error('[scribe] usage update error:', updateErr.message);
         } else {
-          console.log(`[scribe] usage updated: clinicId=${clinicId} newUsed=${newUsed}`);
+          console.log(`[scribe] usage updated: clinicId=${sub.clinic_id} (passed=${clinicId}) newUsed=${newUsed}`);
         }
 
         // 80% warning notification (once per month)
@@ -90,13 +114,13 @@ export async function POST(req: NextRequest) {
           const { data: existing } = await supabaseAdmin
             .from('notifications')
             .select('id')
-            .eq('clinic_id', clinicId)
+            .eq('clinic_id', sub.clinic_id)
             .eq('type', 'scribe_warning')
             .gte('created_at', monthStart)
             .maybeSingle();
           if (!existing) {
             supabaseAdmin.from('notifications').insert([{
-              clinic_id: clinicId,
+              clinic_id: sub.clinic_id,
               type: 'scribe_warning',
               title: '⚠️ AI Scribe Usage at 80%',
               body: `You have used ${newUsed}/${limit} AI Scribe calls this month.`,
