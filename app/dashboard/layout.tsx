@@ -10,7 +10,8 @@ import OfflineIndicator   from '@/components/ui/OfflineIndicator';
 import OfflineSyncManager from '@/components/ui/OfflineSyncManager';
 import AnnouncementBanner from '@/components/ui/AnnouncementBanner';
 
-const CRISP_ID = process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID || '';
+// Read at request time (server component) — works without rebuild when env var is added
+const CRISP_ID = process.env.CRISP_WEBSITE_ID || process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID || '';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);

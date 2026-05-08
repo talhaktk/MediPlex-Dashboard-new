@@ -168,6 +168,11 @@ const SPECIALITY_DEFAULTS: Record<string, Record<string,boolean>> = {
 const SPECIALITIES = ['Pediatrics','General Practice','Internal Medicine','Cardiology','Pulmonology','Neurology','Gastroenterology','Nephrology','Endocrinology','Psychiatry','Dermatology','Oncology','Hematology','Rheumatology','Orthopedics','General Surgery','Neurosurgery','Cardiothoracic','Urology','Ophthalmology','ENT','Gynecology','Vascular Surgery','Plastic Surgery','Dentistry','Other'];
 const ROLES = ['org_owner','doctor_admin','admin','doctor','receptionist'];
 
+function getEffectiveModules(clinic: { speciality: string; modules: Record<string,boolean> }): Record<string,boolean> {
+  const defaults = SPECIALITY_DEFAULTS[clinic.speciality] || {};
+  return { ...defaults, ...(clinic.modules || {}) };
+}
+
 function StatusPill({ active }: { active: boolean }) {
   return (
     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold"
@@ -464,14 +469,16 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   };
 
   const toggleModule = async (clinic: Clinic, key: string) => {
-    const current = clinic.modules?.[key] ?? false;
-    const updated = { ...clinic.modules, [key]: !current };
+    const effective = getEffectiveModules(clinic);
+    const current = effective[key] ?? false;
+    const updated = { ...effective, [key]: !current };
     try {
       await sadb('update', 'clinics', { modules: updated }, { id: clinic.id });
-      await sadb('update', 'clinic_settings', { modules: updated }, { clinic_id: clinic.id });
+      // clinic_settings sync — fire and forget (column may not exist yet; clinics.modules is primary source)
+      sadb('update', 'clinic_settings', { modules: updated }, { clinic_id: clinic.id }).catch(() => {});
       setClinics(prev => prev.map(c => c.id===clinic.id ? {...c,modules:updated} : c));
       if (selectedClinic?.id===clinic.id) setSelectedClinic(prev => prev ? {...prev,modules:updated} : prev);
-      toast.success(`${key} ${!current?'enabled':'disabled'} — clinic must refresh to apply`);
+      toast.success(`${key} ${!current ? 'enabled ✓' : 'disabled'} — clinic must refresh to apply`);
     } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
@@ -1223,7 +1230,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                     <div className="text-[10px] text-white/30 uppercase tracking-widest font-medium mb-2 px-1">{group==='GP'?'General Practice':group} Features</div>
                     <div className="grid grid-cols-2 gap-2">
                   {MODULES.filter(m=>m.group===group).map(mod=>{
-                    const enabled = selectedClinic.modules?.[mod.key]??false;
+                    const enabled = getEffectiveModules(selectedClinic)[mod.key]??false;
                     return (
                       <button key={mod.key} onClick={()=>toggleModule(selectedClinic,mod.key)}
                         className="flex items-center justify-between p-4 rounded-xl transition-all text-left"
