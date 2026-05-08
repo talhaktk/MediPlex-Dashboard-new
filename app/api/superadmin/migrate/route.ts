@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS clinics (
 -- ── clinic_settings: add any missing columns ─────────────────────────────────
 ALTER TABLE clinic_settings
   ADD COLUMN IF NOT EXISTS clinic_logo_url  TEXT,
-  ADD COLUMN IF NOT EXISTS clinic_type      TEXT DEFAULT 'Clinic';
+  ADD COLUMN IF NOT EXISTS clinic_type      TEXT DEFAULT 'Clinic',
+  ADD COLUMN IF NOT EXISTS modules          JSONB DEFAULT '{}';
 
 -- ── subscriptions: add columns if missing ─────────────────────────────────────
 ALTER TABLE subscriptions

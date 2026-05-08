@@ -273,6 +273,36 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
   useEffect(() => { fetchAll(); }, []);
 
+  // Announcement handlers
+  const saveAnn = async () => {
+    if (!annForm.title.trim() || !annForm.message.trim()) { toast.error('Title and message required'); return; }
+    setSavingAnn(true);
+    try {
+      await sadb('insert', 'announcements', {
+        title: annForm.title.trim(),
+        message: annForm.message.trim(),
+        type: annForm.type,
+        target: annForm.target,
+        expires_at: annForm.expires_at || null,
+        is_active: true,
+        created_by: adminEmail,
+      });
+      setAnnForm({ title:'', message:'', type:'info', target:'all', expires_at:'' });
+      fetchAll();
+      toast.success('Announcement sent to clinics!');
+    } catch (e:any) { toast.error(e.message); }
+    setSavingAnn(false);
+  };
+
+  const archiveAnn = async (id: number) => {
+    if (!confirm('Archive this announcement? Clinics will no longer see it.')) return;
+    try {
+      await sadb('update', 'announcements', { is_active: false }, { id });
+      fetchAll();
+      toast.success('Archived');
+    } catch (e:any) { toast.error(e.message); }
+  };
+
   // Add Organisation
   const addOrg = async () => {
     if (!orgForm.name) { toast.error('Organisation name required'); return; }
@@ -422,18 +452,14 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
   };
 
   const toggleModule = async (clinic: Clinic, key: string) => {
-    const updated = { ...clinic.modules, [key]: !clinic.modules[key] };
+    const current = clinic.modules?.[key] ?? false;
+    const updated = { ...clinic.modules, [key]: !current };
     try {
       await sadb('update', 'clinics', { modules: updated }, { id: clinic.id });
-      // Sync to clinic_settings — both by clinic_id and name match
-      await Promise.allSettled([
-        sadb('update', 'clinic_settings', { modules: updated }, { clinic_id: clinic.id }),
-        fetch('/api/superadmin/db', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ op:'update', table:'clinic_settings', payload:{ modules: updated }, match:{ clinic_name: clinic.name } }) }),
-      ]);
+      await sadb('update', 'clinic_settings', { modules: updated }, { clinic_id: clinic.id });
       setClinics(prev => prev.map(c => c.id===clinic.id ? {...c,modules:updated} : c));
       if (selectedClinic?.id===clinic.id) setSelectedClinic(prev => prev ? {...prev,modules:updated} : prev);
-      toast.success('Module updated');
+      toast.success(`${key} ${!current?'enabled':'disabled'} — clinic must refresh to apply`);
     } catch (e:any) { toast.error('Failed: ' + e.message); }
   };
 
@@ -1474,40 +1500,13 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
 
         {tab==='notifications' && (() => {
           const TYPE_OPTS = ['info','warning','success','urgent'];
-          const TARGET_OPTS = [
+          const ANN_TARGET_OPTS = [
             { value:'all',                label:'All Clinics'          },
             { value:'plan:Professional',  label:'Professional Plan'    },
             { value:'plan:Growth',        label:'Growth Plan'          },
             { value:'plan:Trial',         label:'Trial Clinics'        },
           ];
           const TYPE_COLORS: Record<string,string> = { info:'#63b3ed', warning:'#f6ad55', success:'#4ade80', urgent:'#fc8181' };
-
-          const saveAnn = async () => {
-            if (!annForm.title.trim() || !annForm.message.trim()) { toast.error('Title and message required'); return; }
-            setSavingAnn(true);
-            try {
-              await sadb('insert','announcements',{
-                title: annForm.title,
-                message: annForm.message,
-                type: annForm.type,
-                target: annForm.target,
-                expires_at: annForm.expires_at || null,
-                is_active: true,
-                created_by: adminEmail,
-              });
-              setAnnForm({ title:'', message:'', type:'info', target:'all', expires_at:'' });
-              await fetchAll();
-              toast.success('Announcement sent!');
-            } catch (e:any) { toast.error(e.message); }
-            setSavingAnn(false);
-          };
-
-          const deleteAnn = async (id:number) => {
-            if (!confirm('Archive this announcement?')) return;
-            await sadb('update','announcements',{ is_active:false },{ id });
-            await fetchAll();
-            toast.success('Archived');
-          };
 
           return (
           <div className="space-y-6">
@@ -1544,7 +1543,7 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                   <select value={annForm.target} onChange={e=>setAnnForm(p=>({...p,target:e.target.value}))}
                     className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none"
                     style={{background:'rgba(255,255,255,0.06)',border:'1px solid rgba(255,255,255,0.1)',color:'#faf8f4'}}>
-                    {TARGET_OPTS.map(o=><option key={o.value} value={o.value} style={{background:'#0a1628'}}>{o.label}</option>)}
+                    {ANN_TARGET_OPTS.map(o=><option key={o.value} value={o.value} style={{background:'#0a1628'}}>{o.label}</option>)}
                     {clinics.map(c=><option key={`clinic:${c.id}`} value={`clinic:${c.id}`} style={{background:'#0a1628'}}>Only: {c.name}</option>)}
                   </select>
                 </div>
@@ -1587,12 +1586,12 @@ export default function SuperAdminClient({ adminEmail }: { adminEmail: string })
                       </div>
                       <div className="text-[12px] text-white/50 mb-1">{a.message}</div>
                       <div className="flex items-center gap-3 text-[10px] text-white/25">
-                        <span>→ {TARGET_OPTS.find(o=>o.value===a.target)?.label || a.target}</span>
+                        <span>→ {ANN_TARGET_OPTS.find(o=>o.value===a.target)?.label || a.target}</span>
                         {a.expires_at && <span>Expires: {new Date(a.expires_at).toLocaleDateString('en-GB')}</span>}
                         <span>{new Date(a.created_at).toLocaleDateString('en-GB')}</span>
                       </div>
                     </div>
-                    <button onClick={()=>deleteAnn(a.id)}
+                    <button onClick={()=>archiveAnn(a.id)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center text-white/25 hover:text-red-400 hover:bg-white/5 flex-shrink-0">
                       <Trash2 size={13}/>
                     </button>
