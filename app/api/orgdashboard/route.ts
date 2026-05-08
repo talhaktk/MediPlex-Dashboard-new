@@ -37,27 +37,37 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ clinics: [], patients: [], appointments: [], invoices: [], expenses: [], feedback: [], staff: [] });
   }
 
-  // 2. All data in parallel
+  // 2. All data in parallel — patients table has no clinic_id, count via appointments
   const [
-    { data: patients },
     { data: appointments },
     { data: invoices },
     { data: expenses },
     { data: feedback },
     { data: staff },
   ] = await Promise.all([
-    sb.from('patients').select('id,clinic_id').in('clinic_id', clinicIds),
-    sb.from('appointments').select('*').in('clinic_id', clinicIds).order('appointment_date', { ascending: false }).limit(500),
+    sb.from('appointments').select('*').in('clinic_id', clinicIds).order('appointment_date', { ascending: false }).limit(1000),
     sb.from('billing').select('*').in('clinic_id', clinicIds).order('created_at', { ascending: false }),
     sb.from('expenses').select('*').in('clinic_id', clinicIds).order('date', { ascending: false }),
     sb.from('feedback').select('*').in('clinic_id', clinicIds).order('created_at', { ascending: false }).limit(500),
     sb.from('logins').select('id,name,email,user_role,clinic_id,is_active,created_at').in('clinic_id', clinicIds).eq('is_super_admin', false),
   ]);
 
+  // Build per-clinic unique patient counts from appointments (mr_number or child_name as key)
+  const aptRows = appointments || [];
+  const patientCountByClinic: Record<string, number> = {};
+  for (const clinicId of clinicIds) {
+    const seen = new Set<string>();
+    for (const a of aptRows) {
+      if (a.clinic_id !== clinicId) continue;
+      seen.add(a.mr_number || a.child_name || `_${a.id}`);
+    }
+    patientCountByClinic[clinicId] = seen.size;
+  }
+
   return NextResponse.json({
     clinics: orgClinics,
-    patients: patients || [],
-    appointments: appointments || [],
+    patientCountByClinic,
+    appointments: aptRows,
     invoices: invoices || [],
     expenses: expenses || [],
     feedback: feedback || [],

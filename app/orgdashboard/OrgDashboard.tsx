@@ -41,16 +41,15 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
       const orgClinics: Clinic[] = json.clinics || [];
       setClinics(orgClinics);
 
-      // Build per-clinic stats from the flat data returned
       const invoicesAll: any[] = json.invoices || [];
-      const patientsAll: any[] = json.patients || [];
       const appointmentsAll: any[] = json.appointments || [];
+      const patientCountByClinic: Record<string, number> = json.patientCountByClinic || {};
 
       const statsArr: OrgStats[] = orgClinics.map((clinic: Clinic) => {
         const inv = invoicesAll.filter((i: any) => i.clinic_id === clinic.id);
         const revenue = inv.reduce((s: number, i: any) => s + (Number(i.amount_paid) || 0), 0);
         const pending = inv.reduce((s: number, i: any) => s + Math.max(0, (Number(i.consultation_fee) || 0) - (Number(i.discount) || 0) - (Number(i.amount_paid) || 0)), 0);
-        const patients = patientsAll.filter((p: any) => p.clinic_id === clinic.id).length;
+        const patients = patientCountByClinic[clinic.id] || 0;
         const appointments = appointmentsAll.filter((a: any) => a.clinic_id === clinic.id).length;
         return { clinicId: clinic.id, clinicName: clinic.name, speciality: clinic.speciality, patients, appointments, revenue, pending };
       });
