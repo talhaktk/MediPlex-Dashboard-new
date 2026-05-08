@@ -75,12 +75,14 @@ export default function OrgDashboard({ orgId, orgName, ownerName }: { orgId: str
     stats: selectedClinic==='all' ? stats : stats.filter(s=>s.clinicId===selectedClinic),
   }), [selectedClinic, appointments, invoices, stats]);
 
-  const totalRevenue = filtered.stats.reduce((s,c)=>s+c.revenue,0);
-  const totalExpenses = (filtered as any).expenses?.reduce((s:number,e:any)=>s+Number(e.amount||0),0)||0;
+  // Compute totals directly from raw arrays — invoices/expenses may be stored
+  // under logins.clinic_id which differs from clinics.id in legacy setups
+  const totalRevenue = filtered.invoices.reduce((s:number,i:any)=>s+(Number(i.amount_paid)||0),0);
+  const totalPending = filtered.invoices.reduce((s:number,i:any)=>s+Math.max(0,(Number(i.consultation_fee)||0)-(Number(i.discount)||0)-(Number(i.amount_paid)||0)),0);
+  const totalExpenses = filtered.expenses.reduce((s:number,e:any)=>s+Number(e.amount||0),0);
   const netProfit = totalRevenue - totalExpenses;
-  const totalPending = filtered.stats.reduce((s,c)=>s+c.pending,0);
   const totalPatients = filtered.stats.reduce((s,c)=>s+c.patients,0);
-  const totalApts = filtered.stats.reduce((s,c)=>s+c.appointments,0);
+  const totalApts = filtered.appointments.length;
 
   const today = new Date().toISOString().split('T')[0];
   const todayApts = filtered.appointments.filter(a=>a.appointment_date===today);

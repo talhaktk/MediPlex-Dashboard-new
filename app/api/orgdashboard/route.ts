@@ -44,8 +44,19 @@ export async function GET(req: NextRequest) {
   const clinicIds = orgClinics.map((c: any) => c.id);
 
   if (clinicIds.length === 0) {
-    return NextResponse.json({ clinics: [], patients: [], appointments: [], invoices: [], expenses: [], feedback: [], staff: [] });
+    return NextResponse.json({ clinics: [], patientCountByClinic: {}, appointments: [], invoices: [], expenses: [], feedback: [], staff: [] });
   }
+
+  // Also collect logins.clinic_id for this org — legacy clinics may store data
+  // under logins.clinic_id which differs from clinics.id
+  const { data: orgLogins } = await sb
+    .from('logins')
+    .select('clinic_id')
+    .eq('org_id', orgId)
+    .eq('is_super_admin', false);
+
+  const loginClinicIds = (orgLogins || []).map((l: any) => l.clinic_id).filter(Boolean);
+  const allClinicIds = Array.from(new Set([...clinicIds, ...loginClinicIds]));
 
   // 2. All data in parallel — patients table has no clinic_id, count via appointments
   const [
@@ -55,17 +66,17 @@ export async function GET(req: NextRequest) {
     { data: feedback },
     { data: staff },
   ] = await Promise.all([
-    sb.from('appointments').select('*').in('clinic_id', clinicIds).order('appointment_date', { ascending: false }).limit(1000),
-    sb.from('billing').select('*').in('clinic_id', clinicIds).order('created_at', { ascending: false }),
-    sb.from('expenses').select('*').in('clinic_id', clinicIds).order('date', { ascending: false }),
-    sb.from('feedback').select('*').in('clinic_id', clinicIds).order('created_at', { ascending: false }).limit(500),
-    sb.from('logins').select('id,name,email,user_role,clinic_id,is_active,created_at').in('clinic_id', clinicIds).eq('is_super_admin', false),
+    sb.from('appointments').select('*').in('clinic_id', allClinicIds).order('appointment_date', { ascending: false }).limit(1000),
+    sb.from('billing').select('*').in('clinic_id', allClinicIds).order('created_at', { ascending: false }),
+    sb.from('expenses').select('*').in('clinic_id', allClinicIds).order('date', { ascending: false }),
+    sb.from('feedback').select('*').in('clinic_id', allClinicIds).order('created_at', { ascending: false }).limit(500),
+    sb.from('logins').select('id,name,email,user_role,clinic_id,is_active,created_at').in('clinic_id', allClinicIds).eq('is_super_admin', false),
   ]);
 
   // Build per-clinic unique patient counts from appointments (mr_number or child_name as key)
   const aptRows = appointments || [];
   const patientCountByClinic: Record<string, number> = {};
-  for (const clinicId of clinicIds) {
+  for (const clinicId of allClinicIds) {
     const seen = new Set<string>();
     for (const a of aptRows) {
       if (a.clinic_id !== clinicId) continue;
