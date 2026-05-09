@@ -18,9 +18,9 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'MediPlex — Clinic Command Centre',
-  description: 'Premium appointment & patient management dashboard for modern clinics',
-  keywords: ['clinic', 'appointments', 'dashboard', 'medical', 'pediatric', 'EHR'],
+  title: { default: 'MediPlex — AI Clinic Management', template: '%s | MediPlex' },
+  description: 'AI-powered clinic management: appointments, AI scribe, WhatsApp receptionist, billing, prescriptions and growth tools. Trusted by 500+ clinics worldwide.',
+  keywords: ['clinic management software', 'AI clinical scribe', 'WhatsApp AI receptionist', 'HMIS', 'healthcare software', 'medical practice management', 'MediPlex'],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
